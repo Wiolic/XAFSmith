@@ -20,6 +20,13 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
 
+from xafsmith import i18n                                           # noqa: E402
+from xafsmith import update as _xup                                 # noqa: E402
+
+i18n.install(st)                                                    # 英文界面：只翻译显示文字
+i18n.LANG = _xup.load_settings().get("lang", "zh")
+tr = i18n.tr
+
 from xafsmith import io as xio                                     # noqa: E402
 from xafsmith import qc as xqc                                     # noqa: E402
 from xafsmith import calib as xcal                                 # noqa: E402
@@ -495,6 +502,7 @@ def page_norm():
             xio.write_group_columns(S.groups[k], fn)
         write_params(od / "norm.params.json", S.norm_par, "gui:normalize")
         st.success(f"已导出 {len(sel)} 条到 {od}")
+    export_prj_section(sel)
 
 
 def page_chi():
@@ -850,6 +858,7 @@ def show_fit(fit, key=""):
         from xafsmith import report as xrep
         xrep.plot_fit(c, s, kweight=kw, out=paths.FIGS / f"{base}_fit.png")
         st.success("已保存：output/fits/exafs_fits.csv、output/fits/*.fit_report.txt、models/*.json、output/figs/*_fit.png")
+    robustness_section(fit, key)
 
 
 def page_history():
@@ -1024,8 +1033,13 @@ def open_folder(p):
 def disclaimer_box():
     from xafsmith import about
     with st.container(border=True):
-        st.markdown(f"⚠️ **{about.DISCLAIMER_CN}**  \n<small>{about.DISCLAIMER_EN}</small>", unsafe_allow_html=True)
-        st.markdown(f"📖 {about.CITE_CN}  \n<small>{about.CITE_EN}</small>", unsafe_allow_html=True)
+        if i18n.LANG == "en":
+            st.markdown(f"⚠️ **{about.DISCLAIMER_EN}**")
+            st.markdown(f"📖 {about.CITE_EN}")
+        else:
+            st.markdown(f"⚠️ **{about.DISCLAIMER_CN}**  \n<small>{about.DISCLAIMER_EN}</small>",
+                        unsafe_allow_html=True)
+            st.markdown(f"📖 {about.CITE_CN}  \n<small>{about.CITE_EN}</small>", unsafe_allow_html=True)
         with st.expander("引用格式 / How to cite"):
             st.code(about.CITATION_TEXT + "\n\n" + "\n".join(about.UPSTREAM), language=None)
 
@@ -1069,7 +1083,7 @@ def page_project():
         st.markdown("原始数据放在 **data/raw/<批次>/**，每个批次带该批次测的单质参比（文件名含 foil / powder / metal）。")
         with st.form("upload_raw"):
             c1, c2 = st.columns([1, 2])
-            batch = c1.text_input("批次文件夹名", "批次1")
+            batch = c1.text_input("批次文件夹名", "batch1" if i18n.LANG == "en" else "批次1")
             ups = c2.file_uploader("上传原始数据文件到 data/raw/<批次>/", accept_multiple_files=True)
             if st.form_submit_button("上传") and ups:
                 d = paths.RAW / batch
@@ -1236,7 +1250,7 @@ def page_summary():
     if st.button("生成汇总", type="primary"):
         with st.spinner("整理中…"):
             S.summary_dir = str(summary.build())
-    if S.get("summary_dir"):
+    if S.get("summary_dir") and (Path(S.summary_dir) / "汇总.xlsx").exists():   # 文件夹被删时不再显示
         out = Path(S.summary_dir)
         st.success(f"已生成：{paths.rel(out)}")
         c1, c2, c3 = st.columns(3)
@@ -1253,19 +1267,347 @@ def page_summary():
         st.dataframe(sheets[name], hide_index=True, width="stretch")
     else:
         st.caption("项目中还没有结果：先在“⓪ 项目 → 一键处理”中处理，再做拟合。")
+    st.divider()
+    methods_section()
+
+
+@st.cache_data(ttl=6 * 3600, show_spinner=False)
+def _update_status():
+    from xafsmith import update as xup
+    return xup.check(timeout=3.0)
+
+
+def update_notice():
+    """侧栏：有新版本时提示（可在“使用指南”页关闭自动检查）"""
+    from xafsmith import update as xup
+    if not xup.load_settings().get("check_updates", True):
+        return
+    u = _update_status()
+    if u.get("newer"):
+        st.success(f"有新版本 {u['latest']}（当前 {u['current']}）", icon="⬆️")
+        update_button(u, "sb")
+
+
+def update_button(u, key):
+    from xafsmith import update as xup
+    if u.get("editable"):
+        st.caption("开发安装：请在源码目录用 git pull 更新。")
+        return
+    if st.button("更新到最新版", key="upd_" + key):
+        with st.spinner("正在从 GitHub 下载并安装（约 1–5 分钟）…"):
+            ok, log = xup.upgrade()
+        if ok:
+            st.success("更新完成：请关闭 XAFSmith 窗口并重新打开。")
+            _update_status.clear()
+        else:
+            st.error("更新失败（可能没有联网）。")
+            st.code(log[-2000:])
+
+
+def update_section():
+    from xafsmith import update as xup
+    st.subheader("检查更新")
+    s = xup.load_settings()
+    auto = st.checkbox("启动时自动检查新版本（只访问 github.com，不发送任何数据）", s.get("check_updates", True),
+                       key="upd_auto")
+    if auto != s.get("check_updates", True):
+        xup.save_settings(check_updates=auto)
+    if st.button("现在检查", key="upd_now"):
+        _update_status.clear()
+        S.upd = xup.check()
+    u = S.get("upd")
+    if u:
+        if u["latest"] is None:
+            st.warning("无法连接 GitHub（离线或被网络阻止）。")
+        elif u["newer"]:
+            st.success(f"有新版本 {u['latest']}（当前 {u['current']}）")
+            update_button(u, "page")
+        else:
+            st.info(f"已是最新版本 {u['current']}")
+
+
+def page_xanes():
+    st.header("⑬ XANES 定量")
+    from xafsmith import xanes as xx
+    for g in S.groups.values():
+        if not hasattr(g, "flat"):
+            try:
+                xnorm.normalize(g, **S.norm_par)
+            except Exception:
+                pass
+    cands = [k for k, g in S.groups.items() if hasattr(g, "flat")]
+    if not cands:
+        st.info("先在 ① 数据导入 中载入样品（归一化参数与 ④ 页相同）")
+        return
+    st.caption("边位置同时受价态、配位数和配体影响：价态标定只适用于配体相同、结构相近的标样与样品。")
+    t1, t2, t3 = st.tabs(["边位置与白线", "价态标定", "边前峰拟合"])
+    with t1:
+        sel = st.multiselect("谱", cands, default=cands[: min(6, len(cands))], key="xq_sel")
+        wl = st.number_input("白线积分区间：E0 至 E0 + (eV)", 5.0, 100.0, 30.0, 5.0, key="xq_wl")
+        if sel:
+            tab = xx.features_table([S.groups[k] for k in sel], wl)
+            st.dataframe(tab.round(4), hide_index=True, width="stretch")
+            st.caption("E0_deriv：导数最大值；E_half：归一化 μ = 0.5 处；WL_E / WL_height：白线峰位与峰高；"
+                       "WL_area：E0 至 E0+区间内归一化 μ 超过 1 部分的面积（eV）。")
+            fig = go.Figure()
+            for k in sel:
+                g = S.groups[k]
+                fig.add_trace(go.Scatter(x=g.energy, y=g.flat, name=k))
+            e0 = S.groups[sel[0]].e0
+            fig.update_xaxes(range=[e0 - 30, e0 + 70])
+            fig.add_hline(y=0.5, line_dash="dot", line_color="gray")
+            fig.add_hline(y=1.0, line_dash="dot", line_color="gray")
+            st.plotly_chart(fig_layout(fig, "E (eV)", "归一化 μ(E)"), width="stretch")
+            if st.button("保存到 output/xanes/xanes_features.csv", key="xq_save"):
+                paths.XANES.mkdir(parents=True, exist_ok=True)
+                old = pd.read_csv(paths.XANES_CSV, encoding="utf-8-sig") if paths.XANES_CSV.exists() else None
+                new = tab if old is None else pd.concat([old[~old["sample"].isin(tab["sample"])], tab])
+                new.to_csv(paths.XANES_CSV, index=False, encoding="utf-8-sig")
+                st.success(f"已保存 {len(tab)} 条（同名样品覆盖）")
+    with t2:
+        st.markdown("1. 选**已知价态的实测标样**并填写价态；2. 选边位置的定义；3. 选要估算的样品。")
+        c1, c2 = st.columns([2, 1])
+        stds = c1.multiselect("标样", cands, key="vc_std")
+        how = c2.selectbox("边位置定义", ["E_half（半高点）", "E0_deriv（导数最大值）", "WL_E（白线峰位）"], key="vc_how")
+        col = how.split("（")[0]
+        if stds:
+            key = "vc_tab_" + "|".join(stds)
+            if key not in S:
+                S[key] = pd.DataFrame(dict(标样=stds, 价态=[0.0] * len(stds)))
+            vt = st.data_editor(S[key], hide_index=True, disabled=["标样"], key=key + "_ed")
+            feats = xx.features_table([S.groups[k] for k in stds]).set_index("sample")
+            pos = [float(feats.loc[k, col]) for k in vt["标样"]]
+            try:
+                cal = xx.valence_calibration(pos, vt["价态"])
+                st.write(f"E = **{cal['a']:.3f}**·价态 + **{cal['b']:.2f}** eV；R² = {cal['r2']:.4f}；"
+                         f"斜率误差 {cal['a_err']:.3f} eV/价（{cal['n']} 个标样）")
+                if cal["n"] < 3:
+                    st.warning("只有 2 个标样：直线没有统计误差，估算的价态误差未知。")
+                smp = st.multiselect("要估算价态的样品", [k for k in cands if k not in stds], key="vc_smp")
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=list(vt["价态"]), y=pos, mode="markers+text", text=list(vt["标样"]),
+                                         textposition="top center", name="标样"))
+                xs = np.linspace(min(vt["价态"]) - 0.5, max(vt["价态"]) + 0.5, 20)
+                fig.add_trace(go.Scatter(x=xs, y=cal["a"] * xs + cal["b"], name="标定直线", line=dict(dash="dash")))
+                if smp:
+                    sf = xx.features_table([S.groups[k] for k in smp]).set_index("sample")
+                    rows = []
+                    for k in smp:
+                        v, err = xx.predict_valence(cal, float(sf.loc[k, col]))
+                        rows.append(dict(样品=k, 边位置=float(sf.loc[k, col]), 价态=round(v, 3),
+                                         误差=None if not np.isfinite(err) else round(err, 3),
+                                         外推="是" if not (min(vt["价态"]) <= v <= max(vt["价态"])) else ""))
+                        fig.add_trace(go.Scatter(x=[v], y=[float(sf.loc[k, col])], mode="markers",
+                                                 marker=dict(symbol="x", size=11), name=k))
+                    rt = pd.DataFrame(rows)
+                    st.dataframe(rt, hide_index=True, width="stretch")
+                    st.caption("误差只来自标定直线的统计误差，不含标样与样品化学环境的差异；超出标样价态范围的为外推。")
+                    if st.button("保存价态估算到 output/xanes/", key="vc_save"):
+                        paths.XANES.mkdir(parents=True, exist_ok=True)
+                        rt.assign(定义=col, 斜率=cal["a"], 截距=cal["b"], R2=cal["r2"],
+                                  标样="; ".join(f"{a}={b}" for a, b in zip(vt["标样"], vt["价态"]))).to_csv(
+                            paths.XANES / f"valence_{col}.csv", index=False, encoding="utf-8-sig")
+                        st.success(f"已保存 output/xanes/valence_{col}.csv")
+                st.plotly_chart(fig_layout(fig, "价态", f"{col} (eV)"), width="stretch")
+            except Exception as ex:
+                st.info(str(ex))
+    with t3:
+        c = st.columns(5)
+        k = c[0].selectbox("谱", cands, key="pe_k")
+        emin = c[1].number_input("区间下限 E−E0 (eV)", -60.0, 0.0, -20.0, 1.0, key="pe_lo")
+        emax = c[2].number_input("区间上限 E−E0 (eV)", -30.0, 20.0, -5.0, 1.0, key="pe_hi")
+        n = c[3].selectbox("峰数", [1, 2, 3], key="pe_n")
+        stp = c[4].selectbox("主边基线", ["erf", "arctan", "none"], key="pe_step")
+        st.caption("模型：n 个高斯峰（σ ≤ 2.5 eV）+ 台阶（代表主边上升沿，中心限制在半高点 ±6 eV）+ 常数。"
+                   "看分量图判断基线是否合理；峰位贴边或面积≈0 时会提示。")
+        if st.button("拟合边前峰", type="primary", key="pe_go"):
+            try:
+                S.pe_res = xx.preedge_fit(S.groups[k], emin, emax, n, stp)
+            except Exception as ex:
+                st.error(ex)
+        r = S.get("pe_res")
+        if r and r["sample"] == k:
+            for w in r["warnings"]:
+                st.warning(w)
+            pk = pd.DataFrame(r["peaks"])
+            st.dataframe(pk.round(4), hide_index=True, width="stretch")
+            st.write(f"总面积 **{r['total_area']:.4f}** eV；面积加权质心 **{r['centroid']:.2f}** eV；"
+                     f"R 因子 {r['rfactor']:.2e}")
+            cv = r["curves"]
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=cv["x"], y=cv["y"], name="数据", line=dict(color="black")))
+            fig.add_trace(go.Scatter(x=cv["x"], y=cv["fit"], name="拟合", line=dict(color="red", dash="dash")))
+            for nm, v in cv["comps"].items():
+                fig.add_trace(go.Scatter(x=cv["x"], y=v, name=nm, line=dict(width=1)))
+            fig.add_trace(go.Scatter(x=cv["x"], y=cv["y"] - cv["fit"], name="残差", line=dict(color="gray", width=1)))
+            st.plotly_chart(fig_layout(fig, "E (eV)", "归一化 μ(E)"), width="stretch")
+            if st.button("保存边前峰结果到 output/xanes/", key="pe_save"):
+                paths.XANES.mkdir(parents=True, exist_ok=True)
+                fn = paths.XANES / f"preedge_{re.sub(r'[^A-Za-z0-9_.-]', '_', k)}.csv"
+                pk.assign(sample=k, emin=emin, emax=emax, step=stp, centroid=r["centroid"],
+                          total_area=r["total_area"], rfactor=r["rfactor"]).to_csv(fn, index=False,
+                                                                                    encoding="utf-8-sig")
+                st.success(f"已保存 {paths.rel(fn)}")
+
+
+def page_pubfig():
+    st.header("⑭ 期刊出图")
+    from xafsmith import pubfig as pf
+    st.caption("统一字体（Arial）、线宽、色盲友好配色；导出 600 dpi TIFF（LZW）/ PNG 与矢量 SVG / PDF，"
+               "并写一个英文图注 .txt（样品、边、模式、处理参数）。R 空间横轴注明 not phase-corrected。")
+    c = st.columns(4)
+    kind = c[0].selectbox("图类型", ["归一化 XANES", "XANES 导数", "k^n χ(k)", "|χ(R)|", "拟合（k + R）"], key="pf_kind")
+    size = c[1].selectbox("尺寸", list(pf.SIZES), key="pf_size")
+    fmts = c[2].multiselect("格式", ["tiff", "png", "svg", "pdf"], default=["tiff", "png", "svg"], key="pf_fmt")
+    name = c[3].text_input("文件名", f"fig_{datetime.datetime.now():%Y%m%d_%H%M}", key="pf_name")
+    fig = cap = None
+    try:
+        if kind == "拟合（k + R）":
+            if not S.fits:
+                st.info("本次会话还没有拟合：在 ⑧ 中拟合，或在 ⑧ 顶部运行已保存的模型。")
+                return
+            i = st.selectbox("拟合", range(len(S.fits)), index=len(S.fits) - 1, key="pf_fit",
+                             format_func=lambda j: f"{S.fits[j]['summ']['sample']} — {S.fits[j]['summ']['model']}")
+            c2 = st.columns(2)
+            kw = c2[0].selectbox("k 权重", [1, 2, 3], index=1, key="pf_fkw")
+            rmax = c2[1].number_input("R 上限", 2.0, 10.0, 6.0, key="pf_frmax")
+            f_ = S.fits[i]
+            fig, cap = pf.fit(f_["curves"], f_["summ"], size, kweight=kw, rmax=rmax, model=f_["model"])
+        else:
+            need_chi = kind in ("k^n χ(k)", "|χ(R)|")
+            cands = [k for k, g in S.groups.items() if (has_chi(g) if need_chi else hasattr(g, "flat"))]
+            if not cands:
+                st.info("先在 ① 中载入样品" + ("，并在 ⑤ 中计算 χ(k)" if need_chi else ""))
+                return
+            sel = st.multiselect("谱（按顺序作图）", cands, default=cands[:3], key="pf_sel")
+            if not sel:
+                return
+            gs = [S.groups[k] for k in sel]
+            c2 = st.columns(4)
+            off = c2[0].number_input("错开量", 0.0, 50.0, 0.0, 0.1, key="pf_off")
+            sub = c2[1].checkbox("化学式下标（IrO2→IrO₂）", True, key="pf_sub")
+            if kind in ("归一化 XANES", "XANES 导数"):
+                lo = c2[2].number_input("E−E0 下限", -100.0, 0.0, -20.0, key="pf_lo")
+                hi = c2[3].number_input("E−E0 上限", 10.0, 300.0, 60.0, key="pf_hi")
+                fig, cap = pf.xanes(gs, size, (lo, hi), off, deriv=kind == "XANES 导数", sub=sub)
+            elif kind == "k^n χ(k)":
+                kw = c2[2].selectbox("k 权重", [1, 2, 3], index=1, key="pf_kw")
+                fig, cap = pf.chik(gs, size, kw, off, sub=sub)
+            else:
+                kw = c2[2].selectbox("k 权重", [1, 2, 3], index=1, key="pf_kw2")
+                rmax = c2[3].number_input("R 上限", 2.0, 10.0, 6.0, key="pf_rmax")
+                re_ = st.checkbox("同时画 Re χ(R)（虚线）", False, key="pf_re")
+                fig, cap = pf.chir(gs, size, kw, rmax, off, re_, sub=sub)
+    except Exception as ex:
+        st.error(ex)
+        return
+    if fig is None:
+        return
+    st.pyplot(fig, width="content" if size != "汇报 16:9" else "stretch")
+    st.caption("图注：" + cap)
+    if st.button("保存到 output/figs/journal/", type="primary", key="pf_save", disabled=not fmts):
+        files = pf.save(fig, cap, paths.PUBFIGS / re.sub(r"[^\w.-]+", "_", name), fmts)
+        st.success("已保存：" + "、".join(p.name for p in files))
+        for p in files:
+            if p.suffix in (".tiff", ".png", ".svg", ".pdf"):
+                st.download_button(f"下载 {p.name}", p.read_bytes(), file_name=p.name, key="dl_" + p.name)
+
+
+def methods_section():
+    st.subheader("自动生成“方法”段落")
+    from xafsmith import methods_text as mt
+    st.caption("只写项目文件中有记录的事实（校准参比、ΔE、归一化/背景/FT 参数、拟合范围、N_idp、S0² 来源、软件版本）。"
+               "光源、线站等信息在下面填写（保存到 xafsmith.json）；没填的用【方括号】占位。生成的是草稿，投稿前请逐句核对。")
+    cfg = load_cfg()
+    ins = cfg.get("instrument", {})
+    c = st.columns(4)
+    new = {}
+    for i, (k, (zh, en)) in enumerate(mt.INSTRUMENT_KEYS.items()):
+        new[k] = c[i].text_input(en.capitalize() if i18n.LANG == "en" else f"{zh} / {en}", ins.get(k, ""),
+                                 key="ins_" + k)
+    if new != {k: ins.get(k, "") for k in new} and st.button("保存仪器信息", key="ins_save"):
+        cfg["instrument"] = new
+        paths.CONFIG.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        st.success("已保存到 xafsmith.json")
+    from xafsmith import pipeline as pl
+    samples = list(dict.fromkeys(pl.load_meta()["sample"])) if paths.META.exists() else []
+    sel = st.multiselect("范围：只写这些样品（空 = 全部使用中的样品）", samples, key="mt_smp")
+    if st.button("生成方法段落", key="mt_go"):
+        p, r = mt.save(sel or None)
+        S.methods = r
+        st.success(f"已保存 {paths.rel(p)}")
+    r = S.get("methods")
+    if r:
+        st.markdown("**中文**")
+        st.code(r["zh"], language=None, wrap_lines=True)
+        st.markdown("**English**")
+        st.code(r["en"], language=None, wrap_lines=True)
+
+
+def export_prj_section(keys):
+    """把所选谱导出为 Athena 工程（.prj）"""
+    with st.expander("导出为 Athena 项目（.prj），在 Athena / Artemis 中对照"):
+        st.caption("写入已校准的能量与 μ(E)，以及本软件用的 E0、边前/边后范围、rbkg、k 范围、窗函数；"
+                   "Athena 打开后按这些参数重新计算，可直接与本软件的结果对比。")
+        sel = st.multiselect("谱", keys, default=keys, key="prj_sel")
+        name = st.text_input("文件名", f"{paths.ROOT.name}_xafsmith.prj", key="prj_name")
+        if st.button("导出 .prj", disabled=not sel, key="prj_go"):
+            try:
+                fn = paths.GUI / "athena" / (name if name.endswith(".prj") else name + ".prj")
+                xio.write_prj([S.groups[k] for k in sel], fn, norm={k: v for k, v in S.norm_par.items()
+                                                                    if k in ("pre1", "pre2", "norm1", "nnorm")},
+                              bkg=S.bkg_par, ft=S.ft_par)
+                st.success(f"已导出 {paths.rel(fn)}（{len(sel)} 条谱）")
+                st.download_button("下载 .prj", fn.read_bytes(), file_name=fn.name, key="prj_dl")
+            except Exception as ex:
+                st.error(ex)
+
+
+def robustness_section(fit, key=""):
+    with st.expander("稳健性检查：改变拟合条件重复拟合"):
+        st.caption("依次改变 kmin ±0.5、kmax ±1、Rmax ±0.2 Å，以及（多 k 权重时）单独用 k¹/k²/k³，"
+                   "看各变量的变化是否超过其统计误差（离散度/误差 > 1 记为“不稳”）。")
+        if st.button("运行稳健性检查", key="rb_go" + key):
+            from xafsmith import fit_exafs as fx
+            g = S.groups.get(fit["summ"]["sample"])
+            if g is None:
+                from xafsmith import pipeline as pl
+                g, _ = pl.build_sample(fit["summ"]["sample"])
+            bar = st.progress(0.0)
+            tab, ver = fx.robustness(g, fit["model"], progress=lambda f, n: bar.progress(f, text=n))
+            fit["robust"] = (tab, ver)
+        if fit.get("robust"):
+            tab, ver = fit["robust"]
+            bad = ver[ver["判断"] == "不稳"]
+            (st.warning if len(bad) else st.success)(
+                ("不稳的参数：" + "、".join(bad["参数"]) + "。结论应以多种条件下的范围报告，或检查模型。")
+                if len(bad) else "所有变量随拟合条件的变化都在统计误差以内。")
+            st.dataframe(ver.round(5), hide_index=True, width="stretch")
+            st.dataframe(tab.round(5), hide_index=True, width="stretch")
+            if st.button("保存到 output/fits/", key="rb_save" + key):
+                base = re.sub(r"[^A-Za-z0-9_.-]", "_", fit["summ"]["model"])
+                tab.to_csv(paths.FITS / f"{base}_robustness.csv", index=False, encoding="utf-8-sig")
+                ver.to_csv(paths.FITS / f"{base}_robustness_summary.csv", index=False, encoding="utf-8-sig")
+                st.success(f"已保存 output/fits/{base}_robustness*.csv")
 
 
 PAGES = {"⓪ 项目": page_project, "① 数据导入": page_import, "② 质量检查": page_qc, "③ 能量校准": page_calib,
          "④ 归一化 (Athena)": page_norm, "⑤ χ(k) 与 FT": page_chi, "⑥ 小波变换": page_wavelet,
          "⑦ FEFF 路径": page_feff, "⑧ EXAFS 拟合 (Artemis)": page_fit, "⑨ 拟合历史/F检验": page_history,
-         "⑩ LCF": page_lcf, "⑪ 样品设计": page_planner,
-         "⑫ 汇总报告": page_summary, "❓ 使用指南": None}
+         "⑩ LCF": page_lcf, "⑪ 样品设计": page_planner, "⑫ 汇总报告": page_summary,
+         "⑬ XANES 定量": page_xanes, "⑭ 期刊出图": page_pubfig, "❓ 使用指南": None}
 
 with st.sidebar:
+    _lang = st.radio("Language / 语言", ["中文", "English"], index=1 if i18n.LANG == "en" else 0,
+                     horizontal=True, key="ui_lang")
+    if ("en" if _lang == "English" else "zh") != i18n.LANG:
+        _xup.save_settings(lang="en" if _lang == "English" else "zh")
+        i18n.LANG = "en" if _lang == "English" else "zh"
+        st.rerun()
     st.image(str(Path(__file__).resolve().parent / "assets" / "xafsmith.png"), width=72)
     st.title("XAFSmith")
     if paths.is_project(paths.ROOT):
-        page = st.radio("功能", list(PAGES), label_visibility="collapsed")
+        page = st.radio("功能", list(PAGES), label_visibility="collapsed", key="nav_page")
     else:
         page = "⓪ 项目"
         st.info("先打开或新建项目")
@@ -1286,6 +1628,7 @@ with st.sidebar:
     st.warning("**不对结果负责 / No warranty.** 请核验结果，建议与 Athena / Artemis 对比。"
                "Please cross-check key results with Athena / Artemis.", icon="⚠️")
     st.info("**论文中使用请引用 / Please cite:**  \n" + about.CITATION_TEXT, icon="📖")
+    update_notice()
 
 if page == "❓ 使用指南":
     from xafsmith import __version__
@@ -1297,11 +1640,13 @@ if page == "❓ 使用指南":
                     "pymatgen and Streamlit.  \n"
                     "Source: https://github.com/Wiolic/XAFSmith")
     disclaimer_box()
+    update_section()
     ddir = Path(__file__).resolve().parent / "docs"
     tg, tt = st.tabs(["图形界面使用指南（点哪里）", "零基础拟合教程（原理 + 每一步）"])
+    en = i18n.LANG == "en"
     with tg:
-        st.markdown((ddir / "图形界面使用指南.md").read_text(encoding="utf-8"))
+        st.markdown((ddir / ("GUI_guide_en.md" if en else "图形界面使用指南.md")).read_text(encoding="utf-8"))
     with tt:
-        st.markdown((ddir / "零基础拟合教程.md").read_text(encoding="utf-8"))
+        st.markdown((ddir / ("fitting_tutorial_en.md" if en else "零基础拟合教程.md")).read_text(encoding="utf-8"))
 else:
     PAGES[page]()

@@ -101,3 +101,16 @@ xafsmith gui
 | 找不到项目 / 结果写到了别处 | `xafsmith paths` 查看；在项目目录内运行或加 `--project` |
 | 有毛刺 | `xafsmith.json` 的 `deglitch` 写能量区间与理由 |
 | FEFF 无路径 | 结构是否含吸收原子；RMAX 不宜 > 8 Å |
+
+## 新增（0.2.0）
+
+```
+xafsmith robust IrO2_1shell_ArtemisCompare          # 拟合稳健性检查
+xafsmith xanes --samples CoO Co3O4 Co2O3 CoOx_NS --valence CoO=2 Co3O4=2.667 Co2O3=3   # 边位置 / 价态估算
+xafsmith export-prj --samples IrO2 "Ir foil"        # 导出 Athena 工程，在 Athena 中对照
+xafsmith methods                                    # 生成“方法”段落草稿
+xafsmith update --check                             # 检查新版本
+```
+
+图形界面新增：⑬ XANES 定量、⑭ 期刊出图；④ 页底部导出 .prj；⑧ 拟合结果下方稳健性检查；⑫ 页底部方法段落；
+侧栏顶部 Language / 语言 切换英文界面。

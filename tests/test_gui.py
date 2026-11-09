@@ -31,7 +31,7 @@ def main():
     # ⓪ 项目：数据标准检查
     [b for b in at.button if b.label == "运行检查"][0].click().run()
     ok &= check(at, "⓪ 项目：运行检查")
-    at.sidebar.radio[0].set_value("① 数据导入").run()
+    at.sidebar.radio(key="nav_page").set_value("① 数据导入").run()
     # ① 按 meta 载入
     at.multiselect(key="meta_samples").set_value(["Ir foil", "IrO2", "IrCoOx_OCP", "IrCoOx_OCP_r"]).run()
     at.button(key="load_meta").click().run()
@@ -56,19 +56,19 @@ def main():
         good = f in G and ref in G and abs(G[f].e_shift - de_ref) < 1e-9 and G[f].calib_ref == ref
         print(f"   [{'ok' if good else 'FAIL'}] {f} ΔE={G[f].e_shift:+.3f}（参比 {ref} {de_ref:+.3f}）")
         ok &= good
-    pages = [r for r in at.sidebar.radio[0].options]
+    pages = [r for r in at.sidebar.radio(key="nav_page").options]
     for p in pages:
-        at.sidebar.radio[0].set_value(p).run()
+        at.sidebar.radio(key="nav_page").set_value(p).run()
         ok &= check(at, p)
     # ⑦ FEFF：内置 IrO2
-    at.sidebar.radio[0].set_value("⑦ FEFF 路径").run()
+    at.sidebar.radio(key="nav_page").set_value("⑦ FEFF 路径").run()
     [r for r in at.radio if r.label == "结构来源"][0].set_value("内置结构").run()
     sb = [s for s in at.selectbox if s.label == "结构"][0]
     sb.set_value("IrO2").run()
     [b for b in at.button if b.label == "运行 FEFF6L"][0].click().run()
     ok &= check(at, "FEFF 运行")
     # ⑧ 拟合：默认路径表（前两条 Ir-O）
-    at.sidebar.radio[0].set_value("⑧ EXAFS 拟合 (Artemis)").run()
+    at.sidebar.radio(key="nav_page").set_value("⑧ EXAFS 拟合 (Artemis)").run()
     sel = [s for s in at.selectbox if s.label == "数据"][0]
     sel.set_value("IrO2").run()
     nr = [n for n in at.number_input if n.label == "Rmax"][0]
@@ -92,19 +92,66 @@ def main():
     good = len(at.session_state["fits"]) == n0 + 1 and abs(s["params"]["s02"]["value"] - 0.816) < 0.01
     print(f"   [{'ok' if good else 'FAIL'}] 已保存模型 IrO2：S0²={s['params']['s02']['value']:.3f}（期望 ≈0.816）")
     ok &= good
+    # ⑧ 稳健性检查（对刚运行的已保存模型）
+    at.button(key="rb_golast").click().run()
+    ok &= check(at, "稳健性检查")
+    rb = at.session_state["fits"][-1].get("robust")
+    good = rb is not None and len(rb[0]) >= 7 and set(rb[1]["参数"]) == {"s02", "e0", "dr1", "ss1"}
+    print(f"   [{'ok' if good else 'FAIL'}] 稳健性：{0 if rb is None else len(rb[0])} 个条件")
+    ok &= good
+    # ④ 导出 Athena .prj
+    at.sidebar.radio(key="nav_page").set_value("④ 归一化 (Athena)").run()
+    at.text_input(key="prj_name").set_value("_test_export.prj").run()
+    at.button(key="prj_go").click().run()
+    ok &= check(at, "导出 .prj")
+    prj = Path(os.environ["XAFSMITH_PROJECT"]) / "output" / "gui" / "athena" / "_test_export.prj"
+    good = prj.exists()
+    if good:
+        from larch.io import read_athena
+        good = len(read_athena(str(prj), do_preedge=False, do_bkg=False, do_fft=False).groups) >= 1
+        prj.unlink()
+    print(f"   [{'ok' if good else 'FAIL'}] .prj 可被 larch 读回")
+    ok &= good
+    # ⑬ XANES 定量：边前峰拟合
+    at.sidebar.radio(key="nav_page").set_value("⑬ XANES 定量").run()
+    ok &= check(at, "⑬ XANES 定量")
+    at.selectbox(key="pe_k").set_value("IrO2").run()
+    at.button(key="pe_go").click().run()
+    ok &= check(at, "边前峰拟合")
+    # ⑭ 期刊出图
+    at.sidebar.radio(key="nav_page").set_value("⑭ 期刊出图").run()
+    at.text_input(key="pf_name").set_value("_test_fig").run()
+    at.button(key="pf_save").click().run()
+    ok &= check(at, "期刊出图")
+    figd = Path(os.environ["XAFSMITH_PROJECT"]) / "output" / "figs" / "journal"
+    made = list(figd.glob("_test_fig.*"))
+    good = {p.suffix for p in made} >= {".tiff", ".png", ".svg", ".txt"}
+    for p in made:
+        p.unlink()
+    print(f"   [{'ok' if good else 'FAIL'}] 出图文件：{sorted(p.suffix for p in made)}")
+    ok &= good
     # ⑩ LCF
-    at.sidebar.radio[0].set_value("⑩ LCF").run()
+    at.sidebar.radio(key="nav_page").set_value("⑩ LCF").run()
     [s for s in at.selectbox if s.label == "样品"][0].set_value("IrCoOx_OCP").run()
     [m for m in at.multiselect if m.label.startswith("端点标样")][0].set_value(["Ir foil", "IrO2"]).run()
     [b for b in at.button if b.label == "LCF"][0].click().run()
     ok &= check(at, "LCF")
     # ⑫ 汇总报告
-    at.sidebar.radio[0].set_value("⑫ 汇总报告").run()
+    at.sidebar.radio(key="nav_page").set_value("⑫ 汇总报告").run()
     [b for b in at.button if b.label == "生成汇总"][0].click().run()
     ok &= check(at, "汇总报告")
     d = Path(at.session_state["summary_dir"])
     good = (d / "汇总.xlsx").exists() and (d / "汇总报告.html").exists()
     print(f"   [{'ok' if good else 'FAIL'}] 汇总文件：{d.name}")
+    ok &= good
+    import shutil
+    shutil.rmtree(d, ignore_errors=True)            # 测试生成的汇总不留在项目里
+    # ⑫ 方法段落
+    at.button(key="mt_go").click().run()
+    ok &= check(at, "方法段落")
+    m = at.session_state["methods"]
+    good = "AUTOBK" in m["en"] and "XAFSmith" in m["zh"]
+    print(f"   [{'ok' if good else 'FAIL'}] 方法段落：中文 {len(m['zh'])} 字，英文 {len(m['en'].split())} 词")
     ok &= good
     print("全部通过" if ok else "存在失败")
     return 0 if ok else 1

@@ -20,6 +20,11 @@
   xafsmith ftest <小模型> <大模型>        嵌套模型 F 检验
   xafsmith lcf --sample S --standards A B [--emin -20 --emax 30 --space norm]
   xafsmith plan --formula IrO2 --element Ir --edge L3              样品设计
+  xafsmith robust <模型名>                稳健性检查（改变 k/R 范围与 k 权重重复拟合）→ output/fits/
+  xafsmith xanes --samples A B [--valence 标样=价态 ...]          边位置/白线/价态估算 → output/xanes/
+  xafsmith export-prj --samples A B [--out 文件.prj]               导出 Athena 工程 → output/gui/athena/
+  xafsmith methods [--samples A B]       自动生成“方法”段落草稿 → output/reports/方法段落.md
+  xafsmith update [--check]              检查 / 安装 GitHub 上的新版本
 
   xafsmith gui                           图形界面（独立桌面窗口）
   xafsmith docs                          文档位置
@@ -271,6 +276,63 @@ def cmd_plan(a):
                                          a.mass_diluent), ensure_ascii=False, indent=2, default=float))
 
 
+def cmd_robust(a):
+    from . import paths, fit_exafs as fx
+    model, g, res, dset, summ = _run_model(a.model)
+    tab, ver = fx.robustness(g, model, progress=lambda f, n: print(f"  {n}"))
+    base = summ["model"].replace("/", "_")
+    tab.to_csv(paths.FITS / f"{base}_robustness.csv", index=False, encoding="utf-8-sig")
+    ver.to_csv(paths.FITS / f"{base}_robustness_summary.csv", index=False, encoding="utf-8-sig")
+    print(ver.to_string(index=False))
+    print(f"→ output/fits/{base}_robustness*.csv")
+
+
+def cmd_xanes(a):
+    from . import paths, pipeline as pl, xanes as xx
+    gs = [pl.build_sample(s)[0] for s in a.samples]
+    tab = xx.features_table(gs, a.wl_window)
+    paths.XANES.mkdir(parents=True, exist_ok=True)
+    tab.to_csv(paths.XANES_CSV, index=False, encoding="utf-8-sig")
+    print(tab.round(4).to_string(index=False))
+    if a.valence:
+        std = dict(x.split("=", 1) for x in a.valence)
+        t = tab.set_index("sample")
+        cal = xx.valence_calibration([t.loc[s, a.position] for s in std], [float(v) for v in std.values()])
+        print(f"\n{a.position} = {cal['a']:.3f}·价态 + {cal['b']:.2f}  (R²={cal['r2']:.4f}, n={cal['n']})")
+        for s in t.index:
+            if s not in std:
+                v, err = xx.predict_valence(cal, float(t.loc[s, a.position]))
+                print(f"  {s}: 价态 {v:.2f} ± {err:.2f}")
+    print(f"→ {paths.rel(paths.XANES_CSV)}")
+
+
+def cmd_export_prj(a):
+    from . import paths, pipeline as pl, io as xio
+    gs = [pl.build_sample(s)[0] for s in a.samples]
+    out = Path(a.out) if a.out else paths.GUI / "athena" / f"{paths.ROOT.name}_xafsmith.prj"
+    xio.write_prj(gs, out)
+    print(f"→ {out}（{len(gs)} 条谱）")
+
+
+def cmd_methods(a):
+    from . import methods_text as mt
+    p, r = mt.save(a.samples or None)
+    print(r["zh"], "\n\n", r["en"], f"\n\n→ {p}")
+
+
+def cmd_update(a):
+    from . import update as xup
+    u = xup.check()
+    if u["latest"] is None:
+        print("无法连接 GitHub")
+        return
+    print(f"当前 {u['current']}，GitHub 上 {u['latest']}" + ("（有新版本）" if u["newer"] else "（已是最新）"))
+    if u["newer"] and not a.check:
+        ok, log = xup.upgrade()
+        print(log[-1500:])
+        print("更新完成" if ok else "更新失败")
+
+
 def cmd_gui(a):
     from . import paths
     from . import desktop                     # 只提供独立桌面窗口（不使用浏览器）
@@ -284,6 +346,11 @@ def build_parser():
     ap.add_argument("--project", help="项目目录（默认：从当前目录向上查找 xafsmith.json）")
     ap.add_argument("--version", action="store_true")
     sp = ap.add_subparsers(dest="cmd")
+    # --project 既可写在子命令前（xafsmith --project D gui），也可写在后（xafsmith gui --project D）
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--project", default=argparse.SUPPRESS, help="项目目录")
+    _add = sp.add_parser
+    sp.add_parser = lambda *a, **k: _add(*a, parents=[common], **k)
     p = sp.add_parser("new", help="新建标准项目"); p.add_argument("dir"); p.set_defaults(f=cmd_new)
     sp.add_parser("init", help="登记 data/raw").set_defaults(f=cmd_init)
     p = sp.add_parser("validate", help="按数据标准检查"); p.add_argument("--quick", action="store_true", help="不读结构文件")
@@ -322,6 +389,18 @@ def build_parser():
     p.add_argument("--target", type=float, default=2.0); p.add_argument("--diluent")
     p.add_argument("--mass-diluent", type=float, default=0.0); p.add_argument("--mass", type=float)
     p.set_defaults(f=cmd_plan)
+    p = sp.add_parser("robust", help="拟合稳健性检查"); p.add_argument("model"); p.set_defaults(f=cmd_robust)
+    p = sp.add_parser("xanes", help="XANES 边位置/白线/价态")
+    p.add_argument("--samples", nargs="+", required=True)
+    p.add_argument("--valence", nargs="*", help="标样=价态，如 CoO=2 Co3O4=2.667")
+    p.add_argument("--position", default="E_half", choices=["E_half", "E0_deriv", "WL_E"])
+    p.add_argument("--wl-window", type=float, default=30.0); p.set_defaults(f=cmd_xanes)
+    p = sp.add_parser("export-prj", help="导出 Athena 工程")
+    p.add_argument("--samples", nargs="+", required=True); p.add_argument("--out"); p.set_defaults(f=cmd_export_prj)
+    p = sp.add_parser("methods", help="生成方法段落"); p.add_argument("--samples", nargs="*")
+    p.set_defaults(f=cmd_methods)
+    p = sp.add_parser("update", help="检查/安装新版本"); p.add_argument("--check", action="store_true")
+    p.set_defaults(f=cmd_update)
     for name in ("gui", "app"):
         sp.add_parser(name, help="图形界面（独立桌面窗口）").set_defaults(f=cmd_gui)
     return ap

@@ -200,6 +200,60 @@ def hamilton_test(small, large):
                 note="p<0.05 时加入的参数/路径显著")
 
 
+def robustness_variants(model, dk_lo=0.5, dk_hi=1.0, dr=0.2):
+    """稳健性检查的拟合条件变化：k 下限 ±dk_lo、k 上限 ±dk_hi、R 上限 ±dr、单一 k 权重 1/2/3"""
+    base = dict(kmin=model["kmin"], kmax=model["kmax"], rmax=model["rmax"], kweight=model.get("kweight", 2))
+    out = [("基准", {})]
+    out += [(f"kmin={base['kmin'] + s:g}", dict(kmin=base["kmin"] + s)) for s in (-dk_lo, dk_lo)
+            if base["kmin"] + s >= 1.0]
+    out += [(f"kmax={base['kmax'] + s:g}", dict(kmax=base["kmax"] + s)) for s in (-dk_hi, dk_hi)]
+    out += [(f"Rmax={base['rmax'] + s:g}", dict(rmax=round(base["rmax"] + s, 3))) for s in (-dr, dr)
+            if base["rmax"] + s > model["rmin"] + 0.3]
+    kws = base["kweight"] if isinstance(base["kweight"], (list, tuple)) else [base["kweight"]]
+    if len(kws) > 1:
+        out += [(f"kw={w}", dict(kweight=[w])) for w in (1, 2, 3)]
+    return out
+
+
+def robustness(data, model, root=None, variants=None, progress=None):
+    """改变拟合条件重复拟合，检查参数是否稳定。
+
+    返回 (table, verdict)：table 每行一个条件，列为 R 因子与各变量的值；
+    verdict 每个变量一行：基准值、基准误差、各条件下的最小/最大值、离散度（标准差）、
+    离散度/基准误差（> 1 记为“不稳”，即参数随拟合条件的变化超过统计误差）。
+    """
+    variants = variants or robustness_variants(model)
+    rows = []
+    for i, (name, change) in enumerate(variants):
+        m = json.loads(json.dumps(model))
+        m.update(change)
+        m["name"] = f"{model.get('name', '')}[{name}]"
+        try:
+            _, _, s = run_fit(data, m, root)
+            row = dict(条件=name, R因子=s["rfactor"], 变量数=s["nvarys"], N_idp=s["n_idp"])
+            for k, v in s["params"].items():
+                if v["vary"] and not v["expr"]:
+                    row[k] = v["value"]
+                    row[k + "_err"] = v["stderr"]
+        except Exception as ex:
+            row = dict(条件=name, 错误=str(ex))
+        rows.append(row)
+        if progress:
+            progress((i + 1) / len(variants), name)
+    tab = pd.DataFrame(rows)
+    base = tab.iloc[0]
+    ver = []
+    for k in [c for c in tab.columns if c + "_err" in tab.columns]:
+        vals = pd.to_numeric(tab[k], errors="coerce")
+        err = base.get(k + "_err")
+        sd = float(np.nanstd(vals, ddof=1)) if vals.notna().sum() > 1 else np.nan
+        ratio = sd / err if err and np.isfinite(err) and err > 0 else np.nan
+        ver.append(dict(参数=k, 基准值=base[k], 基准误差=err, 最小=float(np.nanmin(vals)),
+                        最大=float(np.nanmax(vals)), 离散度=sd, 离散度_误差比=ratio,
+                        判断="不稳" if np.isfinite(ratio) and ratio > 1 else ("稳定" if np.isfinite(ratio) else "—")))
+    return tab, pd.DataFrame(ver)
+
+
 def model_curves(dset):
     """取出数据与拟合的 k、R 空间曲线（用于作图）。"""
     d, m = dset.data, dset.model

@@ -45,12 +45,14 @@ def set_root(root):
              RAW=root / "data" / "raw", META=root / "data" / "meta.csv", STRUCT=root / "structures",
              MODELS=root / "models", NOTES=root / "notes", SCRIPTS=root / "scripts", OUT=out,
              QC=out / "qc", CALIB=out / "calib", PROC=out / "processed", FEFF=out / "feff", FITS=out / "fits",
-             LCF=out / "lcf", FIGS=out / "figs", REPORTS=out / "reports", GUI=out / "gui")
+             LCF=out / "lcf", XANES=out / "xanes", FIGS=out / "figs", PUBFIGS=out / "figs" / "journal",
+             REPORTS=out / "reports", GUI=out / "gui")
     g.update(CALIB_JSON=g["CALIB"] / "calib.json", QC_CSV=g["QC"] / "qc_report.csv",
              FITS_CSV=g["FITS"] / "exafs_fits.csv", LCF_CSV=g["LCF"] / "lcf_results.csv",
+             XANES_CSV=g["XANES"] / "xanes_features.csv",
              INPUT_DIRS=(g["RAW"], g["STRUCT"], g["MODELS"], g["NOTES"]),
-             OUTPUT_DIRS=(g["QC"], g["CALIB"], g["PROC"], g["FEFF"], g["FITS"], g["LCF"], g["FIGS"],
-                          g["REPORTS"], g["GUI"]))
+             OUTPUT_DIRS=(g["QC"], g["CALIB"], g["PROC"], g["FEFF"], g["FITS"], g["LCF"], g["XANES"],
+                          g["FIGS"], g["REPORTS"], g["GUI"]))
     os.environ["XAFSMITH_PROJECT"] = str(root)
     return root
 

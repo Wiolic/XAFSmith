@@ -157,6 +157,46 @@ def read_any(path, **kws):
     return read_columns(path, **kws)
 
 
+def write_prj(groups, path, norm=None, bkg=None, ft=None):
+    """把已校准的谱导出为 Athena 工程（.prj），用于在 Athena / Artemis 中对照。
+
+    写入能量（已加校准 ΔE）与 μ(E)，并把本软件使用的 E0、边前/边后范围、rbkg、k 范围、窗函数
+    写成 Athena 的处理参数，使 Athena 打开后的处理条件与 XAFSmith 相同（Athena 会按这些参数重新计算）。
+    groups: Group 列表；返回写出的路径。
+    """
+    from larch import Group
+    from larch.io import AthenaProject
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    prj = AthenaProject(str(path))
+    for g in groups:
+        e0 = getattr(g, "e0", None)
+        np_ = dict(getattr(g, "norm_params", {}) or {}, **(norm or {}))
+        bp = dict(getattr(g, "bkg_params", {}) or {}, **(bkg or {}))
+        fp = dict(getattr(g, "ft_params", {}) or {}, **(ft or {}))
+        x = Group(energy=np.asarray(g.energy, float), mu=np.asarray(g.mu, float),
+                  filename=str(getattr(g, "label", "")), datatype="xas")
+        x.groupname = re.sub(r"\W+", "_", str(getattr(g, "label", "group")))
+        if e0 is not None:
+            x.e0 = float(e0)
+            x.edge_step = float(getattr(g, "edge_step", 1.0))   # 有 e0 + edge_step 时 larch 不会用默认参数重算
+        x.pre_edge_details = Group(pre1=np_.get("pre1", -150), pre2=np_.get("pre2", -30),
+                                   norm1=np_.get("norm1", 100),
+                                   norm2=(np_.get("norm2") if (np_.get("norm2") or 0) > 0
+                                          else float(g.energy[-1] - (e0 or g.energy[0]) + (np_.get("norm2") or 0))),
+                                   nnorm=np_.get("nnorm", 2), e0=e0)
+        kmax_data = float(np.sqrt(0.2625 * max(g.energy[-1] - (e0 or g.energy[0]), 0)))
+        x.autobk_details = Group(call_args=dict(rbkg=bp.get("rbkg", 1.0), kmin=0, kmax=kmax_data,
+                                                kweight=bp.get("kweight", 2), dk=0.1, win="hanning",
+                                                nclamp=3, clamp_lo=0, clamp_hi=1))
+        x.xftf_details = Group(call_args=dict(kmin=fp.get("kmin", 3), kmax=fp.get("kmax", 12),
+                                              kweight=fp.get("kweight", 2), dk=fp.get("dk", 1),
+                                              window=fp.get("window", "hanning")))
+        prj.add_group(x)
+    prj.save(str(path))
+    return path
+
+
 def write_group_columns(g, path, cols=("energy", "mu", "norm", "flat", "dmude")):
     """导出处理后数据为列文本。"""
     arrs, names = [], []

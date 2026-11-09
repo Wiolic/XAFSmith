@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xafsmith"
-version = "0.1.0"
+version = "0.2.0"
 description = "通用 XAFS（XANES + EXAFS）数据处理与拟合工具：命令行 + 图形界面，基于 xraylarch"
 readme = "README.md"
 license = { file = "LICENSE" }

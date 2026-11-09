@@ -67,7 +67,12 @@ my_project/
 | EXAFS 拟合 | JSON 模型：路径、参数固定/约束、多 k 权重同时拟合；N_idp 检查、F 检验 |
 | LCF | XANES / 导数 / χ(k)，含单一标样比较与组合枚举 |
 | 样品设计 | μt、边跳、推荐压片质量、干扰吸收边与 k 上限 |
-| 报告 | 16:9 汇报图（2666×1500，图注自动写处理参数）；一键汇总为 Excel + 带图 HTML |
+| XANES 定量 | 边位置（导数最大值 / 半高点）、白线峰位·峰高·面积、按实测标样做价态标定、边前峰拟合 |
+| 稳健性检查 | 改变 k/R 范围与 k 权重重复拟合，标出随条件变化超过统计误差的参数 |
+| 报告 | 16:9 汇报图；期刊风格出图（单栏/双栏，600 dpi TIFF、SVG、PDF，自动英文图注）；一键汇总为 Excel + 带图 HTML |
+| 方法段落 | 按项目实际参数自动生成中英文“实验方法”草稿（仪器信息占位，需人工核对） |
+| 与 Athena 对照 | 导出 Athena 工程 `.prj`（带本软件的 E0、归一化、rbkg、k 范围），可直接在 Athena / Artemis 中对比 |
+| 界面 | 中文 / English 一键切换；启动时可检查 GitHub 新版本并一键更新 |
 
 ## 命令
 
@@ -75,8 +80,9 @@ my_project/
 xafsmith new <目录> | init | validate | paths | list
 xafsmith qc | kcheck --edge E | calib | process
 xafsmith structures [--export] | feff --structure X.cif --absorber Ta --edge L3
-xafsmith fit <模型> | ftest <小> <大> | lcf --sample S --standards A B | plan ...
-xafsmith gui | docs
+xafsmith fit <模型> | ftest <小> <大> | robust <模型> | lcf --sample S --standards A B | plan ...
+xafsmith xanes --samples A B [--valence A=2 B=3] | export-prj --samples A B | methods
+xafsmith gui | docs | cite | update [--check]
 ```
 
 ## 仓库结构

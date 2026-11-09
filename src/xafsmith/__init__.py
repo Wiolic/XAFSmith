@@ -14,10 +14,15 @@
     fit_lcf     线性组合拟合
     mut_planner 样品设计（μt、边跳、干扰边）
     report      作图与结果表
+    xanes       XANES 定量：边位置、白线、价态标定、边前峰拟合
+    pubfig      期刊风格出图（600 dpi TIFF / SVG / PDF + 英文图注）
+    methods_text 自动生成“方法”段落（中英文）
+    update      检查 / 安装 GitHub 上的新版本
+    i18n        图形界面中英文切换
     paths       项目目录标准（xafsmith.json、data/、structures/、models/、output/ …）
     schema      数据标准检查（xafsmith validate）
     pipeline    配置驱动的批处理（meta.csv + xafsmith.json）
     cli         命令行 xafsmith
     gui         图形界面（xafsmith gui）
 """
-__version__ = "0.1.0"
+__version__ = "0.2.0"
