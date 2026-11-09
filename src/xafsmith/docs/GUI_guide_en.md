@@ -23,7 +23,7 @@ If this is your first EXAFS fit, read the **Beginner fitting tutorial** next to 
 To use XAFSmith: **double-click XAFSmith on the desktop (or in the Start menu)**. It opens in its own window (no web browser). Close the window to quit.
 Uninstall: Start menu → XAFSmith → uninstall (your projects and data are not touched).
 
-**Layout**: the sidebar groups the pages into **Start / Processing / Structure & fitting / Results & export / Help**; the current page is highlighted in blue. The bottom of the sidebar shows the current project, the number of loaded spectra and fits, and the **中文 / English** switch (the choice is remembered).
+**Layout**: the sidebar groups the pages by workflow (project → processing → structure & fitting → results & export → help, separated by space); the current page is highlighted in blue. The bottom of the sidebar shows the current project and the **中文 / English** switch (remembered). “Save session parameters” is under ⓪ Project → 6 Output.
 
 ---
 
@@ -129,6 +129,14 @@ Expand **Export as Athena project (.prj)**, select spectra and click **Export .p
 - **report .html**: the tables and all figures (open in a browser; “Print → Save as PDF” works).
 
 Under **Generate a “Methods” paragraph**, fill in facility, beamline, monochromator and detection (**Save instrument information**), optionally restrict to some samples and click **Generate methods paragraph**. Chinese and English paragraphs are produced and saved as `output/reports/方法段落.md`. Only facts recorded in the project are used; missing instrument details appear as [placeholders]. **It is a draft: check every sentence.**
+
+## 13b. SI fitting text (⑮ SI methods)
+
+1. Fit on ⑧ and click **Save result** (only saved fits appear here).
+2. ⑮ SI methods: choose the fits for the Supporting Information (several allowed; a model applied to several samples is described once) and pick English or 中文.
+3. **Methods** tab: click **Copy** and paste into the SI. The text states only facts recorded in the project: data and edge, FEFF version and structure, k / R ranges, k-weights, window, independent points and variables, S0² and its source, ΔE0, path constraints and how uncertainties were estimated.
+4. **Table S[n]** tab: N, R, σ², ΔE0 per path (uncertainty in the last digits in parentheses), R-factor, χ²_ν and N_idp / variables. **Copy (paste into Excel / Word)** pastes as a table in Excel; in Word use “Convert Text to Table”. .md / .csv downloads are available.
+5. Adjust the table number “S[n]” and structure sources to your paper.
 
 ## 14. Updates
 

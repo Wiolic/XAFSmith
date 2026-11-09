@@ -29,6 +29,7 @@
 导出：
   xafsmith figure --kind chir --samples A B [--size double --kweight 2]   期刊图（xanes/deriv/chik/chir/fit）→ output/figs/journal/
   xafsmith summary                       一键汇总报告（Excel + HTML）→ output/reports/
+  xafsmith si [--fits "样品|模型" ...] [--lang en]   SI 用拟合方法文本 + 参数表 → output/reports/
 
 AI 助手：
   xafsmith agent [--write]               显示接入信息；--write 写入 AGENTS.md、CLAUDE.md（含本机命令路径）
@@ -407,6 +408,20 @@ def cmd_agent(a):
             print(" -", z, "\n  ", e)
 
 
+def cmd_si(a):
+    from . import paths, si_text
+    keys = a.fits or None
+    if a.list:
+        for k in si_text.fit_keys():
+            print(k)
+        return
+    p, r = si_text.save(keys)
+    print(r["en"] if a.lang == "en" else r["zh"])
+    print()
+    print(si_text.table_markdown(r["table"]))
+    print(f"\n→ {paths.rel(p)}、SI_EXAFS拟合参数表.csv")
+
+
 def cmd_gui(a):
     from . import paths
     from . import desktop                     # 只提供独立桌面窗口（不使用浏览器）
@@ -481,6 +496,10 @@ def build_parser():
     p.add_argument("--offset", type=float, default=0.0); p.add_argument("--re", action="store_true", help="chir 同时画 Re")
     p.add_argument("--formats", nargs="+", default=["tiff", "png", "svg"]); p.add_argument("--name")
     p.set_defaults(f=cmd_figure)
+    p = sp.add_parser("si", help="SI 用 EXAFS 拟合方法文本 + 参数表（来自已保存的拟合）")
+    p.add_argument("--fits", nargs="+", help="“样品|模型”，默认全部；--list 列出可选项")
+    p.add_argument("--list", action="store_true"); p.add_argument("--lang", choices=["zh", "en"], default="en")
+    p.set_defaults(f=cmd_si)
     p = sp.add_parser("agent", help="接入 AI 助手：显示信息 / --write 写入 AGENTS.md 与 CLAUDE.md")
     p.add_argument("--write", action="store_true"); p.set_defaults(f=cmd_agent)
     p = sp.add_parser("xanes", help="XANES 边位置/白线/价态")

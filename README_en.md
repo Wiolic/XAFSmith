@@ -41,6 +41,7 @@ Compared with a typical Athena / Artemis workflow:
 | Wavelet transform (light vs heavy scatterers, overlapping shells) | Needs other software | Built in (Morlet / Cauchy) |
 | Judge a fit and find out why it does not match | Mostly the R-factor and experience | **Fit diagnosis** (residual vs noise, k-space residual, glitches located and converted to energy, misfit by segment, hints); **robustness check**; **F-test** in one click |
 | Publication figures and the methods section | Export data, redraw in Origin etc.; write methods by hand | **One-click journal figures** (single / double column, 600 dpi TIFF, SVG, PDF, English captions); **one-click methods paragraph** (Chinese and English) |
+| Fitting details for the Supporting Information | Assemble by hand from Artemis reports | **⑮ SI methods**: pick fits → one-click copy of the fitting text (k/R ranges, FEFF version, constraints, S0² source, uncertainty estimation) and the parameter table (N, R, σ², ΔE0, R-factor) |
 | Collect all results | Copy tables by hand | **One-click summary report**: Excel + HTML with figures |
 | Cross-check with Athena / Artemis | — | **One-click export of an Athena project (.prj)** with XAFSmith's processing parameters |
 | Reproduce results months later | Find the project file, recall the parameters | Raw data are read-only and all parameters live in project files; results can always be regenerated from the raw data |
@@ -136,6 +137,7 @@ You do not need to remember them, but they help you follow what the AI does:
 | **Journal figures** | `xafsmith figure --kind chir --samples A B --size double` | `output/figs/journal/` |
 | **Summary report** | `xafsmith summary` | `output/reports/汇总_<time>/` |
 | **Methods paragraph** | `xafsmith methods` | `output/reports/方法段落.md` |
+| **SI fitting text + table** | `xafsmith si --lang en` | `output/reports/SI_EXAFS拟合方法.md` |
 | **Athena export** | `xafsmith export-prj --samples A B` | `output/gui/athena/` |
 
 ### Step 6: check the AI's results
@@ -194,4 +196,4 @@ and the programs it builds on:
 
 ## Authors and license
 
-Developed by **Eggy** & **Claude** (Anthropic). [MIT License](LICENSE): free to use, modify and distribute (including commercially) as long as the copyright and license notice are kept.
+Developed by **Eggy** & **Claude Opus 5.5** (Anthropic). [MIT License](LICENSE): free to use, modify and distribute (including commercially) as long as the copyright and license notice are kept.

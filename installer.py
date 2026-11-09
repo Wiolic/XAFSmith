@@ -18,7 +18,7 @@ from tkinter import filedialog, messagebox, ttk
 
 SRC = Path(__file__).resolve().parent
 APPNAME = "XAFSmith"
-CREDIT = "Developed by Eggy & Claude"
+CREDIT = "Developed by Eggy & Claude Opus 5.5"
 DEFAULT_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Programs" / APPNAME
 LOCATION_FILE = Path(os.environ.get("LOCALAPPDATA", Path.home())) / APPNAME / "location.txt"
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)

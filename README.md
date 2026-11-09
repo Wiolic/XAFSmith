@@ -41,6 +41,7 @@ XAFSmith 处理同步辐射 X 射线吸收谱（XANES + EXAFS）：能量校准�
 | 小波变换（区分轻 / 重散射体、重叠壳层） | 需借助其他程序 | 直接计算（Morlet / Cauchy） |
 | 判断拟合好不好、为什么对不上 | 主要看 R 因子与经验 | **拟合诊断**（残差与噪声之比、k 空间残差、自动定位毛刺并换算成能量、分段失配、改进建议）；**稳健性检查**；**F 检验** 一键完成 |
 | 出论文图、写方法部分 | 导出数据再用 Origin 等重画；方法自己写 | **一键期刊图**（单栏 / 双栏，600 dpi TIFF、SVG、PDF，自动英文图注）；**一键中英文“实验方法”段落** |
+| 写补充材料（SI）中的拟合细节 | 从 Artemis 报告手工整理 | **⑮ SI 方法**：选拟合 → 一键复制拟合方法文本（k/R 范围、FEFF 版本、约束、S0² 来源、误差估计）和参数表（N、R、σ²、ΔE0、R 因子） |
 | 整理全部结果 | 手工抄表 | **一键汇总报告**：Excel + 带图 HTML |
 | 和 Athena / Artemis 对照 | — | **一键导出 Athena 工程（.prj）**，带本软件的处理参数 |
 | 半年后重现结果 | 找工程文件、回忆参数 | 原始数据只读，参数都写在项目文件里，结果随时可从原始数据重新生成 |
@@ -136,6 +137,7 @@ AI 助手的安装和账号按各自官方说明完成。第一次可以先说�
 | **期刊图** | `xafsmith figure --kind chir --samples A B --size double` | `output/figs/journal/` |
 | **汇总报告** | `xafsmith summary` | `output/reports/汇总_<时间>/` |
 | **方法段落** | `xafsmith methods` | `output/reports/方法段落.md` |
+| **SI 拟合方法 + 参数表** | `xafsmith si --lang en` | `output/reports/SI_EXAFS拟合方法.md` |
 | **导出 Athena** | `xafsmith export-prj --samples A B` | `output/gui/athena/` |
 
 ### 第 6 步：检查 AI 的结果
@@ -195,4 +197,4 @@ AI 仍可能出错，**关键结论请在图形界面中核对**，必要时与 
 
 ## 作者与许可
 
-Developed by **Eggy** & **Claude** (Anthropic). [MIT License](LICENSE)：可以自由使用、修改、分发（含商业用途），保留版权与许可声明即可。
+Developed by **Eggy** & **Claude Opus 5.5** (Anthropic). [MIT License](LICENSE)：可以自由使用、修改、分发（含商业用途），保留版权与许可声明即可。

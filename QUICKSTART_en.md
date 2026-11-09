@@ -13,7 +13,7 @@ XAFSmith offers two routes with identical results; switch at any time:
 Do route A once to see what each step does; afterwards, routine analysis can go to route B.
 
 Example used here: **one beamtime with an elemental reference foil, one standard of known structure and a few samples**. Goal: process all spectra → determine S0² on the standard → fit the samples → export figures and a report.
-The sidebar groups the pages into **Start / Processing / Structure & fitting / Results & export / Help**; ⓪–⑭ number the pages. Switch the interface language with **中文 / English** at the bottom of the sidebar.
+The sidebar lists the pages in workflow order (project → processing → structure & fitting → results & export → help); ⓪–⑮ number the pages. Switch the interface language with **中文 / English** at the bottom of the sidebar.
 
 ---
 
@@ -112,6 +112,7 @@ Click **Save parameters**.
 | All results in one table + a report with figures | **⑫ Summary report** → build → download Excel / HTML |
 | Publication figures (single / double column, 600 dpi TIFF, SVG, PDF, English captions) | **⑭ Journal figures** |
 | A draft “Methods” paragraph (Chinese and English) | bottom of **⑫ Summary report** |
+| Fitting text and parameter table for the SI, one-click copy | **⑮ SI methods** |
 | Cross-check in Athena / Artemis | bottom of **④ Normalization** → export `.prj` |
 | Edge position, white line, oxidation state, pre-edge peaks | **⑬ XANES quantification** |
 | XANES or χ(k) linear combination fitting | **⑩ LCF** |
@@ -163,7 +164,7 @@ These messages follow route A steps 2–9; send them one by one or together:
    > With S0² fixed, build a first-shell model for the samples and apply it to A, B and C; then try a second shell and F-test it; give a table of coordination numbers, distances and σ², and label conclusions as measured / fitted / inferred.
 
 5. **Export**
-   > Export |χ(R)| and the final fits as double-column journal figures (TIFF + SVG), build the summary report and the methods paragraph, write an analysis note in notes, and finally tell me where every file is.
+   > Export |χ(R)| and the final fits as double-column journal figures (TIFF + SVG), build the summary report, the methods paragraph and the SI fitting text and table, write an analysis note in notes, and finally tell me where every file is.
 
 The AI runs commands such as `xafsmith qc`, `process`, `feff`, `fit`, `diagnose`, `robust`, `ftest`, `figure`, `summary` and `methods` (see the command table in the [README](README_en.md#step-5-the-commands-the-ai-runs)).
 

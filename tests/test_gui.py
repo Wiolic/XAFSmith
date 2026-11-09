@@ -127,6 +127,15 @@ def main():
         s = fits[-1]["summ"]
         print(f"   拟合: R={s['rfactor']:.4f} nvarys={s['nvarys']} params=",
               {k: round(v['value'], 4) for k, v in s['params'].items()})
+    # ⑮ SI 方法（用项目中已保存的拟合，不新增文件）
+    at.sidebar.radio(key="nav_page").set_value("⑮ SI 方法").run()
+    ok &= check(at, "⑮ SI 方法")
+    from xafsmith import si_text as _si
+    _r = _si.build([k for k in _si.fit_keys() if k.startswith("IrO2|")][-1:])
+    good = "IrO2" in _r["en"] and "FEFF" in _r["en"] and len(_r["table"]) >= 1 and "Table S" in _r["en"]
+    print(f"   [{'ok' if good else 'FAIL'}] SI 方法文本：{len(_r['en'])} 字符，表 {len(_r['table'])} 行")
+    ok &= good
+    at.sidebar.radio(key="nav_page").set_value("⑧ EXAFS 拟合 (Artemis)").run()
     # ⑧ 运行已保存的模型
     n0 = len(at.session_state["fits"])
     at.selectbox(key="saved_model").set_value("IrO2_1shell_ArtemisCompare.json").run()

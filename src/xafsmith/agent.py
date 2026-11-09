@@ -72,7 +72,7 @@ This folder is an **XAFSmith project** for synchrotron XAFS (XANES + EXAFS) anal
 | 显著性 Significance | `xafsmith ftest <小模型> <大模型>`（p < 0.05） | |
 | 稳健性 Robustness | `xafsmith robust <名>` | `output/fits/*_robustness*.csv` |
 | LCF / XANES | `xafsmith lcf --sample S --standards A B`；`xafsmith xanes --samples …` | `output/lcf/`、`output/xanes/` |
-| **导出 Export** | `xafsmith figure …`（期刊图 journal figures）；`xafsmith summary`（Excel + HTML）；`xafsmith methods`（方法段落 methods text）；`xafsmith export-prj --samples …`（Athena） | `output/figs/journal/`、`output/reports/` |
+| **导出 Export** | `xafsmith figure …`（期刊图 journal figures）；`xafsmith summary`（Excel + HTML）；`xafsmith methods`（方法段落 methods text）；`xafsmith si`（SI 拟合方法文本 + 参数表 SI fitting text + table）；`xafsmith export-prj --samples …`（Athena） | `output/figs/journal/`、`output/reports/` |
 
 ### 规则 / Rules
 1. 原始数据只读；结果写入 `output/`；模型放 `models/`；每次分析写 `notes/YYYY-MM-DD_主题.md`。 Raw data are read-only; results go to `output/`, models to `models/`, notes to `notes/`.

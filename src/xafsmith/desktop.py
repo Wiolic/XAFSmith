@@ -18,7 +18,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 TITLE = "XAFSmith — XAFS analysis"
-CREDIT = "Developed by Eggy & Claude"
+CREDIT = "Developed by Eggy & Claude Opus 5.5"
 
 SPLASH = f"""<!doctype html><html><head><meta charset="utf-8"><style>
 body{{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;

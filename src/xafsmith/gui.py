@@ -1199,16 +1199,12 @@ def open_folder(p):
 
 def disclaimer_box():
     from xafsmith import about
-    with st.container(border=True):
-        if i18n.LANG == "en":
-            st.markdown(f"⚠️ **{about.DISCLAIMER_EN}**")
-            st.markdown(f"📖 {about.CITE_EN}")
-        else:
-            st.markdown(f"⚠️ **{about.DISCLAIMER_CN}**  \n<small>{about.DISCLAIMER_EN}</small>",
-                        unsafe_allow_html=True)
-            st.markdown(f"📖 {about.CITE_CN}  \n<small>{about.CITE_EN}</small>", unsafe_allow_html=True)
-        with st.expander("引用格式 / How to cite"):
-            st.code(about.CITATION_TEXT + "\n\n" + "\n".join(about.UPSTREAM), language=None)
+    en = i18n.LANG == "en"
+    with st.expander("⚠️ " + ("No warranty — please cross-check key results with Athena / Artemis · How to cite" if en
+                              else "不对结果负责，请将关键结果与 Athena / Artemis 对照 · 引用方式")):
+        st.markdown(about.DISCLAIMER_EN if en else about.DISCLAIMER_CN)
+        st.markdown(about.CITE_EN if en else about.CITE_CN)
+        st.code(about.CITATION_TEXT + "\n\n" + "\n".join(about.UPSTREAM), language=None)
 
 
 def page_project():
@@ -1386,6 +1382,11 @@ def page_project():
             open_folder(paths.OUT)
         if c2.button("打开项目文件夹"):
             open_folder(paths.ROOT)
+        if st.button("保存会话参数"):
+            write_params(paths.GUI / "gui_session.params.json",
+                         dict(norm=S.norm_par, bkg=S.bkg_par, ft=S.ft_par, calib=S.calib,
+                              groups=list(S.groups)), "gui")
+            st.success("已保存 output/gui/gui_session.params.json")
     with t[6]:
         agent_section()
 
@@ -1657,6 +1658,56 @@ def page_xanes():
                 st.success(f"已保存 {paths.rel(fn)}")
 
 
+def copy_button(text, key, label="复制"):
+    """一键复制到剪贴板（桌面窗口与浏览器都可用）"""
+    import streamlit.components.v1 as components
+    payload = json.dumps(text)
+    lab = i18n.tr(label)
+    done = "已复制" if i18n.LANG != "en" else "Copied"
+    components.html(f"""<button id="b" style="font:600 13px system-ui,-apple-system,'Segoe UI',sans-serif;
+      background:{ACCENT};color:#fff;border:0;border-radius:8px;padding:7px 16px;cursor:pointer">{lab}</button>
+      <script>const t={payload};const b=document.getElementById('b');
+      b.onclick=async()=>{{try{{await navigator.clipboard.writeText(t)}}catch(e){{const a=document.createElement('textarea');
+      a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove()}}
+      b.textContent='{done} ✓';setTimeout(()=>b.textContent='{lab}',1500)}};</script>""", height=42)
+
+
+def page_si():
+    st.header("⑮ SI 方法")
+    from xafsmith import si_text as si
+    keys = si.fit_keys()
+    if not keys:
+        st.info("还没有保存的拟合：在 ⑧ 中拟合后点“保存结果”。")
+        return
+    c1, c2 = st.columns([5, 1])
+    sel = c1.multiselect("拟合", keys, default=keys[-1:], key="si_sel",
+                         format_func=lambda x: x.replace("|", " — "), label_visibility="collapsed",
+                         placeholder="选择要写进 SI 的拟合")
+    with c2.container(key="pillbox"):
+        lang = st.radio("lang", ["English", "中文"], horizontal=True, key="si_lang", label_visibility="collapsed")
+    if not sel:
+        return
+    r = si.build(sel)
+    text = r["en"] if lang == "English" else r["zh"]
+    tab = r["table"]
+    t1, t2 = st.tabs(["方法", "表 S[n]"])
+    with t1:
+        copy_button(text, "si_txt")
+        import html as _html
+        with st.container(border=True):
+            st.markdown('<div class="xs-si">' + "".join(f"<p>{_html.escape(x)}</p>" for x in text.split("\n\n"))
+                        + "</div>", unsafe_allow_html=True)
+    with t2:
+        tsv = si.table_tsv(tab)
+        copy_button(tsv, "si_tab", "复制（粘贴到 Excel / Word）")
+        st.dataframe(tab.drop(columns=["Model"]), hide_index=True, width="stretch")
+        c1, c2 = st.columns(2)
+        md = ("# EXAFS fitting\n\n" + r["en"] + "\n\n" + si.table_markdown(tab) + "\n\n# EXAFS 拟合\n\n" + r["zh"] + "\n")
+        c1.download_button("下载 .md", md.encode("utf-8"), file_name="SI_EXAFS_fitting.md", key="si_md")
+        c2.download_button("下载 .csv", tab.to_csv(index=False).encode("utf-8-sig"),
+                           file_name="SI_EXAFS_fit_table.csv", key="si_csv")
+
+
 def page_pubfig():
     st.header("⑭ 期刊出图")
     from xafsmith import pubfig as pf
@@ -1802,83 +1853,92 @@ PAGES = {"⓪ 项目": page_project, "① 数据导入": page_import, "② 质�
          "④ 归一化 (Athena)": page_norm, "⑤ χ(k) 与 FT": page_chi, "⑥ 小波变换": page_wavelet,
          "⑦ FEFF 路径": page_feff, "⑧ EXAFS 拟合 (Artemis)": page_fit, "⑨ 拟合历史/F检验": page_history,
          "⑩ LCF": page_lcf, "⑪ 样品设计": page_planner, "⑫ 汇总报告": page_summary,
-         "⑬ XANES 定量": page_xanes, "⑭ 期刊出图": page_pubfig, "❓ 使用指南": None}
+         "⑬ XANES 定量": page_xanes, "⑭ 期刊出图": page_pubfig, "⑮ SI 方法": page_si,
+         "❓ 使用指南": None}
 
-# 侧栏导航分组：(第一个页面, 组名)
-NAV_GROUPS = [("⓪ 项目", "开始"), ("① 数据导入", "数据处理"), ("⑦ FEFF 路径", "结构与拟合"),
-              ("⑪ 样品设计", "结果与导出"), ("❓ 使用指南", "帮助")]
+# 侧栏导航分组（只用间距分组，不加组名）：每组第一个页面
+NAV_GROUP_STARTS = ["① 数据导入", "⑦ FEFF 路径", "⑪ 样品设计", "❓ 使用指南"]
+ACCENT = "#2563eb"
 
 
-def sidebar_css():
-    """侧栏样式：分组标题、行距、悬停与选中高亮（浅色 / 深色主题都可读）"""
+def app_css():
+    """全局与侧栏样式（浅色 / 深色主题都可读）"""
     names = list(PAGES)
-    heads = {names.index(p) + 1: i18n.tr(t) for p, t in NAV_GROUPS if p in names}
-    rules = "\n".join(
-        f'.st-key-navbox [role="radiogroup"] > div:nth-child({i}) {{margin-top:{20 if i == 1 else 24}px;}}\n'
-        f'.st-key-navbox [role="radiogroup"] > div:nth-child({i})::before {{content:"{t}";}}'
-        for i, t in heads.items())
+    gaps = "\n".join(f'.st-key-navbox [role="radiogroup"] > div:nth-child({names.index(p) + 1}) {{margin-top:14px;}}'
+                     for p in NAV_GROUP_STARTS if p in names)
     st.markdown(f"""<style>
 [data-testid="stSidebarHeader"] {{height:2.2rem; min-height:0; padding:0.4rem 0.8rem 0 0.8rem;}}
-section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {{padding-top: 0;}}
-.st-key-navbox, .st-key-navbox [data-testid="stElementContainer"], .st-key-navbox .stRadio, .st-key-navbox [role="radiogroup"] {{width:100% !important;}}
-.xs-brand {{display:flex; align-items:center; gap:12px; padding:0 4px 14px 4px;
-  border-bottom:1px solid rgba(128,128,128,.18); margin-bottom:6px;}}
-.xs-brand img {{width:44px; height:44px; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.12);}}
-.xs-brand .t {{font-size:1.28rem; font-weight:700; letter-spacing:.01em; line-height:1.1;}}
-.xs-brand .s {{font-size:.72rem; opacity:.62; margin-top:3px; line-height:1.35; white-space:nowrap;}}
-.st-key-navbox [role="radiogroup"] {{gap:2px !important;}}
-.st-key-navbox [role="radiogroup"] > div {{position:relative; width:100%; margin:0; padding:7px 12px 7px 14px;
-  border-radius:9px; cursor:pointer; transition:background .15s ease;}}
-.st-key-navbox [data-testid="stRadioOption"] > div > div:first-child {{display:none;}}
+section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {{padding-top:0; padding-bottom:1rem;}}
+section[data-testid="stSidebar"] hr {{margin:0.9rem 0;}}
+.block-container {{padding-top:2.2rem; max-width:1320px;}}
+h1, h2 {{letter-spacing:-0.01em;}}
+[data-testid="stExpander"] details {{border-radius:10px;}}
+.stTabs [data-baseweb="tab-list"] {{gap:4px;}}
+.stTabs [data-baseweb="tab"] {{padding:6px 12px; border-radius:8px 8px 0 0;}}
+/* 品牌 */
+.xs-brand {{display:flex; align-items:center; gap:12px; padding:0 2px 16px 2px;
+  border-bottom:1px solid rgba(128,128,128,.18); margin-bottom:4px;}}
+.xs-brand img {{width:42px; height:42px; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.12); flex:none;}}
+.xs-brand .t {{font-size:1.25rem; font-weight:700; line-height:1.1; letter-spacing:.01em;}}
+.xs-brand .c {{font-size:.74rem; margin-top:5px; line-height:1.3; opacity:.72;}}
+.xs-brand .c b {{font-weight:600; opacity:1; color:{ACCENT}; white-space:nowrap;}}
+/* 导航 */
+.st-key-navbox, .st-key-navbox [data-testid="stElementContainer"], .st-key-navbox .stRadio,
+.st-key-navbox [role="radiogroup"] {{width:100% !important;}}
+.st-key-navbox [role="radiogroup"] {{gap:1px !important;}}
+.st-key-navbox [role="radiogroup"] > div {{position:relative; width:100%; margin:0; padding:6px 12px 6px 14px;
+  border-radius:8px; cursor:pointer; transition:background .15s ease;}}
 .st-key-navbox [data-testid="stRadioOption"] {{width:100%; margin:0; padding:0; cursor:pointer;}}
-.st-key-navbox [role="radiogroup"] p {{font-size:0.92rem; line-height:1.35; letter-spacing:.01em;}}
+.st-key-navbox [data-testid="stRadioOption"] > div > div:first-child {{display:none;}}
+.st-key-navbox [role="radiogroup"] p {{font-size:.92rem; line-height:1.4;}}
 .st-key-navbox [role="radiogroup"] > div:hover {{background:rgba(37,99,235,.07);}}
-.st-key-navbox [role="radiogroup"] > div[data-selected="true"] {{background:rgba(37,99,235,.13);}}
-.st-key-navbox [role="radiogroup"] > div[data-selected="true"]::after {{content:""; position:absolute; left:3px; top:8px;
-  bottom:8px; width:3px; border-radius:3px; background:#2563eb;}}
-.st-key-navbox [role="radiogroup"] > div[data-selected="true"] p {{font-weight:600; color:#2563eb;}}
-.st-key-navbox [role="radiogroup"] > div::before {{position:absolute; left:14px; top:-19px; font-size:.68rem;
-  font-weight:600; letter-spacing:.09em; text-transform:uppercase; opacity:.5; pointer-events:none;}}
-{rules}
-.st-key-langbox [role="radiogroup"] {{gap:4px !important;}}
-.st-key-langbox [role="radiogroup"] > div {{padding:2px 10px; border-radius:999px; border:1px solid rgba(128,128,128,.28);
-  margin:0;}}
-.st-key-langbox [data-testid="stRadioOption"] > div > div:first-child {{display:none;}}
-.st-key-langbox [role="radiogroup"] p {{font-size:.78rem;}}
-.st-key-langbox [role="radiogroup"] > div[data-selected="true"] {{background:#2563eb; border-color:#2563eb;}}
-.st-key-langbox [role="radiogroup"] > div[data-selected="true"] p {{color:#fff;}}
-.xs-status {{display:flex; gap:6px; flex-wrap:wrap; margin:4px 0 2px 0;}}
-.xs-chip {{font-size:.72rem; padding:2px 9px; border-radius:999px; background:rgba(128,128,128,.12);}}
-.xs-foot {{font-size:.7rem; opacity:.6; line-height:1.45;}}
+.st-key-navbox [role="radiogroup"] > div[data-selected="true"] {{background:rgba(37,99,235,.12);}}
+.st-key-navbox [role="radiogroup"] > div[data-selected="true"]::after {{content:""; position:absolute; left:3px;
+  top:7px; bottom:7px; width:3px; border-radius:3px; background:{ACCENT};}}
+.st-key-navbox [role="radiogroup"] > div[data-selected="true"] p {{font-weight:600; color:{ACCENT};}}
+{gaps}
+/* 底部：项目 + 语言 */
+.st-key-footbox {{gap:.5rem;}}
+.xs-proj {{display:flex; align-items:center; gap:8px; font-size:.8rem; opacity:.8; overflow:hidden;
+  white-space:nowrap; text-overflow:ellipsis;}}
+.st-key-langbox [role="radiogroup"], .st-key-pillbox [role="radiogroup"] {{gap:4px !important;}}
+.st-key-langbox [role="radiogroup"] > div, .st-key-pillbox [role="radiogroup"] > div {{padding:1px 10px; border-radius:999px; border:1px solid rgba(128,128,128,.3); margin:0;}}
+.st-key-langbox [data-testid="stRadioOption"] > div > div:first-child, .st-key-pillbox [data-testid="stRadioOption"] > div > div:first-child {{display:none;}}
+.st-key-langbox [role="radiogroup"] p {{font-size:.76rem;}}
+.st-key-langbox [role="radiogroup"] > div[data-selected="true"], .st-key-pillbox [role="radiogroup"] > div[data-selected="true"] {{background:{ACCENT}; border-color:{ACCENT};}}
+.st-key-langbox [role="radiogroup"] > div[data-selected="true"] p, .st-key-pillbox [role="radiogroup"] > div[data-selected="true"] p {{color:#fff;}}
+.st-key-pillbox {{padding-top:6px;}}
+.xs-si {{font-size:.95rem; line-height:1.7;}}
+.xs-si p {{margin:0 0 .9em 0;}}
 </style>""", unsafe_allow_html=True)
 
 
 def brand_header():
     import base64
-    from xafsmith import __version__
     png = base64.b64encode((Path(__file__).resolve().parent / "assets" / "xafsmith.png").read_bytes()).decode()
-    st.markdown(f'<div class="xs-brand"><img src="data:image/png;base64,{png}"/>'
-                f'<div><div class="t">XAFSmith</div>'
-                f'<div class="s">{i18n.tr("同步辐射 XAFS 分析")}<br/>{i18n.tr("可连接 AI 助手")} · v{__version__}</div></div></div>',
+    st.markdown(f'<div class="xs-brand"><img src="data:image/png;base64,{png}"/><div>'
+                f'<div class="t">XAFSmith</div>'
+                f'<div class="c">Developed by<br/><b>Eggy</b> &amp; <b>Claude Opus 5.5</b></div></div></div>',
                 unsafe_allow_html=True)
 
 
 with st.sidebar:
     _top = st.container()                    # 品牌与导航（显示在上方）
-    _bottom = st.container()                 # 状态、语言、署名（显示在下方；语言要最先处理）
+    _bottom = st.container()                 # 项目、语言（显示在下方；语言要最先处理）
     with _bottom:
         st.divider()
-        _status = st.container()
-        _lang_box = st.container(key="langbox")
-    with _lang_box:
-        _lang = st.radio("Language / 语言", ["中文", "English"], index=1 if i18n.LANG == "en" else 0,
-                         horizontal=True, key="ui_lang", label_visibility="collapsed")
+        _foot = st.container(key="footbox")
+    with _foot:
+        _proj_slot = st.empty()
+        with st.container(key="langbox"):
+            _lang = st.radio("Language / 语言", ["中文", "English"], index=1 if i18n.LANG == "en" else 0,
+                             horizontal=True, key="ui_lang", label_visibility="collapsed")
     if ("en" if _lang == "English" else "zh") != i18n.LANG:
         _xup.save_settings(lang="en" if _lang == "English" else "zh")
         i18n.LANG = "en" if _lang == "English" else "zh"
         st.rerun()
 with st.sidebar, _top:
-    sidebar_css()
+    app_css()
     brand_header()
     if paths.is_project(paths.ROOT):
         with st.container(key="navbox"):
@@ -1886,28 +1946,17 @@ with st.sidebar, _top:
     else:
         page = "⓪ 项目"
         st.info("先打开或新建项目")
-with st.sidebar, _status:
-    st.markdown(f'<div class="xs-status"><span class="xs-chip">📁 {paths.ROOT.name}</span>'
-                f'<span class="xs-chip">{i18n.tr("谱数")} {len(S.groups)}</span>'
-                f'<span class="xs-chip">{i18n.tr("拟合数")} {len(S.fits)}</span></div>', unsafe_allow_html=True)
-    if st.button("保存会话参数", width="stretch"):
-        write_params(paths.GUI / "gui_session.params.json",
-                     dict(norm=S.norm_par, bkg=S.bkg_par, ft=S.ft_par, calib=S.calib,
-                          groups=list(S.groups)), "gui")
-        st.success("已保存 output/gui/gui_session.params.json")
-    update_notice()
 with st.sidebar, _bottom:
-    st.markdown('<div class="xs-foot">Developed by <b>Eggy</b> &amp; <b>Claude</b> (Anthropic)<br/>'
-                'Powered by xraylarch · FEFF6L/8L · xraydb<br/>'
-                + i18n.tr("⚠️ 不对结果负责，请与 Athena / Artemis 对照；论文中使用请引用本仓库（见 ⓪ 项目）")
-                + "</div>", unsafe_allow_html=True)
+    _proj_slot.markdown(f'<div class="xs-proj" title="{paths.ROOT}">📁 {paths.ROOT.name}</div>',
+                        unsafe_allow_html=True)
+    update_notice()
 
 if page == "❓ 使用指南":
     from xafsmith import __version__
     with st.container(border=True):
         st.markdown(f"#### About XAFSmith\n"
                     f"Version {__version__} · Agent-ready synchrotron XAFS (XANES/EXAFS) analysis software.  \n"
-                    "**Developed by Eggy & Claude** (Anthropic).  \n"
+                    "**Developed by Eggy & Claude Opus 5.5** (Anthropic).  \n"
                     "Built on [xraylarch](https://xraypy.github.io/xraylarch/) (FEFF6L, FEFF8L, feffit), xraydb, lmfit, "
                     "pymatgen and Streamlit.  \n"
                     "Source: https://github.com/Wiolic/XAFSmith")

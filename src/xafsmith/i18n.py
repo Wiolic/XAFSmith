@@ -161,6 +161,12 @@ EN = {
     "拟合数": "Fits",
     "⚠️ 不对结果负责，请与 Athena / Artemis 对照；论文中使用请引用本仓库（见 ⓪ 项目）":
         "⚠️ No warranty — cross-check with Athena / Artemis; please cite the repository in publications (see ⓪ Project)",
+    # ---- ⑮ SI 方法
+    "⑮ SI 方法": "⑮ SI methods", "还没有保存的拟合：在 ⑧ 中拟合后点“保存结果”。":
+        "No saved fits yet: fit on ⑧ and click “Save result”.",
+    "选择要写进 SI 的拟合": "Choose the fits to describe in the SI", "方法": "Methods", "表 S[n]": "Table S[n]",
+    "复制": "Copy", "复制（粘贴到 Excel / Word）": "Copy (paste into Excel / Word)",
+    "下载 .md": "Download .md", "下载 .csv": "Download .csv",
     # ---- ⓪ 项目 → AI 助手 / agent
     "🤖 7 AI 助手": "🤖 7 AI assistant",
     "XAFSmith 项目是标准化的文件夹，AI 助手可以直接读懂并替你处理、拟合、导出。它做的每一步都写进项目文件，你可以随时在本界面中打开、检查、修改。":
