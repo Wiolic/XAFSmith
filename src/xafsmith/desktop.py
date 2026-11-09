@@ -26,10 +26,19 @@ font-family:'Segoe UI','Microsoft YaHei',sans-serif;background:#f7f8fa;color:#33
 .b{{text-align:center}}h1{{font-weight:600;margin:0 0 8px}}p{{color:#777;margin:4px}}
 .s{{width:36px;height:36px;border:4px solid #ddd;border-top-color:#ff4b4b;border-radius:50%;
 margin:24px auto;animation:r 1s linear infinite}}@keyframes r{{to{{transform:rotate(360deg)}}}}
-</style></head><body><div class="b"><h1>XAFSmith</h1><p>正在启动，请稍候… / Starting…</p>
+</style></head><body><div class="b"><img src="data:image/png;base64,{{ICON}}" width="96" style="border-radius:18px"><h1>XAFSmith</h1><p>正在启动，请稍候… / Starting…</p>
 <div class="s"></div><p style="font-size:12px">{CREDIT}</p>
 <p style="font-size:11px;max-width:560px">No warranty — please cross-check key results with Athena / Artemis.
 If you use XAFSmith in a publication, please cite https://github.com/Wiolic/XAFSmith</p></div></body></html>"""
+
+
+def _splash():
+    import base64
+    try:
+        ico = base64.b64encode((HERE / "assets" / "xafsmith.png").read_bytes()).decode()
+    except Exception:
+        ico = ""
+    return SPLASH.replace("{ICON}", ico)
 
 
 def _free_port():
@@ -83,7 +92,7 @@ def run(project=None):
         pass
     port = _free_port()
     proc = start_server(port, project)
-    win = webview.create_window(TITLE, html=SPLASH, width=1400, height=900, min_size=(1000, 650))
+    win = webview.create_window(TITLE, html=_splash(), width=1400, height=900, min_size=(1000, 650))
 
     def load():
         if wait_ready(port, proc):

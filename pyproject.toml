@@ -37,4 +37,4 @@ xafsmith = "xafsmith.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-xafsmith = ["templates/*", "docs/*.md"]
+xafsmith = ["templates/*", "docs/*.md", "assets/*"]

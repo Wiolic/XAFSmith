@@ -5,6 +5,7 @@
 """
 import os
 import queue
+import shutil
 import subprocess
 import sys
 import threading
@@ -37,31 +38,16 @@ def make_shortcut(lnk, target, args="", workdir="", icon="", desc=""):
                    check=True, creationflags=NO_WINDOW)
 
 
-ICON_CODE = r'''
-import math, sys
-from PIL import Image, ImageDraw, ImageFont
-img = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
-d = ImageDraw.Draw(img)
-d.rounded_rectangle((8, 8, 248, 248), radius=48, fill=(32, 64, 120, 255))
-pts = []
-for i in range(196):
-    e = (i - 70) / 6.0
-    y = 1 / (1 + math.exp(-e)) + 0.9 * math.exp(-((i - 78) / 8.0) ** 2) + 0.07 * math.sin(i / 6.0) * (i > 100)
-    pts.append((30 + i, 175 - 85 * y))
-d.line(pts, fill=(255, 196, 64, 255), width=10, joint="curve")
-try:
-    f = ImageFont.truetype("arialbd.ttf", 58)
-except Exception:
-    f = ImageFont.load_default()
-d.text((128, 214), "XAFS", font=f, fill=(255, 255, 255, 255), anchor="mm")
-img.save(sys.argv[1], sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
-'''
 
 
 class Installer(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"{APPNAME} 安装向导")
+        try:
+            self.iconbitmap(str(SRC / "src" / "xafsmith" / "assets" / "xafsmith.ico"))
+        except Exception:
+            pass
         self.geometry("720x780")
         self.minsize(600, 480)
         self.q = queue.Queue()
@@ -176,12 +162,9 @@ class Installer(tk.Tk):
             self.q.put(("step", (4, "4/6 生成图标与启动 / 卸载脚本")))
             icon = target / "xafsmith.ico"
             try:
-                code = target / "_make_icon.py"
-                code.write_text(ICON_CODE, encoding="utf-8")
-                self.run([str(py), str(code), str(icon)])
-                code.unlink()
+                shutil.copy(SRC / "src" / "xafsmith" / "assets" / "xafsmith.ico", icon)
             except Exception as ex:
-                self.write(f"（图标生成失败，使用默认图标：{ex}）")
+                self.write(f"（图标复制失败，使用默认图标：{ex}）")
                 icon = ""
             launcher = target / "启动XAFSmith.bat"
             launcher.write_bytes(("@echo off\r\nstart \"\" \"%~dp0venv\\Scripts\\pythonw.exe\" -m xafsmith gui\r\n")

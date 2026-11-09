@@ -27,7 +27,7 @@
 3. 双击 **`安装XAFSmith.bat`** → 安装向导中选择安装位置、是否创建桌面/开始菜单快捷方式 → 安装（5–15 分钟）。
 4. 双击桌面图标 → 软件在独立窗口中打开 → 左侧 **⓪ 项目** 新建项目 → 上传数据 → 一键处理 → FEFF → 拟合 → **⑫ 汇总报告**（Excel + HTML）。
 
-逐步图文说明：**[图形界面使用指南](src/xafsmith/docs/图形界面使用指南.md)**（软件里左侧“❓ 使用指南”也能看到）。
+逐步图文说明：**[图形界面使用指南](src/xafsmith/docs/图形界面使用指南.md)**；第一次做拟合请看 **[零基础拟合教程](src/xafsmith/docs/零基础拟合教程.md)**（每一步的原理与判断标准）。两者在软件左侧“❓ 使用指南”中都能看到。
 
 ## 命令行安装（开发者 / 批处理）
 
@@ -92,7 +92,7 @@ XAFSmith/
 │   ├── io.py qc.py calib.py normalize.py autobk.py ft.py wavelet.py
 │   ├── structures.py feff_wrap.py fit_exafs.py fit_lcf.py mut_planner.py report.py common.py
 │   ├── templates/     新项目模板
-│   └── docs/          图形界面使用指南.md  数据标准.md  手册.md  XAFS处理规范.md
+│   └── docs/          图形界面使用指南.md  零基础拟合教程.md  数据标准.md  手册.md  XAFS处理规范.md
 └── tests/test_gui.py  图形界面逐页测试（需要一个有数据的项目）
 ```
 

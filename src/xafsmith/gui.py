@@ -1,7 +1,7 @@
 """XAFS 图形界面（Streamlit）：类似 Athena（数据处理）+ Artemis（FEFF 路径拟合）。
 
-启动：xafsmith gui [--project <项目目录>]（或双击项目中的“打开图形界面.bat”）
-浏览器打开 http://localhost:8501
+启动：xafsmith gui [--project <项目目录>]（或双击桌面图标 / 项目中的“打开图形界面.bat”），
+由 desktop.py 在独立桌面窗口中显示（不使用浏览器）。
 
 所有处理都在原始数据的副本上进行；原始文件只读。
 """
@@ -39,7 +39,8 @@ from xafsmith import pipeline as pl                                 # noqa: E402
 if paths.is_project(paths.ROOT):
     paths.ensure()
 
-st.set_page_config(page_title="XAFSmith", layout="wide", page_icon="📈")
+st.set_page_config(page_title="XAFSmith", layout="wide",
+                   page_icon=str(Path(__file__).resolve().parent / "assets" / "xafsmith.png"))
 S = st.session_state
 S.setdefault("groups", {})      # label -> Group
 if "calib" not in S:            # 参比文件 -> 校准记录（output/calib/calib.json，按参比文件索引）
@@ -1261,6 +1262,7 @@ PAGES = {"⓪ 项目": page_project, "① 数据导入": page_import, "② 质�
          "⑫ 汇总报告": page_summary, "❓ 使用指南": None}
 
 with st.sidebar:
+    st.image(str(Path(__file__).resolve().parent / "assets" / "xafsmith.png"), width=72)
     st.title("XAFSmith")
     if paths.is_project(paths.ROOT):
         page = st.radio("功能", list(PAGES), label_visibility="collapsed")
@@ -1295,6 +1297,11 @@ if page == "❓ 使用指南":
                     "pymatgen and Streamlit.  \n"
                     "Source: https://github.com/Wiolic/XAFSmith")
     disclaimer_box()
-    st.markdown((Path(__file__).resolve().parent / "docs" / "图形界面使用指南.md").read_text(encoding="utf-8"))
+    ddir = Path(__file__).resolve().parent / "docs"
+    tg, tt = st.tabs(["图形界面使用指南（点哪里）", "零基础拟合教程（原理 + 每一步）"])
+    with tg:
+        st.markdown((ddir / "图形界面使用指南.md").read_text(encoding="utf-8"))
+    with tt:
+        st.markdown((ddir / "零基础拟合教程.md").read_text(encoding="utf-8"))
 else:
     PAGES[page]()
