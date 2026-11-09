@@ -154,6 +154,46 @@ EN = {
     "   空间群: ": "   space group: ", "吸收原子": "Absorber", "吸收边": "Edge", "不等价位点 (index, 多重度)": "Inequivalent site (index, multiplicity)",
     "输出目录": "Output folder", "运行 FEFF6L": "Run FEFF6L", "FEFF 运行中…": "Running FEFF…", "完成：": "Done: ",
     " 条路径 → ": " paths → ", "已有 FEFF 计算": "Existing FEFF calculations", "目录": "Folder",
+    "拟合质量提升教程（对不严时怎么办）": "Improving fit quality (when the fit does not match)",
+    # ---- 拟合诊断
+    "拟合诊断：残差在哪里、为什么对不上": "Fit diagnosis: where the residual is and why",
+    "窗口内残差 RMS": "In-window residual RMS", "白噪声估计 (R 15–25 Å)": "White-noise estimate (R 15–25 Å)",
+    "残差 / 噪声": "Residual / noise", "残差": "Residual",
+    "k 分段残差（相对中位数 > 1.5 为偏大）": "Residual by k segment (relative to median > 1.5 = large)",
+    "R 分段局部失配 = Σ|数据−拟合|² / Σ|数据|²（未相移校正）": "Local misfit by R segment = Σ|data−fit|² / Σ|data|² (not phase-corrected)",
+    "说明：残差/噪声 ≈ 1–2 时已到数据极限；≫ 2 说明残差是系统性的。系统偏差不一定能、也不一定应该用加参数消除——每加一条路径都要通过 F 检验与稳健性检查。":
+        "Note: residual/noise ≈ 1–2 means the data limit is reached; ≫ 2 means the residual is systematic. Systematic misfit cannot always, and should not always, be removed by adding parameters — every added path must pass the F-test and the robustness check.",
+    "k段": "k segment", "残差RMS": "residual RMS", "相对中位数": "relative to median", "R段": "R segment",
+    "局部失配": "local misfit", "数据强度": "data intensity", "（窗口外）": " (outside window)",
+    "窗口内残差约为噪声的 ": "In-window residual is about ", " 倍：已接近噪声水平，继续加路径/参数只会过拟合。":
+        "× the noise: close to the noise level; more paths/parameters would only overfit.",
+    "窗口内残差约为白噪声估计的 ": "In-window residual is about ",
+    " 倍：残差主要是系统性的（模型、理论或数据处理），不是随机噪声。按下面各条逐一排查。":
+        "× the white-noise estimate: the residual is mainly systematic (model, theory or processing), not random noise. Check the items below one by one.",
+    "低 k 段（": "Low-k segment (", " Å⁻¹）残差是中位数的 ": " Å⁻¹) residual is ",
+    " 倍：低 k 受背景扣除与近边效应影响最大。试：kmin 提高 0.5（看稳健性检查）、调 rbkg、或换 FEFF8L 自洽势。":
+        "× the median: low k is most affected by background removal and near-edge effects. Try: kmin +0.5 (see robustness check), adjust rbkg, or use the FEFF8L self-consistent potential.",
+    "高 k 段残差偏大：多为噪声。考虑降低 kmax（看 ② 质量检查的 k_snr3）或多次扫描合并。":
+        "Large high-k residual: mostly noise. Consider lowering kmax (see k_snr3 in ② Quality check) or merging more scans.",
+    " 处残差尖峰（": " residual spike (", "× 局部噪声）": "× local noise)",
+    "，约对应 E = ": ", about E = ",
+    " eV：到 ② 质量检查 → 去毛刺，与平滑趋势比较其前后各点，区间要包含所有偏离点。":
+        " eV: go to ② Quality check → Deglitch, compare the neighbouring points with the smooth trend, and include every deviating point in the range.",
+    "：检查是否为毛刺。": ": check whether it is a glitch.",
+    " Å 局部失配 ": " Å local misfit ",
+    "：该处可能缺路径或无序分布不是高斯型。加路径前先在已知结构的标样上验证，加入后用 F 检验（⑨ 页），p < 0.05 才保留。":
+        ": a path may be missing there or the disorder is not Gaussian. Validate any new path on a known standard first, then F-test it (page ⑨); keep it only if p < 0.05.",
+    "窗口外失配大是正常的（那里不参与拟合）；若想拟合更远的壳层，扩大 Rmax 并加入相应路径，N_idp 也随之增加。":
+        "Large misfit outside the window is normal (it is not fitted); to fit farther shells, increase Rmax and add the corresponding paths (N_idp increases too).",
+    "FEFF 版本": "FEFF version", "运行 FEFF8L": "Run FEFF8L", "SCF 自洽半径 (Å)": "SCF radius (Å)",
+    "交换势 EXCHANGE": "Exchange potential (EXCHANGE)", "Hedin-Lundqvist（默认）": "Hedin-Lundqvist (default)",
+    "部分非局域": "partially non-local", "FEFF6L（非自洽势）": "FEFF6L (non-self-consistent potential)",
+    "FEFF 运行中…（FEFF8L 自洽计算约 1–3 分钟）": "Running FEFF… (FEFF8L self-consistency takes about 1–3 min)",
+    "FEFF8L 自洽势：SCF 半径 ": "FEFF8L self-consistent potential: SCF radius ", " Å，交换势 ": " Å, exchange ",
+    "，费米能 ": ", Fermi level ",
+    "一般取包含 2–3 个壳层（约 30–60 个原子）；越大越慢": "Usually 2–3 shells (about 30–60 atoms); larger is slower",
+    "FEFF6L：非自洽势，几秒。FEFF8L：自洽势（SCF），约 1–3 分钟，ΔE0 通常更接近 0。两者路径编号一般相同，但 ΔE0 零点不同：换版本后固定 e0 的模型要重新确定 e0。":
+        "FEFF6L: non-self-consistent potential, seconds. FEFF8L: self-consistent potential (SCF), about 1–3 min, ΔE0 usually closer to 0. Path numbering is normally the same, but the ΔE0 zero differs: after switching, re-determine e0 in models that fix it.",
     # ---- ⑧ 拟合
     "运行已保存的模型（models/ 中 ": "Run a saved model (", " 个）": " in models/)", "运行": "Run", "拟合中…": "Fitting…",
     "完成，结果见下方与“⑨ 拟合历史”": "Done; see below and “⑨ Fit history”",
@@ -297,6 +337,33 @@ EN = {
         "edge step < 0.2: target element too dilute — reduce diluent/matrix or use fluorescence",
     "边跳 Δμt=": "edge step Δμt = ", "条件": "condition", "R因子": "R-factor", "定义": "definition", "斜率": "slope",
     "截距": "intercept",
+    # ---- 去毛刺 / 批量运行模型
+    "去毛刺（删除单色器毛刺等假象点）": "Deglitch (remove monochromator glitches and other artefacts)",
+    "判断标准：毛刺只占 1–3 个点、宽度远小于 EXAFS 振荡（k≈5 Å⁻¹ 时一个振荡约 30 eV），":
+        "A glitch spans 1–3 points and is much narrower than an EXAFS oscillation (~30 eV at k≈5 Å⁻¹), ",
+    "且常在多个样品的同一能量出现、I0 在该处也有凹陷。真实结构不要删。":
+        "often appears at the same energy in several samples and coincides with a dip in I0. Never remove real structure. ",
+    "区间用**校准后**能量；写进 xafsmith.json 的 deglitch，原始文件不动，命令行与图形界面都按它处理。":
+        "Ranges use **calibrated** energy and are stored under deglitch in xafsmith.json; raw files are untouched and both GUI and command line use them.",
+    "需要项目的 meta.csv 与 xafsmith.json": "Requires the project's meta.csv and xafsmith.json",
+    "先在 ① 页“按 meta 载入”样品。": "First load samples from meta on page ①.",
+    "样品（同一区间用于所选全部样品）": "Samples (the same ranges apply to all selected)",
+    "归一化 μ(E)（依次上移 0.1）": "Normalized μ(E) (offset 0.1 each)",
+    "I0 / 中位数": "I0 / median",
+    "灰色虚线 = QC 标出的疑似毛刺；红色区域 = 已删除的区间。可用鼠标框选放大。":
+        "Grey dotted = glitches flagged by QC; red = removed ranges. Drag to zoom.",
+    "删除区间（eV，校准后；多个用 ; 分隔）": "Ranges to remove (eV, calibrated; separate with ;)",
+    "理由（必填）": "Reason (required)",
+    "保存并重新载入": "Save and reload",
+    "清除所选样品的去毛刺": "Clear deglitching of selected samples",
+    "请填写理由": "Please give a reason",
+    "已写入 xafsmith.json 并重新载入 ": "Saved to xafsmith.json and reloaded ",
+    " 个样品；请重新运行 QC 确认": " sample(s); rerun QC to confirm",
+    "样品（可多选：同一模型依次用于每个样品）": "Samples (multiple: the model is applied to each in turn)",
+    "完成 ": "Done: ",
+    " 个拟合，结果见下方与“⑨ 拟合历史”": " fit(s); see below and “⑨ Fit history”",
+    "无法识别": "Cannot parse",
+    "，格式为 起始-结束，如 9984.5-9990": "; use start-end, e.g. 9984.5-9990",
 }
 # 最后替换的中文标点
 PUNCT = [("（", " ("), ("）", ")"), ("，", ", "), ("。", ". "), ("：", ": "), ("；", "; "), ("、", ", "),

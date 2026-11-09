@@ -67,11 +67,17 @@ Click in order:
 
 To view spectra: **① Import data** → select samples → **Load samples** (references are loaded with them), then use **④ Normalization**, **⑤ χ(k) & FT** and **⑥ Wavelet transform**.
 
+**Deglitching (bottom of ② Quality check)**: after loading samples from meta, choose samples in “Deglitch” (the same ranges apply to all selected samples) and inspect μ(E) and I0 (grey dotted lines = glitches flagged by QC; drag to zoom). A glitch spans 1–3 points, is much narrower than an EXAFS oscillation, often appears at the same energy in several samples and coincides with a dip in I0. Enter the ranges (calibrated energy, e.g. `9984.5-9990; 10321-10327.5`) and a **reason (required)**, then click **Save and reload**: the ranges are stored under `deglitch` in `xafsmith.json`; raw files are untouched and the command line uses the same ranges. “Clear deglitching of selected samples” undoes it. Never remove real structure.
+
 ## 6. FEFF paths (⑦ FEFF paths)
 
 1. Structure source: **structures/ folder** (upload CIFs in ⓪ Project → 5 Structure files) or **Built-in structure**.
-2. Choose absorber, edge, inequivalent site and RMAX, then click **Run FEFF6L**.
-3. “Existing FEFF calculations” lists all paths (distance, degeneracy, amplitude ratio).
+2. Choose absorber, edge, inequivalent site and RMAX.
+3. **FEFF version**:
+   - **FEFF6L** (default): non-self-consistent potential, a few seconds.
+   - **FEFF8L**: self-consistent potential (SCF), about 1–3 min. Set the **SCF radius** (usually 4–5 Å, 2–3 shells) and the **exchange potential** (default 0 = Hedin-Lundqvist). The output folder gets a `_feff8` suffix, so FEFF6 results are not overwritten.
+   - Path numbering is normally identical, so you can swap the path folder in a model to compare; but the **ΔE0 zero differs** (Ta L3 in KTaO3: about 6.6 eV with FEFF6, 1.2 eV with FEFF8). Re-determine e0 in models that fix it.
+4. Click **Run FEFF6L / Run FEFF8L**. “Existing FEFF calculations” lists all paths (distance, degeneracy, amplitude ratio); FEFF8 runs also show SCF radius, exchange and Fermi level.
 
 ## 7. EXAFS fitting (⑧ EXAFS fitting)
 
@@ -82,7 +88,11 @@ To view spectra: **① Import data** → select samples → **Load samples** (re
 5. Click **Fit** and check the R-factor, reduced χ², parameters with errors, the |χ(R)| and Re χ(R) plots and any warnings.
 6. Click **Save results**: the model goes to `models/` and the results enter the summary. Saved models can be rerun with one click at the top of the page.
 
+**One model for a series of samples** (time or potential series): expand **Run a saved model** at the top, choose the model, select several samples and click **Run**. The model is applied to each sample in turn (its name is changed to that sample) and all results go to ⑨ Fit history for inspection, F-tests and saving. Test the model on a standard of known structure first (does it reproduce the known result, is every parameter stable in the robustness check) before applying it to samples.
+
 **S0² from a standard**: fit S0² freely on a standard of known structure and enter the value in ⓪ Project → 4 Processing parameters → S0². In sample fits untick `vary` for S0² and set its value.
+
+**Fit diagnosis**: below the fit result, expand **Fit diagnosis: where the residual is and why**. It shows the in-window residual, a white-noise estimate and their ratio (≈1–2: data limit reached; ≫2: systematic error); the k-space residual (magenta dotted lines mark detected spikes with their energies, usually leftover glitches); misfit tables by k and R segment; and hints based on where the residual is. Start here when a fit does not match; the full method is in “❓ Help → Improving fit quality”.
 
 **Robustness check**: below the fit result, expand **Robustness check** → **Run robustness check**. The fit is repeated with kmin ±0.5, kmax ±1, Rmax ±0.2 Å and with k¹/k²/k³ alone; variables that change more than their statistical error are marked **unstable**. Report such parameters as a range, or revise the model.
 

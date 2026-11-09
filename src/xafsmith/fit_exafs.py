@@ -181,7 +181,8 @@ def write_result_row(summ, csv=None):
     df = pd.DataFrame(rows)
     csv = Path(csv)
     csv.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(csv, mode="a", header=not csv.exists(), index=False, encoding="utf-8-sig")
+    from .common import append_csv
+    append_csv(df, csv)
     return df
 
 
@@ -252,6 +253,99 @@ def robustness(data, model, root=None, variants=None, progress=None):
                         最大=float(np.nanmax(vals)), 离散度=sd, 离散度_误差比=ratio,
                         判断="不稳" if np.isfinite(ratio) and ratio > 1 else ("稳定" if np.isfinite(ratio) else "—")))
     return tab, pd.DataFrame(ver)
+
+
+def diagnose(curves, model, e0=None, kweight=2):
+    """拟合诊断：残差在哪里、是否已到噪声水平、可能的原因。
+
+    返回 dict：
+      k, resid_k        —— k^kw·(数据−拟合)，用于作图
+      k_segments        —— DataFrame：k 分段的残差 RMS 与相对中位数的倍数
+      r_segments        —— DataFrame：R 分段（窗口内每 0.5 Å，加窗口外 1 Å）局部失配 Σ|Δχ(R)|²/Σ|χ(R)|²
+      noise_R           —— 数据在 R 15–25 Å 的 |χ(R)| RMS（白噪声估计）
+      resid_R           —— 窗口内 |Δχ(R)| RMS
+      ratio             —— resid_R / noise_R（≈1–2：已到噪声；≫2：系统偏差）
+      spikes            —— 残差尖峰 [(k, 对应能量 eV 或 None, 偏离倍数)]
+      hints             —— 建议（中文，界面会翻译）
+    """
+    from larch import Group
+    from larch.xafs import xftf
+    k, chi = np.asarray(curves["k"]), np.asarray(curves["chi"])
+    fit = np.interp(k, curves["kfit"], curves["chifit"])
+    kmin, kmax = model["kmin"], model["kmax"]
+    rmin, rmax = model["rmin"], model["rmax"]
+    res = (chi - fit) * k ** kweight
+    inw = (k >= kmin) & (k <= kmax)
+    # k 分段
+    edges = np.linspace(kmin, kmax, max(3, int(round((kmax - kmin) / 1.5))) + 1)
+    seg = []
+    for a, b in zip(edges[:-1], edges[1:]):
+        w = (k >= a) & (k < b)
+        seg.append(dict(k段=f"{a:.1f}–{b:.1f}", 残差RMS=float(np.sqrt(np.mean(res[w] ** 2))) if w.any() else np.nan))
+    kseg = pd.DataFrame(seg)
+    med = float(np.nanmedian(kseg["残差RMS"]))
+    kseg["相对中位数"] = kseg["残差RMS"] / med if med > 0 else np.nan
+    # R 空间
+    gd, gf, gr = Group(k=k, chi=chi), Group(k=k, chi=fit), Group(k=k, chi=chi - fit)
+    for gg in (gd, gf, gr):
+        xftf(gg, kmin=kmin, kmax=kmax, dk=model.get("dk", 1), window=model.get("window", "hanning"),
+             kweight=kweight, rmax_out=26)
+    r = gd.r
+    redges = list(np.arange(rmin, rmax - 1e-6, 0.5)) + [rmax]
+    rs = []
+    for a, b in list(zip(redges[:-1], redges[1:])) + [(rmax, rmax + 1.0)]:
+        w = (r >= a) & (r < b)
+        num = float(np.sum(np.abs(gd.chir[w] - gf.chir[w]) ** 2))
+        den = float(np.sum(np.abs(gd.chir[w]) ** 2))
+        rs.append(dict(R段=f"{a:.1f}–{b:.1f}" + ("（窗口外）" if a >= rmax else ""),
+                       局部失配=num / den if den > 0 else np.nan, 数据强度=float(np.sqrt(den / max(w.sum(), 1)))))
+    rseg = pd.DataFrame(rs)
+    wn = (r >= 15) & (r <= 25)
+    noise = float(np.sqrt(np.mean(np.abs(gd.chir[wn]) ** 2))) if wn.any() else np.nan
+    win = (r >= rmin) & (r <= rmax)
+    rres = float(np.sqrt(np.mean(np.abs(gr.chir[win]) ** 2)))
+    ratio = rres / noise if noise > 0 else np.nan
+    # 尖峰：相对局部平滑的残差
+    spikes = []
+    if inw.sum() > 10:
+        rr = res[inw]
+        sm = np.convolve(rr, np.ones(5) / 5, mode="same")
+        hf = rr - sm
+        mad = float(np.median(np.abs(hf - np.median(hf)))) * 1.4826 or 1e-12
+        for i in np.argsort(-np.abs(hf))[:3]:
+            if abs(hf[i]) > 5 * mad:
+                kk = float(k[inw][i])
+                spikes.append((round(kk, 2), None if e0 is None else round(e0 + kk ** 2 / 0.2625, 1),
+                               round(abs(hf[i]) / mad, 1)))
+    hints = []
+    if np.isfinite(ratio):
+        if ratio < 2:
+            hints.append(f"窗口内残差约为噪声的 {ratio:.1f} 倍：已接近噪声水平，继续加路径/参数只会过拟合。")
+        else:
+            hints.append(f"窗口内残差约为白噪声估计的 {ratio:.1f} 倍：残差主要是系统性的（模型、理论或数据处理），"
+                         "不是随机噪声。按下面各条逐一排查。")
+    if len(kseg) and kseg["相对中位数"].iloc[0] > 1.5:
+        hints.append(f"低 k 段（{kseg['k段'].iloc[0]} Å⁻¹）残差是中位数的 {kseg['相对中位数'].iloc[0]:.1f} 倍："
+                     "低 k 受背景扣除与近边效应影响最大。试：kmin 提高 0.5（看稳健性检查）、调 rbkg、或换 FEFF8L 自洽势。")
+    if len(kseg) and kseg["相对中位数"].iloc[-1] > 1.5:
+        hints.append("高 k 段残差偏大：多为噪声。考虑降低 kmax（看 ② 质量检查的 k_snr3）或多次扫描合并。")
+    for kk, ee, sig in spikes:
+        hints.append(f"k = {kk} Å⁻¹ 处残差尖峰（{sig:.0f}× 局部噪声）" +
+                     (f"，约对应 E = {ee} eV：到 ② 质量检查 → 去毛刺，与平滑趋势比较其前后各点，区间要包含所有偏离点。"
+                      if ee else "：检查是否为毛刺。"))
+    inside = rseg[~rseg["R段"].str.contains("窗口外")]
+    # 谷底（数据强度 < 窗口内中位数的一半）局部失配天然偏大，不据此提示加路径
+    strong = inside[inside["数据强度"] >= 0.5 * inside["数据强度"].median()] if len(inside) else inside
+    if len(strong):
+        worst = strong.loc[strong["局部失配"].idxmax()]
+        if worst["局部失配"] > 0.3:
+            hints.append(f"R {worst['R段']} Å 局部失配 {worst['局部失配']:.2f}：该处可能缺路径或无序分布不是高斯型。"
+                         "加路径前先在已知结构的标样上验证，加入后用 F 检验（⑨ 页），p < 0.05 才保留。")
+    out_ = rseg[rseg["R段"].str.contains("窗口外")]
+    if len(out_) and out_["局部失配"].iloc[0] > 0.8:
+        hints.append("窗口外失配大是正常的（那里不参与拟合）；若想拟合更远的壳层，扩大 Rmax 并加入相应路径，N_idp 也随之增加。")
+    return dict(k=k, resid_k=res, k_segments=kseg, r_segments=rseg, noise_R=noise, resid_R=rres,
+                ratio=ratio, spikes=spikes, hints=hints)
 
 
 def model_curves(dset):

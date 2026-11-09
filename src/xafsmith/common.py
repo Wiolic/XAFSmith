@@ -74,3 +74,17 @@ def ensure_dir(p):
     p = Path(p)
     p.mkdir(parents=True, exist_ok=True)
     return p
+
+
+def append_csv(df, csv):
+    """把 df 追加到 csv。列不同时按列名合并后整体重写（mode='a' 会沿用旧表头，导致新列错位）。"""
+    import pandas as pd
+    csv = Path(csv)
+    csv.parent.mkdir(parents=True, exist_ok=True)
+    if csv.exists():
+        old = pd.read_csv(csv, encoding="utf-8-sig", dtype=str, keep_default_na=False)
+        if list(old.columns) != list(df.columns):
+            pd.concat([old, df.astype(str)], ignore_index=True).to_csv(
+                csv, index=False, encoding="utf-8-sig")
+            return
+    df.to_csv(csv, mode="a", header=not csv.exists(), index=False, encoding="utf-8-sig")

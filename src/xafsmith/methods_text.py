@@ -88,7 +88,7 @@ def collect(samples=None):
             r = g.iloc[-1]
             fit_rows.append(dict(sample=s, model=m, k=r["k_range"], R=r["R_range"], kw=r["kweight"],
                                  nidp=r["n_idp"], nvarys=r["nvarys"], rfactor=r["rfactor"], S02=r.get("S02"),
-                                 role=roles.get(s, "")))
+                                 role=roles.get(s, ""), feff=_feff_code(m)))
     return dict(cfg=cfg, instrument=cfg.get("instrument", {}), edges=edges, fits=pd.DataFrame(fit_rows),
                 lcf=lcf, xanes=xanes, versions=_versions())
 
@@ -104,6 +104,20 @@ def _inst(info, key, lang):
 def _mode_txt(modes, lang):
     m = {"trans": ("透射", "transmission"), "fluo": ("荧光", "fluorescence"), "mu": ("μ(E)", "μ(E)")}
     return _fmt_list([m.get(x, (x, x))[0 if lang == "zh" else 1] for x in modes], "、" if lang == "zh" else " and ")
+
+
+def _feff_code(model_name):
+    """由 models/<模型>.json 的路径目录判断 FEFF 版本（feff6 / feff8）；找不到模型时返回 feff6。"""
+    import json
+    from .feff_wrap import feff_info
+    name = str(model_name).split("@")[0].split("[")[0]
+    f = paths.MODELS / f"{name}.json"
+    try:
+        m = json.loads(f.read_text(encoding="utf-8"))
+        d = (paths.ROOT / m["paths"][0]["file"]).parent
+        return feff_info(d)["code"]
+    except Exception:
+        return "feff6"
 
 
 def build(samples=None):
@@ -154,19 +168,27 @@ def build(samples=None):
             f"{t.get('kmax', 12)} Å⁻¹ with a {str(t.get('window', 'hanning')).capitalize()} window (dk = {t.get('dk', 1)} Å⁻¹); "
             f"R-space data are shown without phase correction.")
     fits = f["fits"]
+    uses = set(fits["feff"]) if len(fits) and "feff" in fits else set()
     if len(fits):
         kr_zh, rr_zh = _fmt_list(map(_dash, fits["k"])), _fmt_list(map(_dash, fits["R"]))
         kr_en, rr_en = _fmt_list(map(_dash, fits["k"]), ", "), _fmt_list(map(_dash, fits["R"]), ", ")
         kw = _fmt_list(fits["kw"], "; ")
         over = fits[fits["nvarys"] > fits["nidp"] / 2]
+        if uses == {"feff8"}:
+            feff_zh, feff_en = "FEFF8L（自洽势）", "FEFF8L (self-consistent potentials)"
+        elif "feff8" in uses:
+            feff_zh = "FEFF6L 与 FEFF8L（自洽势）"
+            feff_en = "FEFF6L and FEFF8L (self-consistent potentials)"
+        else:
+            feff_zh, feff_en = "FEFF6L", "FEFF6L"
         zh.append(
-            f"EXAFS 拟合用 FEFF6L（xraylarch {v['larch']} 自带）由晶体结构计算散射路径，在 Larch 的 feffit 中进行"
+            f"EXAFS 拟合用 {feff_zh}（xraylarch {v['larch']} 自带）由晶体结构计算散射路径，在 Larch 的 feffit 中进行"
             f"（k 范围 {kr_zh} Å⁻¹，R 范围 {rr_zh} Å，k 权重 {kw}）。独立点数 N_idp = 2ΔkΔR/π 为 "
             f"{_rng(fits['nidp'])}，变量数为 {_rng(fits['nvarys'], 0)}"
             + ("，均不超过 N_idp/2。" if not len(over) else f"；其中 {len(over)} 个拟合的变量数超过 N_idp/2"
                f"（{_fmt_list(over['model'])}），解释时需谨慎。"))
         en.append(
-            f"Scattering paths were calculated from crystal structures with FEFF6L (as distributed with xraylarch "
+            f"Scattering paths were calculated from crystal structures with {feff_en} (as distributed with xraylarch "
             f"{v['larch']}), and EXAFS fits were performed with feffit in Larch (k = {kr_en} Å⁻¹, R = {rr_en} Å, "
             f"k-weights {kw}). The number of independent points, N_idp = 2ΔkΔR/π, was {_dash(_rng(fits['nidp']))} "
             f"and the number of variables was {_dash(_rng(fits['nvarys'], 0))}"
@@ -198,9 +220,11 @@ def build(samples=None):
         en.append("Edge positions were taken at half of the edge step and at the maximum of the first derivative; "
                   "the white-line area was integrated above unity between E0 and E0+30 eV.")
     zh.append(f"数据处理与拟合使用 XAFSmith {v['xafsmith']}（https://github.com/Wiolic/XAFSmith），"
-              f"基于 Larch {v['larch']}[Newville 2013]、xraydb {v['xraydb']} 与 FEFF6[Zabinsky 1995]。")
+              f"基于 Larch {v['larch']}[Newville 2013]、xraydb {v['xraydb']} 与 FEFF6[Zabinsky 1995]"
+              + ("、FEFF8[Ankudinov 1998]" if "feff8" in uses else "") + "。")
     en.append(f"Data were processed and fitted with XAFSmith {v['xafsmith']} (https://github.com/Wiolic/XAFSmith), "
-              f"built on Larch {v['larch']} [Newville 2013], xraydb {v['xraydb']} and FEFF6 [Zabinsky 1995].")
+              f"built on Larch {v['larch']} [Newville 2013], xraydb {v['xraydb']} and FEFF6 [Zabinsky 1995]"
+              + (" and FEFF8 [Ankudinov 1998]" if "feff8" in uses else "") + ".")
     return dict(zh="".join(zh), en=" ".join(en), facts=f)
 
 

@@ -28,6 +28,7 @@ i18n.LANG = _xup.load_settings().get("lang", "zh")
 tr = i18n.tr
 
 from xafsmith import io as xio                                     # noqa: E402
+from xafsmith.common import append_csv                             # noqa: E402
 from xafsmith import qc as xqc                                     # noqa: E402
 from xafsmith import calib as xcal                                 # noqa: E402
 from xafsmith import normalize as xnorm                            # noqa: E402
@@ -338,6 +339,98 @@ def page_qc():
         st.caption("已保存 output/qc/qc_report.csv。delta_mut：透射边跳（与增益无关）；"
                    "self_abs_risk：荧光谱由 I1 通道估计的样品(+电解池) Δμt；"
                    "k_snr3：k²χ 包络降到 3×噪声的位置，可作 kmax 的参考。")
+    deglitch_section()
+
+
+def _parse_ranges(txt):
+    """'9984.5-9990; 10321-10327.5' → [[9984.5, 9990.0], [10321.0, 10327.5]]"""
+    out = []
+    for part in re.split(r"[;；,，\n]+", txt or ""):
+        part = part.strip()
+        if not part:
+            continue
+        m = re.match(r"^\s*([0-9.]+)\s*[-–~～]\s*([0-9.]+)\s*$", part)
+        if not m:
+            raise ValueError(f"无法识别“{part}”，格式为 起始-结束，如 9984.5-9990")
+        lo, hi = sorted((float(m.group(1)), float(m.group(2))))
+        out.append([lo, hi])
+    return out
+
+
+def deglitch_section():
+    """去毛刺：把要删除的能量区间写进 xafsmith.json 的 deglitch（理由必填），原始文件不变。"""
+    st.subheader("去毛刺（删除单色器毛刺等假象点）")
+    st.caption("判断标准：毛刺只占 1–3 个点、宽度远小于 EXAFS 振荡（k≈5 Å⁻¹ 时一个振荡约 30 eV），"
+               "且常在多个样品的同一能量出现、I0 在该处也有凹陷。真实结构不要删。"
+               "区间用**校准后**能量；写进 xafsmith.json 的 deglitch，原始文件不动，命令行与图形界面都按它处理。")
+    if not (pl.META.exists() and pl.CONFIG.exists()):
+        st.info("需要项目的 meta.csv 与 xafsmith.json")
+        return
+    meta = pl.load_meta()
+    samples = [s for s in S.groups if s in set(meta["sample"])]
+    if not samples:
+        st.caption("先在 ① 页“按 meta 载入”样品。")
+        return
+    cfg = pl.load_config()
+    dg, why = cfg.get("deglitch", {}), cfg.get("deglitch_reason", {})
+    sel = st.multiselect("样品（同一区间用于所选全部样品）", samples, key="dg_samples")
+    if not sel:
+        return
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.65, 0.35],
+                        subplot_titles=("归一化 μ(E)（依次上移 0.1）", "I0 / 中位数"))
+    for i, s in enumerate(sel):
+        g = S.groups[s]
+        y = getattr(g, "flat", getattr(g, "norm", g.mu))
+        fig.add_trace(go.Scatter(x=g.energy, y=y + 0.1 * i, name=s, mode="lines+markers",
+                                 marker=dict(size=3)), 1, 1)
+        if isinstance(getattr(g, "i0", None), np.ndarray) and len(g.i0) == len(g.energy):
+            fig.add_trace(go.Scatter(x=g.energy, y=g.i0 / np.median(g.i0), name=f"I0 {s}", mode="lines",
+                                     line=dict(width=1), showlegend=False), 2, 1)
+        for lo, hi in dg.get(s, []):
+            fig.add_vrect(x0=lo, x1=hi, fillcolor="red", opacity=0.15, line_width=0)
+    if "qc" in S and "glitch_E" in S.qc:
+        for _, r in S.qc.iterrows():
+            if isinstance(r.glitch_E, str) and \
+                    any(str(r.get("label", "")).endswith(s) or r.get("label") == s for s in sel):
+                for e in r.glitch_E.split(";"):
+                    fig.add_vline(x=float(e), line=dict(color="gray", width=1, dash="dot"))
+    st.plotly_chart(fig_layout(fig, "E (eV)", "", 520), width="stretch")
+    st.caption("灰色虚线 = QC 标出的疑似毛刺；红色区域 = 已删除的区间。可用鼠标框选放大。")
+    cur = "; ".join(f"{lo:g}-{hi:g}" for lo, hi in dg.get(sel[0], []))
+    c1, c2 = st.columns([1, 1])
+    txt = c1.text_input("删除区间（eV，校准后；多个用 ; 分隔）", cur, key="dg_ranges",
+                        placeholder="9984.5-9990; 10321-10327.5")
+    reason = c2.text_input("理由（必填）", why.get(sel[0], ""), key="dg_reason")
+    b1, b2 = st.columns(2)
+    if b1.button("保存并重新载入", type="primary", key="dg_save"):
+        try:
+            rng = _parse_ranges(txt)
+        except ValueError as ex:
+            st.error(ex)
+            return
+        if rng and not reason.strip():
+            st.error("请填写理由")
+            return
+        for s in sel:
+            if rng:
+                dg[s], why[s] = rng, reason.strip()
+            else:
+                dg.pop(s, None); why.pop(s, None)
+        cfg["deglitch"], cfg["deglitch_reason"] = dg, why
+        paths.CONFIG.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        for s in sel:
+            S.groups[s], _ = pl.build_sample(s, cfg, meta)
+        S.pop("qc", None)
+        st.success(f"已写入 xafsmith.json 并重新载入 {len(sel)} 个样品；请重新运行 QC 确认")
+        st.rerun()
+    if b2.button("清除所选样品的去毛刺", key="dg_clear"):
+        for s in sel:
+            dg.pop(s, None); why.pop(s, None)
+        cfg["deglitch"], cfg["deglitch_reason"] = dg, why
+        paths.CONFIG.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        for s in sel:
+            S.groups[s], _ = pl.build_sample(s, cfg, meta)
+        st.rerun()
 
 
 def page_calib():
@@ -655,12 +748,25 @@ def page_feff():
         site = st.selectbox("不等价位点 (index, 多重度)", sites, format_func=lambda s: f"site {s[0]} ×{s[1]}")
         rmax = st.number_input("RMAX (Å)", 2.0, 10.0, 6.0)
         nleg = st.selectbox("NLEG", [2, 3, 4], index=2)
-        out = st.text_input("输出目录", f"{paths.rel(paths.FEFF)}/{name}_{absorber}{edge}/site{site[0]}")
-    if st.button("运行 FEFF6L", type="primary"):
-        with st.spinner("FEFF 运行中…"):
+        code = st.radio("FEFF 版本", ["FEFF6L", "FEFF8L"], horizontal=True, key="feff_code",
+                        help="FEFF6L：非自洽势，几秒。FEFF8L：自洽势（SCF），约 1–3 分钟，ΔE0 通常更接近 0。"
+                             "两者路径编号一般相同，但 ΔE0 零点不同：换版本后固定 e0 的模型要重新确定 e0。")
+        code = "feff8" if code == "FEFF8L" else "feff6"
+        scf, exch = 4.5, 0
+        if code == "feff8":
+            f1, f2 = st.columns(2)
+            scf = f1.number_input("SCF 自洽半径 (Å)", 2.5, 7.0, 4.5, 0.5,
+                                  help="一般取包含 2–3 个壳层（约 30–60 个原子）；越大越慢")
+            exch = f2.selectbox("交换势 EXCHANGE", list(xfeff.EXCHANGE),
+                                format_func=lambda i: f"{i}：{xfeff.EXCHANGE[i]}")
+        sfx = "_feff8" if code == "feff8" else ""
+        out = st.text_input("输出目录", f"{paths.rel(paths.FEFF)}/{name}_{absorber}{edge}{sfx}/site{site[0]}",
+                            key=f"feff_out_{code}_{name}_{absorber}{edge}{site[0]}")
+    if st.button("运行 FEFF8L" if code == "feff8" else "运行 FEFF6L", type="primary", key="run_feff"):
+        with st.spinner("FEFF 运行中…（FEFF8L 自洽计算约 1–3 分钟）" if code == "feff8" else "FEFF 运行中…"):
             try:
                 df = xfeff.build(struct, absorber, edge, paths.ROOT / out, site_index=site[0],
-                                 rmax=rmax, nleg=nleg, title=name)
+                                 rmax=rmax, nleg=nleg, title=name, code=code, scf=scf, exchange=exch)
                 st.success(f"完成：{len(df)} 条路径 → {out}")
             except Exception as ex:
                 st.error(ex)
@@ -669,6 +775,12 @@ def page_feff():
     if dirs:
         d = st.selectbox("目录", dirs, format_func=lambda p: str(p.relative_to(paths.ROOT)))
         df = xfeff.list_paths(d)
+        info = xfeff.feff_info(d)
+        if info["code"] == "feff8":
+            st.caption(f"FEFF8L 自洽势：SCF 半径 {info['scf']} Å，交换势 {info['exchange']}，"
+                       f"费米能 {info['fermi_ev']} eV")
+        else:
+            st.caption("FEFF6L（非自洽势）")
         st.dataframe(df.drop(columns=["file"]), hide_index=True, width="stretch")
         inp = d / "feff.inp"
         if inp.exists():
@@ -676,10 +788,20 @@ def page_feff():
                 st.code(inp.read_text())
 
 
-def run_saved_model(mf):
+def run_saved_model(mf, sample=None):
+    """运行 models/ 中的模型；sample 非空时换用该样品（同一模型批量用于一组样品）。"""
     m = json.loads((paths.MODELS / mf).read_text(encoding="utf-8"))
     m.setdefault("name", Path(mf).stem)
-    g, _ = pl.build_sample(m["sample"])
+    old = m.get("sample")
+    if sample and sample != old:
+        m["sample"] = sample
+        m["name"] = m["name"].replace(old, sample) if old and old in m["name"] else f"{m['name']}@{sample}"
+    if not m.get("sample"):
+        raise KeyError("模型文件中没有 sample（旧版本图形界面保存的模型），请在“换用样品”中选择样品")
+    try:
+        g, _ = pl.build_sample(m["sample"])
+    except KeyError:                       # 不在 meta.csv 中：用已载入的数据
+        g = S.groups[m["sample"]]
     res, dset, summ = xfit.run_fit(g, m)
     S.fits.append(dict(model=m, summ=summ, result=res, curves=xfit.model_curves(dset),
                        report=xfit.report_text(res), time=datetime.datetime.now().strftime("%H:%M:%S")))
@@ -691,13 +813,23 @@ def page_fit():
         if paths.MODELS.exists() else []
     with st.expander(f"运行已保存的模型（models/ 中 {len(models)} 个）", expanded=False):
         if models:
-            c1, c2 = st.columns([4, 1])
+            c1, c2, c3 = st.columns([3, 3, 1])
             mf = c1.selectbox("模型", models, key="saved_model")
-            if c2.button("运行", key="run_saved", type="primary"):
+            try:
+                msmp = json.loads((paths.MODELS / mf).read_text(encoding="utf-8")).get("sample", "")
+            except Exception:
+                msmp = ""
+            meta_s = list(pl.load_meta().query("use != '0'")["sample"]) if pl.META.exists() else []
+            opts = list(dict.fromkeys([msmp] + meta_s + list(S.groups)))
+            opts = [o for o in opts if o]
+            smp = c2.multiselect("样品（可多选：同一模型依次用于每个样品）", opts,
+                                 default=[msmp] if msmp in opts else [], key="saved_samples_" + mf)
+            if c3.button("运行", key="run_saved", type="primary"):
                 try:
                     with st.spinner("拟合中…"):
-                        run_saved_model(mf)
-                    st.success("完成，结果见下方与“⑨ 拟合历史”")
+                        for s_ in smp or [None]:
+                            run_saved_model(mf, s_)
+                    st.success(f"完成 {len(smp) or 1} 个拟合，结果见下方与“⑨ 拟合历史”")
                 except Exception as ex:
                     st.exception(ex)
         else:
@@ -797,7 +929,7 @@ def page_fit():
             if isinstance(r.third, str) and r.third.strip():
                 d["third"] = r.third
             mpaths.append(d)
-        model = dict(name=mname, kmin=kmin, kmax=kmax, dk=dk, window=win, kweight=kws or [2],
+        model = dict(name=mname, sample=data_k, kmin=kmin, kmax=kmax, dk=dk, window=win, kweight=kws or [2],
                      rmin=rmin, rmax=rmax, fitspace=space, params=params, paths=mpaths,
                      norm=S.norm_par, bkg=S.bkg_par)
         try:
@@ -858,7 +990,42 @@ def show_fit(fit, key=""):
         from xafsmith import report as xrep
         xrep.plot_fit(c, s, kweight=kw, out=paths.FIGS / f"{base}_fit.png")
         st.success("已保存：output/fits/exafs_fits.csv、output/fits/*.fit_report.txt、models/*.json、output/figs/*_fit.png")
+    diagnose_section(fit, key, kw)
     robustness_section(fit, key)
+
+
+def diagnose_section(fit, key="", kw=2):
+    """拟合诊断：残差位置、噪声水平、毛刺与建议"""
+    with st.expander("拟合诊断：残差在哪里、为什么对不上"):
+        g = S.groups.get(fit["summ"]["sample"])
+        e0 = getattr(g, "e0", None) if g is not None else None
+        try:
+            dg = xfit.diagnose(fit["curves"], fit["model"], e0=e0, kweight=kw)
+        except Exception as ex:
+            st.exception(ex)
+            return
+        m = st.columns(3)
+        m[0].metric("窗口内残差 RMS", f"{dg['resid_R']:.4f}")
+        m[1].metric("白噪声估计 (R 15–25 Å)", f"{dg['noise_R']:.4f}")
+        m[2].metric("残差 / 噪声", f"{dg['ratio']:.1f}")
+        for h in dg["hints"]:
+            st.info(h)
+        fig = go.Figure()
+        c = fit["curves"]
+        fig.add_trace(go.Scatter(x=c["k"], y=c["chi"] * c["k"] ** kw, name="数据", line=dict(color="black", width=1)))
+        fig.add_trace(go.Scatter(x=dg["k"], y=dg["resid_k"], name="残差", line=dict(color="royalblue", width=1)))
+        md = fit["model"]
+        fig.add_vrect(x0=md["kmin"], x1=md["kmax"], fillcolor="gold", opacity=0.08)
+        for kk, ee, _ in dg["spikes"]:
+            fig.add_vline(x=kk, line=dict(color="magenta", dash="dot", width=1))
+        st.plotly_chart(fig_layout(fig, "k (Å⁻¹)", f"k^{kw}χ(k)", 320), width="stretch")
+        c1, c2 = st.columns(2)
+        c1.caption("k 分段残差（相对中位数 > 1.5 为偏大）")
+        c1.dataframe(dg["k_segments"].round(3), hide_index=True, width="stretch")
+        c2.caption("R 分段局部失配 = Σ|数据−拟合|² / Σ|数据|²（未相移校正）")
+        c2.dataframe(dg["r_segments"].round(3), hide_index=True, width="stretch")
+        st.caption("说明：残差/噪声 ≈ 1–2 时已到数据极限；≫ 2 说明残差是系统性的。"
+                   "系统偏差不一定能、也不一定应该用加参数消除——每加一条路径都要通过 F 检验与稳健性检查。")
 
 
 def page_history():
@@ -922,7 +1089,7 @@ def page_lcf():
                 S.pop("lcf_combo", None)
             row = xlcf.result_row(r, note)
             csv = paths.LCF_CSV
-            pd.DataFrame([row]).to_csv(csv, mode="a", header=not csv.exists(), index=False, encoding="utf-8-sig")
+            append_csv(pd.DataFrame([row]), csv)
         except Exception as ex:
             st.exception(ex)
     if "lcf_last" in S:
@@ -1642,11 +1809,14 @@ if page == "❓ 使用指南":
     disclaimer_box()
     update_section()
     ddir = Path(__file__).resolve().parent / "docs"
-    tg, tt = st.tabs(["图形界面使用指南（点哪里）", "零基础拟合教程（原理 + 每一步）"])
+    tg, tt, tq = st.tabs(["图形界面使用指南（点哪里）", "零基础拟合教程（原理 + 每一步）",
+                          "拟合质量提升教程（对不严时怎么办）"])
     en = i18n.LANG == "en"
     with tg:
         st.markdown((ddir / ("GUI_guide_en.md" if en else "图形界面使用指南.md")).read_text(encoding="utf-8"))
     with tt:
         st.markdown((ddir / ("fitting_tutorial_en.md" if en else "零基础拟合教程.md")).read_text(encoding="utf-8"))
+    with tq:
+        st.markdown((ddir / ("fit_quality_guide_en.md" if en else "拟合质量提升教程.md")).read_text(encoding="utf-8"))
 else:
     PAGES[page]()

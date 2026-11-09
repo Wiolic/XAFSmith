@@ -15,7 +15,7 @@
 
 结构与拟合：
   xafsmith structures [--export]         列出 structures/ 中的结构（--export 导出内置结构为 CIF）
-  xafsmith feff --structure Ta2O5.cif --absorber Ta --edge L3     （或 --builtin KTaO3）→ output/feff/
+  xafsmith feff --structure Ta2O5.cif --absorber Ta --edge L3     （或 --builtin KTaO3；--code feff8 用自洽势）→ output/feff/
   xafsmith fit <模型名或路径>             EXAFS 拟合（models/ 中查找）→ output/fits/、output/figs/
   xafsmith ftest <小模型> <大模型>        嵌套模型 F 检验
   xafsmith lcf --sample S --standards A B [--emin -20 --emax 30 --space norm]
@@ -197,8 +197,10 @@ def cmd_feff(a):
     print("不等价吸收位点 (index, 多重度):", sites)
     todo = sites if a.site is None else [x for x in sites if x[0] == a.site]
     for idx, mult in todo:
-        out = paths.FEFF / f"{name}_{a.absorber}{a.edge}" / f"site{idx}"
-        df = feff_wrap.build(s, a.absorber, a.edge, out, site_index=idx, rmax=a.rmax, title=name)
+        sfx = "_feff8" if a.code == "feff8" else ""
+        out = paths.FEFF / f"{name}_{a.absorber}{a.edge}{sfx}" / f"site{idx}"
+        df = feff_wrap.build(s, a.absorber, a.edge, out, site_index=idx, rmax=a.rmax, title=name,
+                             code=a.code, scf=a.scf, exchange=a.exchange)
         print(f"\n== {paths.rel(out)}  (多重度 {mult})")
         print(df[["name", "label", "reff", "degen", "nleg", "amp_ratio"]].to_string(index=False))
 
@@ -260,8 +262,8 @@ def cmd_lcf(a):
         print(lc.fit_all_combinations(smp, stds, **kws).head(10).to_string())
     for d in (paths.LCF, paths.FIGS):
         d.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame([lc.result_row(r, a.note)]).to_csv(paths.LCF_CSV, mode="a", header=not paths.LCF_CSV.exists(),
-                                                    index=False, encoding="utf-8-sig")
+    from .common import append_csv
+    append_csv(pd.DataFrame([lc.result_row(r, a.note)]), paths.LCF_CSV)
     fig = paths.FIGS / f"lcf_{pl.safe(a.sample)}.png"
     xrep.plot_lcf(r, out=fig)
     print(f"→ {paths.rel(paths.LCF_CSV)}, {paths.rel(fig)}")
@@ -372,6 +374,10 @@ def build_parser():
     p.add_argument("--cif", help="同 --structure（兼容）"); p.add_argument("--builtin")
     p.add_argument("--absorber", required=True); p.add_argument("--edge", default="K")
     p.add_argument("--rmax", type=float, default=6.0); p.add_argument("--site", type=int)
+    p.add_argument("--code", choices=["feff6", "feff8"], default="feff6",
+                   help="feff6 = FEFF6L（快）；feff8 = FEFF8L 自洽势（输出目录加 _feff8）")
+    p.add_argument("--scf", type=float, default=4.5, help="FEFF8 自洽团簇半径 (Å)")
+    p.add_argument("--exchange", type=int, default=0, help="FEFF8 交换势：0 Hedin-Lundqvist，2 Dirac-Hara，5 部分非局域")
     p.set_defaults(f=cmd_feff)
     p = sp.add_parser("fit", help="EXAFS 拟合"); p.add_argument("model"); p.add_argument("--nosave", action="store_true")
     p.set_defaults(f=cmd_fit)

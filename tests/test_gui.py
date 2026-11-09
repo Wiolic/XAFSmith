@@ -4,6 +4,7 @@
 本测试使用 IrTaOx 项目的样品名（Ir foil、IrO2、IrCoOx_OCP …与 Ta 批次）；其他项目请改样品名。
 """
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -15,7 +16,14 @@ os.environ["XAFSMITH_PROJECT"] = str(Path(ap.parse_args().project).resolve())   
 import xafsmith                                     # noqa: E402
 from streamlit.testing.v1 import AppTest            # noqa: E402
 
+from xafsmith.feff_wrap import feff_info as xfeff_info   # noqa: E402
+from xafsmith import update as _xup                      # noqa: E402
+
+_load = _xup.load_settings
+_xup.load_settings = lambda: {**_load(), "lang": "zh"}   # 测试固定用中文界面，不改用户保存的语言设置
+
 APP = str(Path(xafsmith.__file__).resolve().parent / "gui.py")
+PROJ = Path(os.environ["XAFSMITH_PROJECT"])
 
 
 def check(at, where):
@@ -60,6 +68,19 @@ def main():
     for p in pages:
         at.sidebar.radio(key="nav_page").set_value(p).run()
         ok &= check(at, p)
+    # ② 去毛刺：用 IrO2 已有区间原样保存（不改变 xafsmith.json 内容），检查读写与重新载入
+    at.sidebar.radio(key="nav_page").set_value("② 质量检查").run()
+    cfg_path = Path(os.environ["XAFSMITH_PROJECT"]) / "xafsmith.json"
+    before = json.loads(cfg_path.read_text(encoding="utf-8"))
+    at.multiselect(key="dg_samples").set_value(["IrO2"]).run()
+    txt = at.text_input(key="dg_ranges").value
+    at.button(key="dg_save").click().run()
+    ok &= check(at, "② 去毛刺 保存")
+    after = json.loads(cfg_path.read_text(encoding="utf-8"))
+    g = at.session_state["groups"]["IrO2"]
+    good = after.get("deglitch") == before.get("deglitch") and         after.get("deglitch_reason") == before.get("deglitch_reason") and         getattr(g, "deglitched", None) == before["deglitch"]["IrO2"]
+    print(f"   [{'ok' if good else 'FAIL'}] 去毛刺区间读回：{txt}")
+    ok &= good
     # ⑦ FEFF：内置 IrO2
     at.sidebar.radio(key="nav_page").set_value("⑦ FEFF 路径").run()
     [r for r in at.radio if r.label == "结构来源"][0].set_value("内置结构").run()
@@ -67,6 +88,18 @@ def main():
     sb.set_value("IrO2").run()
     [b for b in at.button if b.label == "运行 FEFF6L"][0].click().run()
     ok &= check(at, "FEFF 运行")
+    # ⑦ FEFF8L（小 RMAX 以缩短时间），输出目录带 _feff8
+    [r for r in at.radio if r.label == "FEFF 版本"][0].set_value("FEFF8L").run()
+    [n for n in at.number_input if n.label == "RMAX (Å)"][0].set_value(3.6).run()
+    [n for n in at.number_input if n.label == "SCF 自洽半径 (Å)"][0].set_value(3.5).run()
+    out8 = [t for t in at.text_input if t.label == "输出目录"][0].value
+    at.button(key="run_feff").click().run(timeout=900)
+    ok &= check(at, "FEFF8L 运行")
+    d8 = PROJ / out8
+    good = "_feff8" in out8 and (d8 / "feff0001.dat").exists() and xfeff_info(d8)["code"] == "feff8"
+    print(f"   [{'ok' if good else 'FAIL'}] FEFF8L 输出 {out8}：feff0001.dat、SCF 费米能 {xfeff_info(d8).get('fermi_ev')}")
+    ok &= good
+    [r for r in at.radio if r.label == "FEFF 版本"][0].set_value("FEFF6L").run()
     # ⑧ 拟合：默认路径表（前两条 Ir-O）
     at.sidebar.radio(key="nav_page").set_value("⑧ EXAFS 拟合 (Artemis)").run()
     sel = [s for s in at.selectbox if s.label == "数据"][0]
@@ -78,7 +111,14 @@ def main():
     print("   FEFF 目录:", fd.value)
     [b for b in at.button if b.label == "拟合"][0].click().run()
     ok &= check(at, "EXAFS 拟合")
+    mets = {m.label: m.value for m in at.metric}
+    good = "残差 / 噪声" in mets and "窗口内残差 RMS" in mets
+    print(f"   [{'ok' if good else 'FAIL'}] 拟合诊断：残差/噪声 = {mets.get('残差 / 噪声')}")
+    ok &= good
     fits = at.session_state["fits"]
+    good = bool(fits) and fits[-1]["model"].get("sample") == "IrO2"
+    print(f"   [{'ok' if good else 'FAIL'}] 图形界面建的模型记录了样品名（保存后可重跑）")
+    ok &= good
     if fits:
         s = fits[-1]["summ"]
         print(f"   拟合: R={s['rfactor']:.4f} nvarys={s['nvarys']} params=",
@@ -92,6 +132,19 @@ def main():
     good = len(at.session_state["fits"]) == n0 + 1 and abs(s["params"]["s02"]["value"] - 0.816) < 0.01
     print(f"   [{'ok' if good else 'FAIL'}] 已保存模型 IrO2：S0²={s['params']['s02']['value']:.3f}（期望 ≈0.816）")
     ok &= good
+    # ⑧ 同一已保存模型用于多个样品
+    n1 = len(at.session_state["fits"])
+    at.selectbox(key="saved_model").set_value("TR1_TaO.json").run()
+    at.multiselect(key="saved_samples_TR1_TaO.json").set_value(["IrTa-50", "IrTa-100"]).run()
+    at.button(key="run_saved").click().run()
+    ok &= check(at, "已保存模型用于多个样品")
+    new = [f["summ"]["sample"] for f in at.session_state["fits"][n1:]]
+    good = new == ["IrTa-50", "IrTa-100"]
+    print(f"   [{'ok' if good else 'FAIL'}] 多样品运行：{new}")
+    ok &= good
+    at.selectbox(key="saved_model").set_value("IrO2_1shell_ArtemisCompare.json").run()
+    at.multiselect(key="saved_samples_IrO2_1shell_ArtemisCompare.json").set_value(["IrO2"]).run()
+    at.button(key="run_saved").click().run()
     # ⑧ 稳健性检查（对刚运行的已保存模型）
     at.button(key="rb_golast").click().run()
     ok &= check(at, "稳健性检查")

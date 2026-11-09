@@ -20,6 +20,8 @@ UPSTREAM = [
     "J. Phys.: Conf. Ser. 430, 012007 (2013).",
     "S. I. Zabinsky, J. J. Rehr, A. Ankudinov, R. C. Albers, M. J. Eller, \"Multiple-scattering calculations "
     "of x-ray-absorption spectra\", Phys. Rev. B 52, 2995 (1995).  (FEFF6)",
+    "A. L. Ankudinov, B. Ravel, J. J. Rehr, S. D. Conradson, \"Real-space multiple-scattering calculation and "
+    "interpretation of x-ray-absorption near-edge structure\", Phys. Rev. B 58, 7565 (1998).  (FEFF8; cite when FEFF8L is used)",
 ]
 
 
