@@ -9,3 +9,4 @@ pymatgen
 streamlit
 plotly
 openpyxl
+pywebview

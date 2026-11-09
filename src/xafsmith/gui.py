@@ -1264,8 +1264,21 @@ with st.sidebar:
                      dict(norm=S.norm_par, bkg=S.bkg_par, ft=S.ft_par, calib=S.calib,
                           groups=list(S.groups)), "gui")
         st.success("已保存 output/gui/gui_session.params.json")
+    st.divider()
+    from xafsmith import __version__
+    st.caption(f"**XAFSmith** v{__version__}  \n"
+               "Developed by **Eggy** & **Claude** (Anthropic)  \n"
+               "Powered by xraylarch · FEFF6L · xraydb")
 
 if page == "❓ 使用指南":
+    from xafsmith import __version__
+    with st.container(border=True):
+        st.markdown(f"#### About XAFSmith\n"
+                    f"Version {__version__} · General-purpose XAFS (XANES/EXAFS) processing and fitting.  \n"
+                    "**Developed by Eggy & Claude** (Anthropic).  \n"
+                    "Built on [xraylarch](https://xraypy.github.io/xraylarch/) (FEFF6L, feffit), xraydb, lmfit, "
+                    "pymatgen and Streamlit.  \n"
+                    "Source: https://github.com/Wiolic/XAFSmith")
     st.markdown((Path(__file__).resolve().parent / "docs" / "图形界面使用指南.md").read_text(encoding="utf-8"))
 else:
     PAGES[page]()

@@ -86,7 +86,7 @@ xafsmith fit KTaO3_1shell
 xafsmith gui
 ```
 
-浏览器打开 http://localhost:8501（或双击项目中的 `打开图形界面.bat`）。数据导入时必须同时选参比。
+软件在独立窗口中打开（`xafsmith gui --browser` 改用浏览器 http://localhost:8501；也可双击项目中的 `打开图形界面.bat`）。数据导入时必须同时选参比。
 
 ## 7. 交给 AI 助手
 

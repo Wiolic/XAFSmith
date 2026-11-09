@@ -1,6 +1,6 @@
 # XAFSmith
 
-通用 XAFS（XANES + EXAFS）数据处理与拟合软件：命令行 `xafsmith` + 图形界面（类似 Athena / Artemis），
+通用 XAFS（XANES + EXAFS）数据处理与拟合软件：桌面图形界面（类似 Athena / Artemis，独立窗口）+ 命令行 `xafsmith`，
 基于 [xraylarch](https://xraypy.github.io/xraylarch/)（FEFF6L、feffit）、xraydb、lmfit、pymatgen 与 Streamlit。
 
 - **可复现**：所有处理参数写在项目的 `xafsmith.json`，原始数据只读，结果统一写入 `output/`，随时可以重新生成。
@@ -11,8 +11,8 @@
 
 1. 安装 [Python 3.11/3.12](https://www.python.org/downloads/windows/)（安装时勾选 **Add python.exe to PATH**）。
 2. 本页点绿色 **Code → Download ZIP**，解压。
-3. 双击 **`安装XAFSmith.bat`**（约 5–10 分钟），桌面出现 **XAFSmith** 图标。
-4. 双击桌面图标 → 浏览器打开软件 → 左侧 **⓪ 项目** 新建项目 → 上传数据 → 一键处理 → FEFF → 拟合 → **⑫ 汇总报告**（Excel + HTML）。
+3. 双击 **`安装XAFSmith.bat`** → 安装向导中选择安装位置、是否创建桌面/开始菜单快捷方式 → 安装（5–15 分钟）。
+4. 双击桌面图标 → 软件在独立窗口中打开 → 左侧 **⓪ 项目** 新建项目 → 上传数据 → 一键处理 → FEFF → 拟合 → **⑫ 汇总报告**（Excel + HTML）。
 
 逐步图文说明：**[图形界面使用指南](src/xafsmith/docs/图形界面使用指南.md)**（软件里左侧“❓ 使用指南”也能看到）。
 
@@ -72,9 +72,10 @@ xafsmith gui | docs
 XAFSmith/
 ├── pyproject.toml
 ├── README.md  QUICKSTART.md  AGENTS.md
-├── 安装XAFSmith.bat  启动XAFSmith.bat      双击安装 / 启动（Windows）
+├── 安装XAFSmith.bat  installer.py          双击打开安装向导（安装位置、快捷方式、卸载）
+├── 启动XAFSmith.bat                       双击启动（桌面窗口）
 ├── src/xafsmith/
-│   ├── cli.py  gui.py  paths.py  schema.py  pipeline.py  summary.py
+│   ├── cli.py  gui.py  desktop.py  paths.py  schema.py  pipeline.py  summary.py
 │   ├── io.py qc.py calib.py normalize.py autobk.py ft.py wavelet.py
 │   ├── structures.py feff_wrap.py fit_exafs.py fit_lcf.py mut_planner.py report.py common.py
 │   ├── templates/     新项目模板
@@ -86,6 +87,10 @@ XAFSmith/
 
 - 与 Artemis 对照（IrO2，同一 k/R 范围与 k 权重）：S0² 0.80 ± 0.11 vs 0.86 ± 0.09，ΔE0 9.2 vs 10.2 eV，ΔR −0.012 vs −0.010 Å，误差内一致。
 - 标样多壳层拟合（金红石 IrO2、立方钙钛矿 KTaO3）给出与晶体学一致的配位与键长。
+
+## 作者
+
+Developed by **Eggy** & **Claude** (Anthropic).
 
 ## 许可
 

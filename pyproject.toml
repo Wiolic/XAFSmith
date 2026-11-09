@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "通用 XAFS（XANES + EXAFS）数据处理与拟合工具：命令行 + 图形界面，基于 xraylarch"
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [{ name = "Wiolic" }]
+authors = [{ name = "Eggy" }, { name = "Claude (Anthropic)" }]
 keywords = ["XAFS", "EXAFS", "XANES", "synchrotron", "FEFF", "larch"]
 dependencies = [
     "xraylarch",
@@ -22,6 +22,7 @@ dependencies = [
     "streamlit",
     "plotly",
     "openpyxl",
+    "pywebview",
 ]
 
 [project.urls]

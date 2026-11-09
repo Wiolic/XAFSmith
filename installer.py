@@ -1,0 +1,230 @@
+"""XAFSmith 安装向导（Windows，图形界面）。由“安装XAFSmith.bat”调用，只需系统已装 Python ≥ 3.10。
+
+选项：安装位置、桌面快捷方式、开始菜单快捷方式、安装后立即启动。
+安装内容：<安装位置>\\venv（独立 Python 环境，含 XAFSmith 及依赖）、启动与卸载脚本、图标。
+"""
+import os
+import queue
+import subprocess
+import sys
+import threading
+import tkinter as tk
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+
+SRC = Path(__file__).resolve().parent
+APPNAME = "XAFSmith"
+CREDIT = "Developed by Eggy & Claude"
+DEFAULT_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Programs" / APPNAME
+LOCATION_FILE = Path(os.environ.get("LOCALAPPDATA", Path.home())) / APPNAME / "location.txt"
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
+def special_folder(name):
+    """Desktop / Programs（开始菜单）文件夹"""
+    ps = f"[Environment]::GetFolderPath('{name}')"
+    out = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True,
+                         creationflags=NO_WINDOW)
+    return Path(out.stdout.strip())
+
+
+def make_shortcut(lnk, target, args="", workdir="", icon="", desc=""):
+    ps = ("$s=(New-Object -ComObject WScript.Shell).CreateShortcut($env:LNK);"
+          "$s.TargetPath=$env:TGT;$s.Arguments=$env:ARGS;$s.WorkingDirectory=$env:WD;"
+          "if($env:ICO){$s.IconLocation=$env:ICO};$s.Description=$env:DESC;$s.Save()")
+    env = dict(os.environ, LNK=str(lnk), TGT=str(target), ARGS=args, WD=str(workdir), ICO=str(icon), DESC=desc)
+    subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps], env=env,
+                   check=True, creationflags=NO_WINDOW)
+
+
+ICON_CODE = r'''
+import math, sys
+from PIL import Image, ImageDraw, ImageFont
+img = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+d = ImageDraw.Draw(img)
+d.rounded_rectangle((8, 8, 248, 248), radius=48, fill=(32, 64, 120, 255))
+pts = []
+for i in range(196):
+    e = (i - 70) / 6.0
+    y = 1 / (1 + math.exp(-e)) + 0.9 * math.exp(-((i - 78) / 8.0) ** 2) + 0.07 * math.sin(i / 6.0) * (i > 100)
+    pts.append((30 + i, 175 - 85 * y))
+d.line(pts, fill=(255, 196, 64, 255), width=10, joint="curve")
+try:
+    f = ImageFont.truetype("arialbd.ttf", 58)
+except Exception:
+    f = ImageFont.load_default()
+d.text((128, 214), "XAFS", font=f, fill=(255, 255, 255, 255), anchor="mm")
+img.save(sys.argv[1], sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+'''
+
+
+class Installer(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title(f"{APPNAME} 安装向导")
+        self.geometry("640x520")
+        self.minsize(600, 480)
+        self.q = queue.Queue()
+        pad = dict(padx=14, pady=4)
+
+        ttk.Label(self, text=APPNAME, font=("Segoe UI", 20, "bold")).pack(anchor="w", padx=14, pady=(14, 0))
+        ttk.Label(self, text="通用 XAFS（XANES / EXAFS）数据处理与拟合软件", font=("Microsoft YaHei", 10)).pack(anchor="w", **pad)
+        ttk.Label(self, text=CREDIT, foreground="#666").pack(anchor="w", padx=14)
+
+        box = ttk.LabelFrame(self, text="安装选项")
+        box.pack(fill="x", padx=14, pady=10)
+        ttk.Label(box, text="安装位置：").grid(row=0, column=0, sticky="w", padx=8, pady=6)
+        self.dir = tk.StringVar(value=str(DEFAULT_DIR))
+        ttk.Entry(box, textvariable=self.dir, width=52).grid(row=0, column=1, sticky="we", pady=6)
+        ttk.Button(box, text="浏览…", command=self.browse).grid(row=0, column=2, padx=8)
+        box.columnconfigure(1, weight=1)
+        self.desktop = tk.BooleanVar(value=True)
+        self.startmenu = tk.BooleanVar(value=True)
+        self.launch = tk.BooleanVar(value=True)
+        ttk.Checkbutton(box, text="创建桌面快捷方式", variable=self.desktop).grid(row=1, column=1, sticky="w")
+        ttk.Checkbutton(box, text="创建开始菜单快捷方式（含卸载）", variable=self.startmenu).grid(row=2, column=1, sticky="w")
+        ttk.Checkbutton(box, text="安装完成后立即启动", variable=self.launch).grid(row=3, column=1, sticky="w", pady=(0, 6))
+        ttk.Label(box, text=f"需要联网下载依赖（约 1 GB，5–15 分钟）。当前 Python：{sys.version.split()[0]}",
+                  foreground="#666").grid(row=4, column=0, columnspan=3, sticky="w", padx=8, pady=(0, 6))
+
+        self.bar = ttk.Progressbar(self, mode="determinate", maximum=6)
+        self.bar.pack(fill="x", padx=14)
+        self.status = ttk.Label(self, text="准备就绪")
+        self.status.pack(anchor="w", padx=14, pady=2)
+        self.log = tk.Text(self, height=10, font=("Consolas", 9), state="disabled")
+        self.log.pack(fill="both", expand=True, padx=14, pady=4)
+
+        btns = ttk.Frame(self)
+        btns.pack(fill="x", padx=14, pady=10)
+        self.btn = ttk.Button(btns, text="安装", command=self.start)
+        self.btn.pack(side="right")
+        ttk.Button(btns, text="取消", command=self.destroy).pack(side="right", padx=8)
+        self.after(100, self.poll)
+
+    # ------------------------------------------------------------------
+    def browse(self):
+        d = filedialog.askdirectory(title="选择安装位置", initialdir=str(Path(self.dir.get()).parent))
+        if d:
+            self.dir.set(str(Path(d) / APPNAME) if Path(d).name != APPNAME else d)
+
+    def write(self, msg):
+        self.q.put(("log", msg))
+
+    def poll(self):
+        try:
+            while True:
+                kind, val = self.q.get_nowait()
+                if kind == "log":
+                    self.log.configure(state="normal")
+                    self.log.insert("end", val + "\n")
+                    self.log.see("end")
+                    self.log.configure(state="disabled")
+                elif kind == "step":
+                    self.bar["value"] = val[0]
+                    self.status["text"] = val[1]
+                elif kind == "done":
+                    self.finish(*val)
+        except queue.Empty:
+            pass
+        self.after(100, self.poll)
+
+    def run(self, cmd):
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                             encoding="utf-8", errors="replace", creationflags=NO_WINDOW)
+        for line in p.stdout:
+            line = line.rstrip()
+            if line:
+                self.write(line[-160:])
+        if p.wait():
+            raise RuntimeError(f"命令失败：{' '.join(map(str, cmd))[:200]}")
+
+    def start(self):
+        target = Path(self.dir.get()).expanduser()
+        if not target.is_absolute():
+            messagebox.showerror(APPNAME, "请填写完整的安装位置（例如 D:\\Programs\\XAFSmith）")
+            return
+        self.btn["state"] = "disabled"
+        threading.Thread(target=self.install, args=(target,), daemon=True).start()
+
+    def install(self, target):
+        try:
+            venv = target / "venv"
+            py = venv / "Scripts" / "python.exe"
+            pyw = venv / "Scripts" / "pythonw.exe"
+            self.q.put(("step", (1, f"1/6 创建独立 Python 环境：{venv}")))
+            target.mkdir(parents=True, exist_ok=True)
+            if not py.exists():
+                self.run([sys.executable, "-m", "venv", str(venv)])
+            self.q.put(("step", (2, "2/6 更新 pip")))
+            self.run([str(py), "-m", "pip", "install", "--upgrade", "pip"])
+            self.q.put(("step", (3, "3/6 安装 XAFSmith 及依赖（时间较长，请耐心等待）")))
+            self.run([str(py), "-m", "pip", "install", "--upgrade", str(SRC)])
+            self.q.put(("step", (4, "4/6 生成图标与启动 / 卸载脚本")))
+            icon = target / "xafsmith.ico"
+            try:
+                code = target / "_make_icon.py"
+                code.write_text(ICON_CODE, encoding="utf-8")
+                self.run([str(py), str(code), str(icon)])
+                code.unlink()
+            except Exception as ex:
+                self.write(f"（图标生成失败，使用默认图标：{ex}）")
+                icon = ""
+            launcher = target / "启动XAFSmith.bat"
+            launcher.write_bytes(("@echo off\r\nstart \"\" \"%~dp0venv\\Scripts\\pythonw.exe\" -m xafsmith gui\r\n")
+                                 .encode("utf-8"))
+            LOCATION_FILE.parent.mkdir(parents=True, exist_ok=True)
+            LOCATION_FILE.write_text(str(target), encoding="utf-8")
+            self.q.put(("step", (5, "5/6 创建快捷方式")))
+            links = []
+            home = Path.home()
+            if self.desktop.get():
+                lnk = special_folder("Desktop") / f"{APPNAME}.lnk"
+                make_shortcut(lnk, pyw, "-m xafsmith gui", home, icon, f"{APPNAME} — {CREDIT}")
+                links.append(lnk)
+            if self.startmenu.get():
+                folder = special_folder("Programs") / APPNAME
+                folder.mkdir(parents=True, exist_ok=True)
+                lnk = folder / f"{APPNAME}.lnk"
+                make_shortcut(lnk, pyw, "-m xafsmith gui", home, icon, f"{APPNAME} — {CREDIT}")
+                links += [lnk, folder / f"卸载 {APPNAME}.lnk"]
+            uninstall = target / "卸载XAFSmith.bat"
+            lines = ["@echo off", "chcp 65001 >nul", f"echo 将卸载 {APPNAME}（只删除软件，不会删除你的项目与数据）。", "pause"]
+            for l in links:
+                lines.append(f'del "{l}" 2>nul')
+            if self.startmenu.get():
+                lines.append(f'rmdir "{special_folder("Programs") / APPNAME}" 2>nul')
+            lines += [f'del "{LOCATION_FILE}" 2>nul', "echo 卸载完成。",
+                      f'start "" /b cmd /c "timeout /t 2 >nul & rmdir /s /q \\"{target}\\""', "exit"]
+            uninstall.write_bytes("\r\n".join(lines).encode("utf-8"))
+            if self.startmenu.get():
+                make_shortcut(special_folder("Programs") / APPNAME / f"卸载 {APPNAME}.lnk", uninstall,
+                              workdir=target, desc=f"卸载 {APPNAME}")
+            self.q.put(("step", (6, "6/6 检查安装")))
+            self.run([str(py), "-m", "xafsmith", "--version"])
+            self.q.put(("done", (True, target, pyw)))
+        except Exception as ex:
+            self.write(f"错误：{ex}")
+            self.q.put(("done", (False, target, None)))
+
+    def finish(self, ok, target, pyw):
+        if ok:
+            self.status["text"] = "安装完成"
+            msg = (f"{APPNAME} 已安装到：\n{target}\n\n"
+                   + ("双击桌面上的 XAFSmith 图标即可打开软件。" if self.desktop.get() else
+                      f"运行 {target / '启动XAFSmith.bat'} 打开软件。"))
+            messagebox.showinfo(APPNAME, msg)
+            if self.launch.get():
+                subprocess.Popen([str(pyw), "-m", "xafsmith", "gui"], cwd=str(Path.home()), creationflags=NO_WINDOW)
+            self.destroy()
+        else:
+            self.status["text"] = "安装失败"
+            messagebox.showerror(APPNAME, "安装失败。请检查网络后重试，或把窗口中的日志截图发给维护者。")
+            self.btn["state"] = "normal"
+
+
+if __name__ == "__main__":
+    if sys.version_info < (3, 10):
+        tk.Tk().withdraw()
+        messagebox.showerror(APPNAME, "需要 Python 3.10 或更高版本。")
+        sys.exit(1)
+    Installer().mainloop()

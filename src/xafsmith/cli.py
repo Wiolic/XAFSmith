@@ -21,7 +21,7 @@
   xafsmith lcf --sample S --standards A B [--emin -20 --emax 30 --space norm]
   xafsmith plan --formula IrO2 --element Ir --edge L3              样品设计
 
-  xafsmith gui                           图形界面（http://localhost:8501）
+  xafsmith gui                           图形界面（独立桌面窗口；--browser 改用浏览器）
   xafsmith docs                          文档位置
 
 所有命令都可加 --project <目录>；不加时从当前目录向上查找 xafsmith.json。原始数据只读。
@@ -267,6 +267,10 @@ def cmd_plan(a):
 
 def cmd_gui(a):
     from . import paths
+    if not a.browser:                         # 默认：独立桌面窗口（不打开浏览器）
+        from . import desktop
+        desktop.run(paths.ROOT if paths.is_project(paths.ROOT) else None)
+        return
     env = dict(os.environ, XAFSMITH_PROJECT=str(paths.ROOT))
     args = [sys.executable, "-m", "streamlit", "run", str(HERE / "gui.py")]
     if a.port:
@@ -318,7 +322,10 @@ def build_parser():
     p.add_argument("--target", type=float, default=2.0); p.add_argument("--diluent")
     p.add_argument("--mass-diluent", type=float, default=0.0); p.add_argument("--mass", type=float)
     p.set_defaults(f=cmd_plan)
-    p = sp.add_parser("gui", help="图形界面"); p.add_argument("--port", type=int); p.set_defaults(f=cmd_gui)
+    for name in ("gui", "app"):
+        p = sp.add_parser(name, help="图形界面（桌面窗口；--browser 用浏览器）")
+        p.add_argument("--browser", action="store_true", help="在浏览器中打开（http://localhost:8501）")
+        p.add_argument("--port", type=int); p.set_defaults(f=cmd_gui)
     return ap
 
 

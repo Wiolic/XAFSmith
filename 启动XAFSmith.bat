@@ -1,14 +1,11 @@
 @echo off
 chcp 65001 >nul
-title XAFSmith
-set "XS=%LOCALAPPDATA%\XAFSmith\venv\Scripts\xafsmith.exe"
-if not exist "%XS%" (
+rem 双击启动 XAFSmith（桌面窗口，不使用浏览器）
+set "LOC="
+if exist "%LOCALAPPDATA%\XAFSmith\location.txt" set /p LOC=<"%LOCALAPPDATA%\XAFSmith\location.txt"
+if not defined LOC (
   echo 还没有安装：请先双击 安装XAFSmith.bat
   pause
   exit /b 1
 )
-echo 正在启动 XAFSmith，浏览器会自动打开 http://localhost:8501
-echo 使用期间不要关闭本窗口；关闭本窗口即退出软件。
-cd /d "%USERPROFILE%"
-"%XS%" gui
-pause
+start "" "%LOC%\venv\Scripts\pythonw.exe" -m xafsmith gui
