@@ -1245,7 +1245,7 @@ def page_project():
     if not is_proj:
         return
 
-    t = st.tabs(["1 数据登记", "2 检查", "3 一键处理", "4 处理参数", "5 结构文件", "6 输出"])
+    t = st.tabs(["1 数据登记", "2 检查", "3 一键处理", "4 处理参数", "5 结构文件", "6 输出", "🤖 7 AI 助手"])
     with t[0]:
         st.markdown("原始数据放在 **data/raw/<批次>/**，每个批次带该批次测的单质参比（文件名含 foil / powder / metal）。")
         with st.form("upload_raw"):
@@ -1386,6 +1386,46 @@ def page_project():
             open_folder(paths.OUT)
         if c2.button("打开项目文件夹"):
             open_folder(paths.ROOT)
+    with t[6]:
+        agent_section()
+
+
+def agent_section():
+    """⓪ 项目 → AI 助手：把本项目接入 Claude Code / Codex / Cursor 等"""
+    from xafsmith import agent
+    st.markdown("XAFSmith 项目是标准化的文件夹，AI 助手可以直接读懂并替你处理、拟合、导出。"
+                "它做的每一步都写进项目文件，你可以随时在本界面中打开、检查、修改。")
+    s = agent.status(paths.ROOT)
+    def badge(name, ok, txt):
+        col = ("#15803d", "rgba(22,163,74,.12)") if ok else ("#b45309", "rgba(217,119,6,.12)")
+        return (f'<span style="display:inline-block;margin:0 8px 6px 0;padding:4px 12px;border-radius:999px;'
+                f'background:{col[1]};color:{col[0]};font-size:.85rem;font-weight:600">{name} · {i18n.tr(txt)}</span>')
+    st.markdown(badge("AGENTS.md", s["current"], "已接入" if s["current"] else ("需更新" if s["block"] else "未接入"))
+                + badge("CLAUDE.md", s["claude_md"], "已接入" if s["claude_md"] else "未接入"),
+                unsafe_allow_html=True)
+    st.caption("本机 xafsmith 命令（AI 用它运行所有步骤）：")
+    st.code(s["command"], language=None)
+    if st.button("写入 / 更新 AI 说明文件（AGENTS.md、CLAUDE.md）", type="primary", key="agent_write"):
+        ch = agent.write(paths.ROOT)
+        st.success("已更新：" + "、".join(p.name for p in ch) if ch else "已是最新，无需改动")
+    st.caption("只更新 AGENTS.md 中 XAFSmith 标记之间的部分；你自己写在 AGENTS.md / CLAUDE.md 里的内容会保留。")
+    st.markdown("#### 第 1 步：在项目文件夹里打开 AI 助手")
+    rows = [("Claude Code 桌面版", "新建会话 → 选择本项目文件夹"),
+            ("Claude Code 命令行", "在本项目文件夹中打开终端，输入 `claude`"),
+            ("Codex", "在本项目文件夹中打开终端，输入 `codex`，或在 Codex 应用中打开该文件夹"),
+            ("Cursor / VS Code", "文件 → 打开文件夹 → 本项目文件夹，打开 AI 对话面板")]
+    st.markdown("\n".join([f"| {i18n.tr('AI 助手')} | {i18n.tr('怎么打开')} |", "|---|---|"]
+                          + [f"| **{i18n.tr(a)}** | {i18n.tr(b)} |" for a, b in rows]))
+    st.code(str(paths.ROOT), language=None)
+    st.markdown("#### 第 2 步：用自己的话告诉它要做什么（可以直接复制）")
+    exs = agent.EXAMPLES_EN if i18n.LANG == "en" else agent.EXAMPLES_ZH
+    for e in exs:
+        st.code(e, language=None, wrap_lines=True)
+    st.markdown("#### 第 3 步：检查 AI 的结果")
+    st.markdown("\n".join("- " + i18n.tr(x) for x in [
+        "拟合模型在 models/：⑧ 页顶部“运行已保存的模型”可以重跑、查看拟合诊断与稳健性检查",
+        "全部数值结果在 output/；分析记录在 notes/",
+        "期刊图在 output/figs/journal/，汇总报告在 output/reports/（⑫、⑭ 页也能直接看）"]))
 
 
 
@@ -1764,46 +1804,111 @@ PAGES = {"⓪ 项目": page_project, "① 数据导入": page_import, "② 质�
          "⑩ LCF": page_lcf, "⑪ 样品设计": page_planner, "⑫ 汇总报告": page_summary,
          "⑬ XANES 定量": page_xanes, "⑭ 期刊出图": page_pubfig, "❓ 使用指南": None}
 
+# 侧栏导航分组：(第一个页面, 组名)
+NAV_GROUPS = [("⓪ 项目", "开始"), ("① 数据导入", "数据处理"), ("⑦ FEFF 路径", "结构与拟合"),
+              ("⑪ 样品设计", "结果与导出"), ("❓ 使用指南", "帮助")]
+
+
+def sidebar_css():
+    """侧栏样式：分组标题、行距、悬停与选中高亮（浅色 / 深色主题都可读）"""
+    names = list(PAGES)
+    heads = {names.index(p) + 1: i18n.tr(t) for p, t in NAV_GROUPS if p in names}
+    rules = "\n".join(
+        f'.st-key-navbox [role="radiogroup"] > div:nth-child({i}) {{margin-top:{20 if i == 1 else 24}px;}}\n'
+        f'.st-key-navbox [role="radiogroup"] > div:nth-child({i})::before {{content:"{t}";}}'
+        for i, t in heads.items())
+    st.markdown(f"""<style>
+[data-testid="stSidebarHeader"] {{height:2.2rem; min-height:0; padding:0.4rem 0.8rem 0 0.8rem;}}
+section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {{padding-top: 0;}}
+.st-key-navbox, .st-key-navbox [data-testid="stElementContainer"], .st-key-navbox .stRadio, .st-key-navbox [role="radiogroup"] {{width:100% !important;}}
+.xs-brand {{display:flex; align-items:center; gap:12px; padding:0 4px 14px 4px;
+  border-bottom:1px solid rgba(128,128,128,.18); margin-bottom:6px;}}
+.xs-brand img {{width:44px; height:44px; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,.12);}}
+.xs-brand .t {{font-size:1.28rem; font-weight:700; letter-spacing:.01em; line-height:1.1;}}
+.xs-brand .s {{font-size:.72rem; opacity:.62; margin-top:3px; line-height:1.35; white-space:nowrap;}}
+.st-key-navbox [role="radiogroup"] {{gap:2px !important;}}
+.st-key-navbox [role="radiogroup"] > div {{position:relative; width:100%; margin:0; padding:7px 12px 7px 14px;
+  border-radius:9px; cursor:pointer; transition:background .15s ease;}}
+.st-key-navbox [data-testid="stRadioOption"] > div > div:first-child {{display:none;}}
+.st-key-navbox [data-testid="stRadioOption"] {{width:100%; margin:0; padding:0; cursor:pointer;}}
+.st-key-navbox [role="radiogroup"] p {{font-size:0.92rem; line-height:1.35; letter-spacing:.01em;}}
+.st-key-navbox [role="radiogroup"] > div:hover {{background:rgba(37,99,235,.07);}}
+.st-key-navbox [role="radiogroup"] > div[data-selected="true"] {{background:rgba(37,99,235,.13);}}
+.st-key-navbox [role="radiogroup"] > div[data-selected="true"]::after {{content:""; position:absolute; left:3px; top:8px;
+  bottom:8px; width:3px; border-radius:3px; background:#2563eb;}}
+.st-key-navbox [role="radiogroup"] > div[data-selected="true"] p {{font-weight:600; color:#2563eb;}}
+.st-key-navbox [role="radiogroup"] > div::before {{position:absolute; left:14px; top:-19px; font-size:.68rem;
+  font-weight:600; letter-spacing:.09em; text-transform:uppercase; opacity:.5; pointer-events:none;}}
+{rules}
+.st-key-langbox [role="radiogroup"] {{gap:4px !important;}}
+.st-key-langbox [role="radiogroup"] > div {{padding:2px 10px; border-radius:999px; border:1px solid rgba(128,128,128,.28);
+  margin:0;}}
+.st-key-langbox [data-testid="stRadioOption"] > div > div:first-child {{display:none;}}
+.st-key-langbox [role="radiogroup"] p {{font-size:.78rem;}}
+.st-key-langbox [role="radiogroup"] > div[data-selected="true"] {{background:#2563eb; border-color:#2563eb;}}
+.st-key-langbox [role="radiogroup"] > div[data-selected="true"] p {{color:#fff;}}
+.xs-status {{display:flex; gap:6px; flex-wrap:wrap; margin:4px 0 2px 0;}}
+.xs-chip {{font-size:.72rem; padding:2px 9px; border-radius:999px; background:rgba(128,128,128,.12);}}
+.xs-foot {{font-size:.7rem; opacity:.6; line-height:1.45;}}
+</style>""", unsafe_allow_html=True)
+
+
+def brand_header():
+    import base64
+    from xafsmith import __version__
+    png = base64.b64encode((Path(__file__).resolve().parent / "assets" / "xafsmith.png").read_bytes()).decode()
+    st.markdown(f'<div class="xs-brand"><img src="data:image/png;base64,{png}"/>'
+                f'<div><div class="t">XAFSmith</div>'
+                f'<div class="s">{i18n.tr("同步辐射 XAFS 分析")}<br/>{i18n.tr("可连接 AI 助手")} · v{__version__}</div></div></div>',
+                unsafe_allow_html=True)
+
+
 with st.sidebar:
-    _lang = st.radio("Language / 语言", ["中文", "English"], index=1 if i18n.LANG == "en" else 0,
-                     horizontal=True, key="ui_lang")
+    _top = st.container()                    # 品牌与导航（显示在上方）
+    _bottom = st.container()                 # 状态、语言、署名（显示在下方；语言要最先处理）
+    with _bottom:
+        st.divider()
+        _status = st.container()
+        _lang_box = st.container(key="langbox")
+    with _lang_box:
+        _lang = st.radio("Language / 语言", ["中文", "English"], index=1 if i18n.LANG == "en" else 0,
+                         horizontal=True, key="ui_lang", label_visibility="collapsed")
     if ("en" if _lang == "English" else "zh") != i18n.LANG:
         _xup.save_settings(lang="en" if _lang == "English" else "zh")
         i18n.LANG = "en" if _lang == "English" else "zh"
         st.rerun()
-    st.image(str(Path(__file__).resolve().parent / "assets" / "xafsmith.png"), width=72)
-    st.title("XAFSmith")
+with st.sidebar, _top:
+    sidebar_css()
+    brand_header()
     if paths.is_project(paths.ROOT):
-        page = st.radio("功能", list(PAGES), label_visibility="collapsed", key="nav_page")
+        with st.container(key="navbox"):
+            page = st.radio("功能", list(PAGES), label_visibility="collapsed", key="nav_page")
     else:
         page = "⓪ 项目"
         st.info("先打开或新建项目")
-    st.divider()
-    st.caption(f"已载入 {len(S.groups)} 条谱 · 拟合 {len(S.fits)} 次")
-    st.caption(f"项目：{paths.ROOT.name}")
-    if st.button("保存会话参数"):
+with st.sidebar, _status:
+    st.markdown(f'<div class="xs-status"><span class="xs-chip">📁 {paths.ROOT.name}</span>'
+                f'<span class="xs-chip">{i18n.tr("谱数")} {len(S.groups)}</span>'
+                f'<span class="xs-chip">{i18n.tr("拟合数")} {len(S.fits)}</span></div>', unsafe_allow_html=True)
+    if st.button("保存会话参数", width="stretch"):
         write_params(paths.GUI / "gui_session.params.json",
                      dict(norm=S.norm_par, bkg=S.bkg_par, ft=S.ft_par, calib=S.calib,
                           groups=list(S.groups)), "gui")
         st.success("已保存 output/gui/gui_session.params.json")
-    st.divider()
-    from xafsmith import __version__
-    from xafsmith import about
-    st.caption(f"**XAFSmith** v{__version__}  \n"
-               "Developed by **Eggy** & **Claude** (Anthropic)  \n"
-               "Powered by xraylarch · FEFF6L · xraydb")
-    st.warning("**不对结果负责 / No warranty.** 请核验结果，建议与 Athena / Artemis 对比。"
-               "Please cross-check key results with Athena / Artemis.", icon="⚠️")
-    st.info("**论文中使用请引用 / Please cite:**  \n" + about.CITATION_TEXT, icon="📖")
     update_notice()
+with st.sidebar, _bottom:
+    st.markdown('<div class="xs-foot">Developed by <b>Eggy</b> &amp; <b>Claude</b> (Anthropic)<br/>'
+                'Powered by xraylarch · FEFF6L/8L · xraydb<br/>'
+                + i18n.tr("⚠️ 不对结果负责，请与 Athena / Artemis 对照；论文中使用请引用本仓库（见 ⓪ 项目）")
+                + "</div>", unsafe_allow_html=True)
 
 if page == "❓ 使用指南":
     from xafsmith import __version__
     with st.container(border=True):
         st.markdown(f"#### About XAFSmith\n"
-                    f"Version {__version__} · General-purpose XAFS (XANES/EXAFS) processing and fitting.  \n"
+                    f"Version {__version__} · Agent-ready synchrotron XAFS (XANES/EXAFS) analysis software.  \n"
                     "**Developed by Eggy & Claude** (Anthropic).  \n"
-                    "Built on [xraylarch](https://xraypy.github.io/xraylarch/) (FEFF6L, feffit), xraydb, lmfit, "
+                    "Built on [xraylarch](https://xraypy.github.io/xraylarch/) (FEFF6L, FEFF8L, feffit), xraydb, lmfit, "
                     "pymatgen and Streamlit.  \n"
                     "Source: https://github.com/Wiolic/XAFSmith")
     disclaimer_box()

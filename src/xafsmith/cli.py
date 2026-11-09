@@ -24,6 +24,14 @@
   xafsmith xanes --samples A B [--valence 标样=价态 ...]          边位置/白线/价态估算 → output/xanes/
   xafsmith export-prj --samples A B [--out 文件.prj]               导出 Athena 工程 → output/gui/athena/
   xafsmith methods [--samples A B]       自动生成“方法”段落草稿 → output/reports/方法段落.md
+  xafsmith diagnose <模型名>              拟合诊断：残差/噪声、毛刺定位、分段失配与建议
+
+导出：
+  xafsmith figure --kind chir --samples A B [--size double --kweight 2]   期刊图（xanes/deriv/chik/chir/fit）→ output/figs/journal/
+  xafsmith summary                       一键汇总报告（Excel + HTML）→ output/reports/
+
+AI 助手：
+  xafsmith agent [--write]               显示接入信息；--write 写入 AGENTS.md、CLAUDE.md（含本机命令路径）
   xafsmith update [--check]              检查 / 安装 GitHub 上的新版本
 
   xafsmith gui                           图形界面（独立桌面窗口）
@@ -67,7 +75,7 @@ def create_project(root):
     from . import paths
     paths.set_root(root)
     paths.ensure()
-    copies = {"xafsmith.json": paths.CONFIG, "project.md": paths.PROJECT_MD, "AGENTS.md": paths.ROOT / "AGENTS.md",
+    copies = {"xafsmith.json": paths.CONFIG, "project.md": paths.PROJECT_MD,
               "meta.csv": paths.META, "structures_README.md": paths.STRUCT / "README.md",
               "model_example.json": paths.MODELS / "_模板.json", "run_gui.bat": paths.ROOT / "打开图形界面.bat"}
     made = []
@@ -75,6 +83,8 @@ def create_project(root):
         if not dst.exists():
             shutil.copy(TEMPLATES / src, dst)
             made.append(dst)
+    from . import agent
+    made += agent.write(paths.ROOT)          # AGENTS.md / CLAUDE.md（含本机 xafsmith 命令路径）
     return made
 
 
@@ -335,6 +345,68 @@ def cmd_update(a):
         print("更新完成" if ok else "更新失败")
 
 
+def cmd_diagnose(a):
+    from . import fit_exafs as fx
+    model, g, res, dset, summ = _run_model(a.model)
+    kw = model["kweight"][-1] if isinstance(model["kweight"], list) else model["kweight"]
+    dg = fx.diagnose(fx.model_curves(dset), model, e0=getattr(g, "e0", None), kweight=kw)
+    print(f"R 因子 {summ['rfactor']:.4f}  χ²_ν {summ['chi2_reduced']:.2f}  变量 {summ['nvarys']} / N_idp {summ['n_idp']:.1f}")
+    print(f"窗口内残差 RMS {dg['resid_R']:.4f}   白噪声估计 {dg['noise_R']:.4f}   残差/噪声 {dg['ratio']:.1f}")
+    print("\nk 分段残差：\n" + dg["k_segments"].round(3).to_string(index=False))
+    print("\nR 分段局部失配：\n" + dg["r_segments"].round(3).to_string(index=False))
+    print("\n建议：")
+    for h in dg["hints"]:
+        print(" -", h)
+
+
+def cmd_summary(a):
+    from . import paths, summary
+    out = summary.build(title=a.title)
+    print(f"→ {paths.rel(out)}（汇总.xlsx、汇总报告.html）")
+
+
+SIZE_ALIAS = {"single": "单栏 85 mm", "1.5": "1.5 栏 120 mm", "double": "双栏 178 mm", "slide": "汇报 16:9"}
+
+
+def cmd_figure(a):
+    import datetime
+    import re as _re
+    from . import paths, pipeline as pl, pubfig as pf, fit_exafs as fx
+    size = SIZE_ALIAS.get(a.size, a.size)
+    if a.kind == "fit":
+        if not a.model:
+            sys.exit("--kind fit 需要 --model <模型名>")
+        model, g, res, dset, summ = _run_model(a.model)
+        fig, cap = pf.fit(fx.model_curves(dset), summ, size, kweight=a.kweight, rmax=a.rmax, model=model)
+    else:
+        if not a.samples:
+            sys.exit("需要 --samples 样品1 样品2 …")
+        gs = [pl.build_sample(s)[0] for s in a.samples]
+        if a.kind in ("xanes", "deriv"):
+            fig, cap = pf.xanes(gs, size, (a.emin, a.emax), a.offset, deriv=a.kind == "deriv")
+        elif a.kind == "chik":
+            fig, cap = pf.chik(gs, size, a.kweight, a.offset)
+        else:
+            fig, cap = pf.chir(gs, size, a.kweight, a.rmax, a.offset, a.re)
+    name = a.name or f"{a.kind}_{datetime.datetime.now():%Y%m%d_%H%M%S}"
+    files = pf.save(fig, cap, paths.PUBFIGS / _re.sub(r"[^\w.-]+", "_", name), a.formats)
+    print("图注 / caption:", cap)
+    for f in files:
+        print("→", paths.rel(f))
+
+
+def cmd_agent(a):
+    from . import paths, agent
+    if a.write:
+        for f in agent.write(paths.ROOT):
+            print("写入", paths.rel(f))
+    print(agent.main_text(paths.ROOT))
+    if not a.write:
+        print("\n示例提问 / example prompts:")
+        for z, e in zip(agent.EXAMPLES_ZH, agent.EXAMPLES_EN):
+            print(" -", z, "\n  ", e)
+
+
 def cmd_gui(a):
     from . import paths
     from . import desktop                     # 只提供独立桌面窗口（不使用浏览器）
@@ -396,6 +468,21 @@ def build_parser():
     p.add_argument("--mass-diluent", type=float, default=0.0); p.add_argument("--mass", type=float)
     p.set_defaults(f=cmd_plan)
     p = sp.add_parser("robust", help="拟合稳健性检查"); p.add_argument("model"); p.set_defaults(f=cmd_robust)
+    p = sp.add_parser("diagnose", help="拟合诊断：残差、噪声、毛刺、建议"); p.add_argument("model")
+    p.set_defaults(f=cmd_diagnose)
+    p = sp.add_parser("summary", help="一键汇总报告（Excel + HTML）"); p.add_argument("--title")
+    p.set_defaults(f=cmd_summary)
+    p = sp.add_parser("figure", help="期刊出图 → output/figs/journal/")
+    p.add_argument("--kind", required=True, choices=["xanes", "deriv", "chik", "chir", "fit"])
+    p.add_argument("--samples", nargs="+"); p.add_argument("--model", help="--kind fit 时的模型名")
+    p.add_argument("--size", default="single", help="single / 1.5 / double / slide")
+    p.add_argument("--kweight", type=int, default=2); p.add_argument("--rmax", type=float, default=6.0)
+    p.add_argument("--emin", type=float, default=-20); p.add_argument("--emax", type=float, default=60)
+    p.add_argument("--offset", type=float, default=0.0); p.add_argument("--re", action="store_true", help="chir 同时画 Re")
+    p.add_argument("--formats", nargs="+", default=["tiff", "png", "svg"]); p.add_argument("--name")
+    p.set_defaults(f=cmd_figure)
+    p = sp.add_parser("agent", help="接入 AI 助手：显示信息 / --write 写入 AGENTS.md 与 CLAUDE.md")
+    p.add_argument("--write", action="store_true"); p.set_defaults(f=cmd_agent)
     p = sp.add_parser("xanes", help="XANES 边位置/白线/价态")
     p.add_argument("--samples", nargs="+", required=True)
     p.add_argument("--valence", nargs="*", help="标样=价态，如 CoO=2 Co3O4=2.667")

@@ -13,16 +13,17 @@ If this is your first EXAFS fit, read the **Beginner fitting tutorial** next to 
 
 1. Install Python 3.11 or 3.12 from https://www.python.org/downloads/windows/ and **tick “Add python.exe to PATH”** during installation.
 2. On https://github.com/Wiolic/XAFSmith click **Code → Download ZIP** and unzip it anywhere.
-3. Double-click **`安装XAFSmith.bat`** (“Install XAFSmith”) in the unzipped folder. The installer wizard asks for:
+3. Double-click **`installer.py`** in the unzipped folder. The bilingual installer wizard asks for:
    - **Install location** (default `C:\Users\<you>\AppData\Local\Programs\XAFSmith`; “浏览…” = Browse);
    - desktop shortcut, Start-menu shortcut (with uninstaller), launch after installation;
-   - tick **“I have read and agree”** and click **安装 (Install)**. Internet is required; it takes 5–15 minutes.
+   - tick **“I have read and agree”** and click **Install**. Internet is required; it takes 5–15 minutes.
+   - If double-clicking `installer.py` does nothing or opens it in a text editor: right-click → Open with → Python, or reinstall Python making sure “Add python.exe to PATH” and the “py launcher” are ticked.
 4. The unzipped folder can be deleted afterwards.
 
 To use XAFSmith: **double-click XAFSmith on the desktop (or in the Start menu)**. It opens in its own window (no web browser). Close the window to quit.
 Uninstall: Start menu → XAFSmith → uninstall (your projects and data are not touched).
 
-At the top of the sidebar, **Language / 语言** switches between 中文 and English; the choice is remembered.
+**Layout**: the sidebar groups the pages into **Start / Processing / Structure & fitting / Results & export / Help**; the current page is highlighted in blue. The bottom of the sidebar shows the current project, the number of loaded spectra and fits, and the **中文 / English** switch (the choice is remembered).
 
 ---
 
@@ -135,6 +136,21 @@ On the ❓ Help page, **Check for updates** lets you enable the start-up check (
 
 ---
 
+## 15. Connecting an AI assistant (⓪ Project → 7 AI assistant)
+
+An XAFSmith project can be handed directly to an AI assistant (Claude Code, Codex, Cursor, …) to process, fit and export.
+
+1. ⓪ Project → **🤖 7 AI assistant** → click **Write / update AI instruction files**.
+   This writes `AGENTS.md` (with the full path of the xafsmith command on this computer, the workflow, fitting and export
+   commands, and rules) and `CLAUDE.md` into the project folder. Anything you wrote in these files is kept.
+2. Open the AI assistant in the project folder (the page shows how for each tool) and say what you want in your own words,
+   e.g. “check the data quality”, “determine S0² from the standard”, “apply the same model to the whole series and run F-tests”,
+   “export double-column journal figures and the summary report”.
+3. Everything the AI produces stays in the project: models in `models/` (rerun them at the top of ⑧ and inspect the fit
+   diagnosis), numbers in `output/`, notes in `notes/`, figures in `output/figs/journal/`, reports in `output/reports/`.
+
+After updating XAFSmith (the command path may change), click “Write / update” again.
+
 ## Interpretation reminders
 
 - R-space peaks are **not phase-corrected** and appear ~0.3–0.5 Å shorter than the bond lengths; take distances from the fit.
@@ -148,7 +164,7 @@ On the ❓ Help page, **Check for updates** lets you enable the start-up check (
 | Problem | Solution |
 |---|---|
 | The window keeps showing “Starting…” | The first start takes 10–30 s; after 2 minutes check `C:\Users\<you>\.xafsmith\app.log` |
-| “Not installed” message | Run `安装XAFSmith.bat` again |
+| “Not installed” message | Run `installer.py` again |
 | The window does not open (old systems without WebView2) | Install the Microsoft Edge WebView2 Runtime (https://developer.microsoft.com/microsoft-edge/webview2/, Evergreen Bootstrapper) and try again |
 | ref_file is empty in the table | The batch has no reference: add the foil measured in that session to the batch and scan again |
 | A spectrum has a glitch | Set use = 0 for that scan (with a reason), or define a deglitch range in xafsmith.json |

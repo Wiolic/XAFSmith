@@ -1,4 +1,4 @@
-"""xafsmith —— 通用 XAFS 数据处理与拟合工具包（基于 xraylarch）。
+"""xafsmith —— 可连接 AI 助手（agent）的同步辐射 XAFS 分析软件包（基于 xraylarch / FEFF）。
 
 模块：
     io          读入束线文件 / Athena .prj / 通用列文本

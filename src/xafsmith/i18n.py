@@ -155,6 +155,36 @@ EN = {
     "输出目录": "Output folder", "运行 FEFF6L": "Run FEFF6L", "FEFF 运行中…": "Running FEFF…", "完成：": "Done: ",
     " 条路径 → ": " paths → ", "已有 FEFF 计算": "Existing FEFF calculations", "目录": "Folder",
     "拟合质量提升教程（对不严时怎么办）": "Improving fit quality (when the fit does not match)",
+    # ---- 侧栏 / sidebar
+    "开始": "Start", "数据处理": "Processing", "结构与拟合": "Structure & fitting", "结果与导出": "Results & export",
+    "帮助": "Help", "同步辐射 XAFS 分析": "Synchrotron XAFS analysis", "可连接 AI 助手": "Agent-ready",
+    "拟合数": "Fits",
+    "⚠️ 不对结果负责，请与 Athena / Artemis 对照；论文中使用请引用本仓库（见 ⓪ 项目）":
+        "⚠️ No warranty — cross-check with Athena / Artemis; please cite the repository in publications (see ⓪ Project)",
+    # ---- ⓪ 项目 → AI 助手 / agent
+    "🤖 7 AI 助手": "🤖 7 AI assistant",
+    "XAFSmith 项目是标准化的文件夹，AI 助手可以直接读懂并替你处理、拟合、导出。它做的每一步都写进项目文件，你可以随时在本界面中打开、检查、修改。":
+        "An XAFSmith project is a standardized folder, so an AI assistant can read it directly and process, fit and export for you. Every step it takes is written into the project files, which you can open, check and change here at any time.",
+    "已接入": "connected", "需更新": "outdated", "未接入": "not connected", "命令路径": "Command path",
+    "已写入": "written", "本机 xafsmith 命令（AI 用它运行所有步骤）：": "xafsmith command on this computer (the AI runs every step with it):",
+    "写入 / 更新 AI 说明文件（AGENTS.md、CLAUDE.md）": "Write / update AI instruction files (AGENTS.md, CLAUDE.md)",
+    "已更新：": "Updated: ", "已是最新，无需改动": "Already up to date",
+    "只更新 AGENTS.md 中 XAFSmith 标记之间的部分；你自己写在 AGENTS.md / CLAUDE.md 里的内容会保留。":
+        "Only the part between the XAFSmith markers in AGENTS.md is updated; anything you wrote in AGENTS.md / CLAUDE.md is kept.",
+    "#### 第 1 步：在项目文件夹里打开 AI 助手": "#### Step 1: open the AI assistant in the project folder",
+    "AI 助手": "AI assistant", "怎么打开": "How to open",
+    "Claude Code 桌面版": "Claude Code desktop app", "新建会话 → 选择本项目文件夹": "New session → choose this project folder",
+    "Claude Code 命令行": "Claude Code CLI", "在本项目文件夹中打开终端，输入 `claude`": "Open a terminal in this project folder and type `claude`",
+    "在本项目文件夹中打开终端，输入 `codex`，或在 Codex 应用中打开该文件夹":
+        "Open a terminal in this project folder and type `codex`, or open the folder in the Codex app",
+    "文件 → 打开文件夹 → 本项目文件夹，打开 AI 对话面板": "File → Open Folder → this project folder, then open the AI chat panel",
+    "#### 第 2 步：用自己的话告诉它要做什么（可以直接复制）": "#### Step 2: tell it what to do in your own words (copy an example)",
+    "#### 第 3 步：检查 AI 的结果": "#### Step 3: check the AI's results",
+    "拟合模型在 models/：⑧ 页顶部“运行已保存的模型”可以重跑、查看拟合诊断与稳健性检查":
+        "Fit models are in models/: rerun them with “Run a saved model” at the top of ⑧ and inspect the fit diagnosis and robustness check",
+    "全部数值结果在 output/；分析记录在 notes/": "All numerical results are in output/; analysis notes in notes/",
+    "期刊图在 output/figs/journal/，汇总报告在 output/reports/（⑫、⑭ 页也能直接看）":
+        "Journal figures are in output/figs/journal/, summary reports in output/reports/ (also viewable on ⑫ and ⑭)",
     # ---- 拟合诊断
     "拟合诊断：残差在哪里、为什么对不上": "Fit diagnosis: where the residual is and why",
     "窗口内残差 RMS": "In-window residual RMS", "白噪声估计 (R 15–25 Å)": "White-noise estimate (R 15–25 Å)",

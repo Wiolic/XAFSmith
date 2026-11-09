@@ -39,6 +39,10 @@ def main():
     # ⓪ 项目：数据标准检查
     [b for b in at.button if b.label == "运行检查"][0].click().run()
     ok &= check(at, "⓪ 项目：运行检查")
+    good = any(b.key == "agent_write" for b in at.button) and \
+        any("xafsmith" in c.value for c in at.code)
+    print(f"   [{'ok' if good else 'FAIL'}] ⓪ 项目 → AI 助手：写入按钮与命令路径")
+    ok &= good
     at.sidebar.radio(key="nav_page").set_value("① 数据导入").run()
     # ① 按 meta 载入
     at.multiselect(key="meta_samples").set_value(["Ir foil", "IrO2", "IrCoOx_OCP", "IrCoOx_OCP_r"]).run()

@@ -63,6 +63,7 @@ def start_server(port, project=None):
     cmd = [str(py), "-m", "streamlit", "run", str(HERE / "gui.py"),
            "--server.headless", "true", "--server.address", "127.0.0.1", "--server.port", str(port),
            "--browser.gatherUsageStats", "false", "--client.toolbarMode", "minimal",
+           "--theme.primaryColor", "#2563eb",
            "--server.fileWatcherType", "none"]
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     log = open(_log_file(), "w", encoding="utf-8")
