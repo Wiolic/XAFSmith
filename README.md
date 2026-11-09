@@ -7,6 +7,19 @@
 - **标准化**：固定的项目目录、数据登记表、拟合模型格式（[数据标准](src/xafsmith/docs/数据标准.md)），`xafsmith validate` 自动检查。
 - **AI 友好**：任何 AI 助手按[操作手册](src/xafsmith/docs/手册.md)调用命令即可接手分析。
 
+> [!WARNING]
+> **免责声明 / Disclaimer** —— 本软件按“现状”提供，不附带任何形式的保证；作者不对使用本软件得到的任何结果负责。
+> 请自行核验结果，**建议将关键结果与 Athena / Artemis（Demeter）的结果对比**。
+> XAFSmith is provided "as is", without warranty of any kind; the authors accept no responsibility for results
+> obtained with it. Please cross-check key results against Athena / Artemis.
+
+> [!NOTE]
+> **引用 / Citation** —— 如果在论文中使用了本软件，请引用本仓库（GitHub 页面右侧 “Cite this repository”）：
+> *Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 0.1.0. https://github.com/Wiolic/XAFSmith*
+> 同时请引用其依赖的 Larch（M. Newville, J. Phys.: Conf. Ser. 430, 012007 (2013)）与 FEFF6
+> （S. I. Zabinsky et al., Phys. Rev. B 52, 2995 (1995)）。
+> If you use XAFSmith in a publication, please cite this repository, as well as Larch and FEFF.
+
 ## 不会编程？只用鼠标就能完成全流程
 
 1. 安装 [Python 3.11/3.12](https://www.python.org/downloads/windows/)（安装时勾选 **Add python.exe to PATH**）。

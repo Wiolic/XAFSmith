@@ -94,7 +94,10 @@ def build(title=None, include_figs=True):
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
     out = paths.REPORTS / f"汇总_{stamp}"
     out.mkdir(parents=True, exist_ok=True)
+    from . import about
     with pd.ExcelWriter(out / "汇总.xlsx") as xw:
+        pd.DataFrame({"说明 / Notes": about.text_block().split("\n")}).to_excel(
+            xw, sheet_name="说明与引用", index=False)
         if not sheets:
             pd.DataFrame({"说明": ["项目中还没有结果"]}).to_excel(xw, sheet_name="说明", index=False)
         for name, df in sheets.items():
@@ -109,6 +112,15 @@ def build(title=None, include_figs=True):
     return out
 
 
+def _notice():
+    from . import about
+    up = "".join(f"<li>{html.escape(u)}</li>" for u in about.UPSTREAM)
+    return ("<div class=w><b>⚠ " + html.escape(about.DISCLAIMER_CN) + "</b><br><small>"
+            + html.escape(about.DISCLAIMER_EN) + "</small></div>"
+            "<div class=c><b>📖 " + html.escape(about.CITE_CN) + "</b><br><small>" + html.escape(about.CITE_EN)
+            + "</small><ul>" + up + "</ul></div>")
+
+
 def _table(df, maxrows=300):
     return df.head(maxrows).to_html(index=False, border=0, classes="t", na_rep="",
                                     float_format=lambda x: f"{x:.4g}")
@@ -118,7 +130,8 @@ def _html(title, sheets, figs):
     order = ["样品", "校准", "质量检查", "处理结果", "拟合概要", "EXAFS拟合", "LCF", "处理参数"]
     parts = [f"<h1>{html.escape(title)} —— XAFSmith 汇总</h1>",
              f"<p class=m>生成时间 {datetime.datetime.now():%Y-%m-%d %H:%M}｜项目 {html.escape(str(paths.ROOT))}</p>",
-             "<p class=m>R 空间峰位未相移校正；拟合结果依赖模型，判读时区分 实测 / 拟合 / 推测。</p>"]
+             "<p class=m>R 空间峰位未相移校正；拟合结果依赖模型，判读时区分 实测 / 拟合 / 推测。</p>",
+             _notice()]
     for name in order:
         if name in sheets:
             parts.append(f"<h2>{name}</h2>" + _table(sheets[name]))
@@ -136,7 +149,10 @@ def _html(title, sheets, figs):
            ".m{color:#666;font-size:13px}table.t{border-collapse:collapse;font-size:12px;margin:6px 0}"
            "table.t th,table.t td{border:1px solid #ddd;padding:3px 6px;text-align:right}"
            "table.t th{background:#f3f3f3}figure{margin:12px 0}img{max-width:100%;border:1px solid #eee}"
-           "figcaption{font-size:12px;color:#666}")
+           "figcaption{font-size:12px;color:#666}"
+           ".w{background:#fff4e5;border:1px solid #f0b46a;padding:8px 12px;margin:10px 0;font-size:13px}"
+           ".c{background:#eef5ff;border:1px solid #9cc0f0;padding:8px 12px;margin:10px 0;font-size:13px}"
+           ".c ul{margin:4px 0 0 18px;padding:0}")
     return f"<!doctype html><html><head><meta charset='utf-8'><title>{html.escape(title)}</title>" \
            f"<style>{css}</style></head><body>{''.join(parts)}</body></html>"
 

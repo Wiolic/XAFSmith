@@ -1020,8 +1020,18 @@ def open_folder(p):
         subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(p)])
 
 
+def disclaimer_box():
+    from xafsmith import about
+    with st.container(border=True):
+        st.markdown(f"⚠️ **{about.DISCLAIMER_CN}**  \n<small>{about.DISCLAIMER_EN}</small>", unsafe_allow_html=True)
+        st.markdown(f"📖 {about.CITE_CN}  \n<small>{about.CITE_EN}</small>", unsafe_allow_html=True)
+        with st.expander("引用格式 / How to cite"):
+            st.code(about.CITATION_TEXT + "\n\n" + "\n".join(about.UPSTREAM), language=None)
+
+
 def page_project():
     st.header("⓪ 项目")
+    disclaimer_box()
     is_proj = paths.is_project(paths.ROOT)
     if is_proj:
         remember(paths.ROOT)
@@ -1212,6 +1222,7 @@ def save_fit(fit):
 
 def page_summary():
     st.header("⑫ 汇总报告")
+    disclaimer_box()
     st.markdown("把项目中**已保存**的全部结果整理成一个 **Excel 工作簿** 和一份 **带图的 HTML 报告**："
                 "样品清单、能量校准、质量检查、处理结果、EXAFS 拟合（每个模型一行的概要 + 每条路径的参数）、LCF、处理参数。")
     if S.fits:
@@ -1266,9 +1277,13 @@ with st.sidebar:
         st.success("已保存 output/gui/gui_session.params.json")
     st.divider()
     from xafsmith import __version__
+    from xafsmith import about
     st.caption(f"**XAFSmith** v{__version__}  \n"
                "Developed by **Eggy** & **Claude** (Anthropic)  \n"
                "Powered by xraylarch · FEFF6L · xraydb")
+    st.warning("**不对结果负责 / No warranty.** 请核验结果，建议与 Athena / Artemis 对比。"
+               "Please cross-check key results with Athena / Artemis.", icon="⚠️")
+    st.info("**论文中使用请引用 / Please cite:**  \n" + about.CITATION_TEXT, icon="📖")
 
 if page == "❓ 使用指南":
     from xafsmith import __version__
@@ -1279,6 +1294,7 @@ if page == "❓ 使用指南":
                     "Built on [xraylarch](https://xraypy.github.io/xraylarch/) (FEFF6L, feffit), xraydb, lmfit, "
                     "pymatgen and Streamlit.  \n"
                     "Source: https://github.com/Wiolic/XAFSmith")
+    disclaimer_box()
     st.markdown((Path(__file__).resolve().parent / "docs" / "图形界面使用指南.md").read_text(encoding="utf-8"))
 else:
     PAGES[page]()

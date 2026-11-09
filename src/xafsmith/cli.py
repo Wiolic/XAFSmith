@@ -23,6 +23,7 @@
 
   xafsmith gui                           图形界面（独立桌面窗口；--browser 改用浏览器）
   xafsmith docs                          文档位置
+  xafsmith cite                          引用方式与免责声明（论文中使用请引用本仓库）
 
 所有命令都可加 --project <目录>；不加时从当前目录向上查找 xafsmith.json。原始数据只读。
 """
@@ -98,6 +99,11 @@ def cmd_paths(a):
               "PROC", "FEFF", "FITS", "LCF", "FIGS", "REPORTS", "GUI"):
         p = getattr(paths, k)
         print(f"{k:8s} {'✔' if p.exists() else '·'} {p}")
+
+
+def cmd_cite(a):
+    from . import about
+    print(about.text_block())
 
 
 def cmd_docs(a):
@@ -291,6 +297,7 @@ def build_parser():
     p.set_defaults(f=cmd_validate)
     sp.add_parser("paths", help="显示项目目录").set_defaults(f=cmd_paths)
     sp.add_parser("docs", help="文档位置").set_defaults(f=cmd_docs)
+    sp.add_parser("cite", help="引用方式与免责声明").set_defaults(f=cmd_cite)
     sp.add_parser("list", help="样品汇总").set_defaults(f=cmd_list)
     p = sp.add_parser("qc", help="质量检查"); p.add_argument("--edge"); p.set_defaults(f=cmd_qc)
     sp.add_parser("calib", help="按参比校准").set_defaults(f=cmd_calib)
@@ -336,7 +343,10 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if a.version:
         from . import __version__
-        print("xafsmith", __version__)
+        from .about import CREDIT, DISCLAIMER_EN, CITATION_TEXT
+        print("xafsmith", __version__, "—", CREDIT)
+        print(DISCLAIMER_EN)
+        print("Cite:", CITATION_TEXT)
         return
     if a.cmd is None:
         ap.print_help()
