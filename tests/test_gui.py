@@ -1,0 +1,116 @@
+"""GUI 自动测试（Streamlit AppTest）：逐页渲染、载入、FEFF、拟合、LCF，检查无异常。
+
+运行：python tests/test_gui.py --project <项目目录>
+本测试使用 IrTaOx 项目的样品名（Ir foil、IrO2、IrCoOx_OCP …与 Ta 批次）；其他项目请改样品名。
+"""
+import argparse
+import os
+import sys
+from pathlib import Path
+
+ap = argparse.ArgumentParser()
+ap.add_argument("--project", default=os.environ.get("XAFSMITH_PROJECT", "."))
+os.environ["XAFSMITH_PROJECT"] = str(Path(ap.parse_args().project).resolve())   # 必须在导入 xafsmith 之前
+
+import xafsmith                                     # noqa: E402
+from streamlit.testing.v1 import AppTest            # noqa: E402
+
+APP = str(Path(xafsmith.__file__).resolve().parent / "gui.py")
+
+
+def check(at, where):
+    errs = [e.value for e in at.exception] + [e.value for e in at.error]
+    print(f"[{'FAIL' if errs else 'ok'}] {where}" + (f": {errs}" if errs else ""))
+    return not errs
+
+
+def main():
+    ok = True
+    at = AppTest.from_file(APP, default_timeout=300).run()
+    ok &= check(at, "启动")
+    # ⓪ 项目：数据标准检查
+    [b for b in at.button if b.label == "运行检查"][0].click().run()
+    ok &= check(at, "⓪ 项目：运行检查")
+    at.sidebar.radio[0].set_value("① 数据导入").run()
+    # ① 按 meta 载入
+    at.multiselect(key="meta_samples").set_value(["Ir foil", "IrO2", "IrCoOx_OCP", "IrCoOx_OCP_r"]).run()
+    at.button(key="load_meta").click().run()
+    ok &= check(at, "载入样品")
+    print("   已载入:", list(at.session_state["groups"].keys()))
+    g = at.session_state["groups"]["IrO2"]
+    good = "Ir foil" in at.session_state["groups"] and g.calib_ref == "data/raw/Ir/Ir foil"
+    print(f"   [{'ok' if good else 'FAIL'}] meta 载入：参比随样品载入，IrO2.calib_ref={g.calib_ref}")
+    ok &= good
+    # ① 文件读入：必须选参比；默认选同批次参比，参比一起读入，ΔE 来自该参比
+    for f, ref in [("data/raw/20261105_Ta/Ta2O5", "data/raw/20261105_Ta/Ta_foil"),
+                   ("data/raw/Ta/Ta2O5", "data/raw/Ta/Ta powder")]:
+        fm = [m for m in at.multiselect if m.label.startswith("从项目中选择文件")][0]
+        fm.set_value([f]).run()
+        rs = at.selectbox(key="imp_ref")
+        print(f"   默认参比: {rs.value}")
+        ok &= rs.value == ref
+        [b for b in at.button if b.label == "读入"][0].click().run()
+        ok &= check(at, f"读入 {f}")
+        G = at.session_state["groups"]
+        de_ref = at.session_state["calib"][ref]["delta_e"]
+        good = f in G and ref in G and abs(G[f].e_shift - de_ref) < 1e-9 and G[f].calib_ref == ref
+        print(f"   [{'ok' if good else 'FAIL'}] {f} ΔE={G[f].e_shift:+.3f}（参比 {ref} {de_ref:+.3f}）")
+        ok &= good
+    pages = [r for r in at.sidebar.radio[0].options]
+    for p in pages:
+        at.sidebar.radio[0].set_value(p).run()
+        ok &= check(at, p)
+    # ⑦ FEFF：内置 IrO2
+    at.sidebar.radio[0].set_value("⑦ FEFF 路径").run()
+    [r for r in at.radio if r.label == "结构来源"][0].set_value("内置结构").run()
+    sb = [s for s in at.selectbox if s.label == "结构"][0]
+    sb.set_value("IrO2").run()
+    [b for b in at.button if b.label == "运行 FEFF6L"][0].click().run()
+    ok &= check(at, "FEFF 运行")
+    # ⑧ 拟合：默认路径表（前两条 Ir-O）
+    at.sidebar.radio[0].set_value("⑧ EXAFS 拟合 (Artemis)").run()
+    sel = [s for s in at.selectbox if s.label == "数据"][0]
+    sel.set_value("IrO2").run()
+    nr = [n for n in at.number_input if n.label == "Rmax"][0]
+    nr.set_value(2.1).run()
+    fd = [m for m in at.multiselect if m.label.startswith("FEFF 目录")][0]
+    fd.set_value([o for o in fd.options if "IrO2_IrL3" in str(o)][:1]).run()
+    print("   FEFF 目录:", fd.value)
+    [b for b in at.button if b.label == "拟合"][0].click().run()
+    ok &= check(at, "EXAFS 拟合")
+    fits = at.session_state["fits"]
+    if fits:
+        s = fits[-1]["summ"]
+        print(f"   拟合: R={s['rfactor']:.4f} nvarys={s['nvarys']} params=",
+              {k: round(v['value'], 4) for k, v in s['params'].items()})
+    # ⑧ 运行已保存的模型
+    n0 = len(at.session_state["fits"])
+    at.selectbox(key="saved_model").set_value("IrO2_1shell_ArtemisCompare.json").run()
+    at.button(key="run_saved").click().run()
+    ok &= check(at, "运行已保存模型")
+    s = at.session_state["fits"][-1]["summ"]
+    good = len(at.session_state["fits"]) == n0 + 1 and abs(s["params"]["s02"]["value"] - 0.816) < 0.01
+    print(f"   [{'ok' if good else 'FAIL'}] 已保存模型 IrO2：S0²={s['params']['s02']['value']:.3f}（期望 ≈0.816）")
+    ok &= good
+    # ⑩ LCF
+    at.sidebar.radio[0].set_value("⑩ LCF").run()
+    [s for s in at.selectbox if s.label == "样品"][0].set_value("IrCoOx_OCP").run()
+    [m for m in at.multiselect if m.label.startswith("端点标样")][0].set_value(["Ir foil", "IrO2"]).run()
+    [b for b in at.button if b.label == "LCF"][0].click().run()
+    ok &= check(at, "LCF")
+    # ⑫ 汇总报告
+    at.sidebar.radio[0].set_value("⑫ 汇总报告").run()
+    [b for b in at.button if b.label == "生成汇总"][0].click().run()
+    ok &= check(at, "汇总报告")
+    d = Path(at.session_state["summary_dir"])
+    good = (d / "汇总.xlsx").exists() and (d / "汇总报告.html").exists()
+    print(f"   [{'ok' if good else 'FAIL'}] 汇总文件：{d.name}")
+    ok &= good
+    print("全部通过" if ok else "存在失败")
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    sys.exit(main())

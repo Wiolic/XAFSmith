@@ -8,3 +8,4 @@ pandas
 pymatgen
 streamlit
 plotly
+openpyxl

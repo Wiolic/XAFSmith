@@ -1,104 +1,103 @@
-# Quickstart
+# Quickstart（命令行）
 
-从零开始，大约 15 分钟：装环境 → 放数据 → 校准与处理 → 拟合一个标样 → 打开图形界面。
+> **只用鼠标的用户请看 [图形界面使用指南](src/xafsmith/docs/图形界面使用指南.md)**：双击安装、双击启动，全流程在图形界面里点击完成。
 
-## 1. 安装（Windows，Python 3.11–3.13）
+本文是命令行版本：安装 → 建项目 → 放数据 → 校准与处理 → 拟合一个标样 → 图形界面。
+
+## 1. 安装（Python ≥ 3.10）
 
 ```
-git clone https://github.com/Wiolic/XAFSmith.git
-cd XAFSmith
 python -m venv .venv
-.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python -m pip install git+https://github.com/Wiolic/XAFSmith.git
+.venv\Scripts\xafsmith --help
 ```
 
-xraylarch 自带 FEFF6L，无需另装。macOS / Linux 把 `.venv\Scripts\python` 换成 `.venv/bin/python`。
+macOS / Linux：`.venv/bin/...`。下文 `xafsmith` 指 venv 中的这个命令（也可以先激活 venv）。
 
-以下命令都在项目根目录运行，`py` 代表 `.venv\Scripts\python`。
-
-## 2. 放入原始数据
-
-每次测量（一个机时 / 一个批次）一个文件夹，**里面要有该批次测的单质参比**（金属箔或粉，文件名含 `foil` / `powder` / `metal`）：
+## 2. 新建项目
 
 ```
-data/raw/
-└── 20261105_Ta/
-    ├── Ta_foil        ← 参比
-    ├── KTaO3          ← 标样
-    └── sample_1 ...
+xafsmith new D:\XAFS\my_project
+cd D:\XAFS\my_project
 ```
 
-原始文件只读，工具不会修改它们。
+生成 `xafsmith.json`、`project.md`、`data/`、`structures/`、`models/`（含 `_模板.json`）、`notes/`、`output/`，
+以及双击即可打开图形界面的 `打开图形界面.bat`。之后在项目目录里运行命令即可，不必再写 `--project`。
 
-## 3. 登记、检查、校准、处理
+## 3. 放入原始数据
 
-```
-py scripts\xafs.py init       # 生成/更新 data/meta.csv 与 config.json
-py scripts\xafs.py list       # 看样品汇总
-```
-
-打开 `data/meta.csv` 检查：
-- `sample`：同名多行 = 同一样品多次扫描，会被合并；
-- `role`：参比为 `reference`，标样 `standard`，样品 `sample`；
-- `ref_file`：每条谱用来校准的参比（默认同批次参比；为空的谱不能处理）。
-
-打开 `config.json` 检查该吸收边的 `elements_in_sample`（样品中全部元素，用于干扰边检查）。
+每次测量一个文件夹，**带上该批次测的单质参比**（金属箔或粉，文件名含 `foil` / `powder` / `metal`）：
 
 ```
-py scripts\xafs.py qc                  # → results/qc_report.csv（毛刺、掉束、边跳、k 上限）
-py scripts\xafs.py kcheck --edge Ta_L3 # 干扰吸收边 → k 上限
-py scripts\xafs.py calib               # → results/calib.json（每个参比一个 ΔE）
-py scripts\xafs.py process             # → results/processed/、figs/
+data/raw/2026-11-05_Ta/
+    Ta_foil          ← 参比
+    KTaO3            ← 标样
+    sample_A  sample_A_2  ...
 ```
 
-## 4. 拟合一个标样
+原始文件只读，XAFSmith 不会修改它们。
+
+## 4. 登记、检查、校准、处理
 
 ```
-py scripts\xafs.py feff --builtin KTaO3 --absorber Ta --edge L3     # 或 --cif 你的结构.cif
+xafsmith init         # → data/meta.csv、xafsmith.json
+xafsmith validate     # 按数据标准检查
 ```
 
-复制一个模型模板（例如 `notes/KTaO3_1shell.json`），把 `"sample"` 改成 meta.csv 中的样品名，然后：
+检查 `data/meta.csv`：
+- `sample`：同名多行 = 同一样品多次扫描，会合并；不想合并就改名；
+- `role`：参比 `reference`、标样 `standard`、样品 `sample`；
+- `ref_file`：每条谱的校准参比（默认同批次）；为空的谱不能处理。
+
+检查 `xafsmith.json` 中该吸收边的 `elements_in_sample`（样品里的全部元素）。
 
 ```
-py scripts\xafs.py fit notes\我的模型.json
+xafsmith qc                   # → output/qc/
+xafsmith kcheck --edge Ta_L3  # 干扰吸收边 → k 上限
+xafsmith calib                # → output/calib/calib.json
+xafsmith process              # → output/processed/、output/figs/
 ```
 
-输出：`results/exafs_fits.csv`（一行一个拟合）、`results/<模型名>.fit_report.txt`、`figs/<模型名>_fit.png`。
+## 5. 拟合一个标样
 
-模型写法（参数固定 / 约束 / 配位数）见 `AGENTS.md` 第 4 节。要点：
-- 参数写数字 = 自由变化；`{"value": 0.68, "vary": false}` = 固定；写字符串（如 `"dr1"`、`"ss1*1.5"`）= 约束；
-- 路径加 `"N": "6"` 固定配位数，`"N": "n1"` 让配位数变化；
-- 变量数 ≤ N_idp/2；加壳层后用 `py scripts\xafs.py ftest 小模型.json 大模型.json`，p < 0.05 才算显著。
-
-S0² 先在结构已知的标样上定（S0² 自由），之后样品拟合固定为该值（写入 `config.json` 的 `s02_recommended`）。
-
-## 5. 图形界面
+结构文件放进 `structures/`（或用内置结构）：
 
 ```
-py scripts\xafs.py gui
+xafsmith feff --structure KTaO3.cif --absorber Ta --edge L3     # 或 --builtin KTaO3
 ```
 
-浏览器打开 http://localhost:8501。左侧 11 页：
-数据导入（必须同时选参比）→ 质量检查 → 能量校准 → 归一化 → χ(k)/FT → 小波 → FEFF → EXAFS 拟合 → 拟合历史/F 检验 → LCF → 样品设计。
-
-按 meta.csv 载入的样品与命令行处理结果完全相同。
-
-## 6. 让 AI 助手接手
-
-把项目文件夹交给 AI（Claude Code、Codex、Cursor 等），告诉它“先读 AGENTS.md”。
-`AGENTS.md` 写明了流程、命令、文件约定与判读规则（例如 R 空间峰位未相移校正、加壳层要做 F 检验、实测/拟合/推测分开陈述）。
-
-## 7. 自检
+复制 `models/_模板.json` 为 `models/KTaO3_1shell.json`，改 `sample` 和路径文件，然后：
 
 ```
-py scripts\test_gui.py          # 应输出“全部通过”（需要本项目的 data/raw 与 feff/）
+xafsmith fit KTaO3_1shell
 ```
 
-## 常见问题
+输出：`output/fits/exafs_fits.csv`、`output/fits/KTaO3_1shell.fit_report.txt`、`output/figs/KTaO3_1shell_fit.png`。
+
+- 参数写数字 = 自由；`{"value": 0.68, "vary": false}` = 固定；字符串 `"dr1"`、`"ss1*1.5"` = 约束；
+- 路径 `"N": "6"` 固定配位数，`"N": "n1"` 让它变化；
+- 变量数 ≤ N_idp/2；加壳层用 `xafsmith ftest 小模型 大模型`，p < 0.05 才显著。
+
+标样上定出的 S0² 写进 `xafsmith.json` 的 `s02_recommended`，样品拟合时固定为该值。
+
+## 6. 图形界面
+
+```
+xafsmith gui
+```
+
+浏览器打开 http://localhost:8501（或双击项目中的 `打开图形界面.bat`）。数据导入时必须同时选参比。
+
+## 7. 交给 AI 助手
+
+在项目目录里让 AI（Claude Code、Codex、Cursor 等）先读 `AGENTS.md`，再运行 `xafsmith docs` 找到手册与数据标准。
+
+## 8. 常见问题
 
 | 现象 | 处理 |
 |---|---|
-| `meta.csv 未指定参比 ref_file，不能校准` | 该批次没有参比文件：放入同批参比后重新 `init`，或在 meta.csv 的 `ref_file` 填参比路径 |
-| `KeyError: meta.csv 中没有可用的样品 X` | 样品名与 meta.csv 不一致（`xafs.py list` 查看） |
-| 新批次样品与旧批次重名 | `init` 会自动加批次后缀（如 `KTaO3_20261105_Ta`），避免误合并 |
-| 某条谱有毛刺 | 在 `config.json` 的 `deglitch` 中写能量区间与理由，见 AGENTS.md 第 6 节 |
-| FEFF 无路径 / 报错 | 检查结构是否含吸收原子；RMAX 不宜 > 8 Å |
+| `未指定参比 ref_file，不能校准` | 批次缺参比：放入同批参比后 `xafsmith init`，或在 meta.csv 手填 `ref_file` |
+| `meta.csv 中没有可用的样品 X` | 样品名不一致（`xafsmith list`） |
+| 找不到项目 / 结果写到了别处 | `xafsmith paths` 查看；在项目目录内运行或加 `--project` |
+| 有毛刺 | `xafsmith.json` 的 `deglitch` 写能量区间与理由 |
+| FEFF 无路径 | 结构是否含吸收原子；RMAX 不宜 > 8 Å |
