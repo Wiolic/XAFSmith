@@ -1,0 +1,18 @@
+# 白名单：只跟踪工具代码、文档、配置与分析记录；原始数据、FEFF 计算、结果与图不进仓库
+/*
+!/.gitignore
+!/README.md
+!/QUICKSTART.md
+!/AGENTS.md
+!/CLAUDE.md
+!/project.md
+!/config.json
+!/requirements.txt
+!/scripts/
+!/notes/
+!/data/
+/data/*
+!/data/meta.csv
+
+__pycache__/
+*.pyc
