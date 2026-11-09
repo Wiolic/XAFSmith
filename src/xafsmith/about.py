@@ -3,6 +3,7 @@ from . import __version__
 
 REPO = "https://github.com/Wiolic/XAFSmith"
 CREDIT = "Developed by Eggy & Claude (Anthropic)"
+LICENSE = "MIT License"
 
 DISCLAIMER_CN = ("免责声明：本软件按“现状”提供，不附带任何形式的保证；作者不对使用本软件得到的任何结果负责。"
                  "请使用者自行核验结果，建议将关键结果与 Athena / Artemis（Demeter）的处理和拟合结果对比。")
@@ -23,5 +24,5 @@ UPSTREAM = [
 
 
 def text_block():
-    return "\n".join([f"XAFSmith {__version__} — {CREDIT}", REPO, "", DISCLAIMER_CN, DISCLAIMER_EN, "",
+    return "\n".join([f"XAFSmith {__version__} — {CREDIT}", f"{REPO}  ({LICENSE})", "", DISCLAIMER_CN, DISCLAIMER_EN, "",
                       CITE_CN, CITE_EN, "", *UPSTREAM])

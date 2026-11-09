@@ -2,6 +2,7 @@ cff-version: 1.2.0
 message: "If you use XAFSmith in a publication, please cite this repository, as well as Larch and FEFF on which it is built."
 title: "XAFSmith: XAFS processing and fitting software"
 version: 0.1.0
+license: MIT
 date-released: 2026-11-09
 repository-code: "https://github.com/Wiolic/XAFSmith"
 authors:
