@@ -596,7 +596,7 @@ def collapsible(title, content, expanded=False):
 def _block_images(tb, blk, max_w):
     """块中的图片：超过 max_w 的按比例缩小；返回是否含图片"""
     from PySide6.QtCore import QUrl
-    from PySide6.QtGui import QImage, QPixmap, QTextCursor, QTextDocument
+    from PySide6.QtGui import QImage, QPixmap, QTextCharFormat, QTextCursor, QTextDocument
     doc = tb.document()
     found = False
     it = blk.begin()
@@ -608,6 +608,13 @@ def _block_images(tb, blk, max_w):
         found = True
         imf = frag.charFormat().toImageFormat()
         if imf.width() > 0:
+            continue
+        if "xs_math_" in imf.name():           # 公式图片：与文字居中对齐
+            imf.setVerticalAlignment(QTextCharFormat.VerticalAlignment.AlignMiddle)
+            c = QTextCursor(doc)
+            c.setPosition(frag.position())
+            c.setPosition(frag.position() + frag.length(), QTextCursor.MoveMode.KeepAnchor)
+            c.setCharFormat(imf)
             continue
         res = doc.resource(QTextDocument.ResourceType.ImageResource.value, QUrl(imf.name()))
         if res is None or isinstance(res, (bytes, bytearray)) and not res:
@@ -629,33 +636,43 @@ def _block_images(tb, blk, max_w):
     return found
 
 
-def prose_style(tb, size=11.0, line=170, doc_margin=26, max_img=660):
-    """QTextBrowser 的阅读排版：较大的字号、行距与段距、标题上方留白（对 Markdown 与 HTML 都有效；在设置内容之后调用）。
-    含图片的段落不加行距（否则图片下方留出大片空白），过宽的图片按比例缩到 max_img 像素宽。"""
-    from PySide6.QtGui import QTextBlockFormat, QTextCursor
+def prose_style(tb, size=11.0, line=160, doc_margin=30, max_img=700):
+    """QTextBrowser 的阅读排版（对 Markdown 与 HTML 都有效；在设置内容之后调用）：
+    正文字号 size、行距 line %、段距；标题按级别放大加粗、上方留白；只有图片的段落不加行距，过宽的图片按比例缩小。"""
+    from PySide6.QtGui import QFont, QTextBlockFormat, QTextCharFormat, QTextCursor
     doc = tb.document()
     doc.setDocumentMargin(doc_margin)
     blk = doc.begin()
     prop = QTextBlockFormat.LineHeightTypes.ProportionalHeight.value
+    head_pt = {1: size + 10, 2: size + 5.5, 3: size + 2.5, 4: size + 1}
     while blk.isValid():
         fmt = blk.blockFormat()
         lvl = fmt.headingLevel()
-        in_table = QTextCursor(blk).currentTable() is not None
-        if _block_images(tb, blk, max_img):
+        cur = QTextCursor(blk)
+        in_table = cur.currentTable() is not None
+        has_img = _block_images(tb, blk, max_img)
+        only_img = has_img and not blk.text().replace("\ufffc", "").strip()
+        if only_img:
             fmt.setLineHeight(100, prop)
             fmt.setTopMargin(8)
             fmt.setBottomMargin(14)
         elif lvl:
-            fmt.setTopMargin({1: 6, 2: 30, 3: 22}.get(lvl, 16))
-            fmt.setBottomMargin(10)
+            fmt.setTopMargin({1: 4, 2: 34, 3: 24}.get(lvl, 16))
+            fmt.setBottomMargin({1: 14, 2: 12}.get(lvl, 8))
             fmt.setLineHeight(130, prop)
+            cf = QTextCharFormat()
+            cf.setFontPointSize(head_pt.get(lvl, size + 1))
+            cf.setFontWeight(QFont.Weight.Bold)
+            c2 = QTextCursor(blk)
+            c2.select(QTextCursor.SelectionType.BlockUnderCursor)
+            c2.mergeCharFormat(cf)
         elif in_table:
-            fmt.setLineHeight(135, prop)
+            fmt.setLineHeight(140, prop)
         else:
             fmt.setLineHeight(line, prop)
-            lst = QTextCursor(blk).currentList()
-            fmt.setBottomMargin(6 if lst is not None else 12)
-        QTextCursor(blk).setBlockFormat(fmt)
+            lst = cur.currentList()
+            fmt.setBottomMargin(7 if lst is not None else 13)
+        cur.setBlockFormat(fmt)
         blk = blk.next()
 
 
@@ -665,12 +682,15 @@ def prose_browser(html=None, markdown=None, size=11.0, search_paths=None, bg=Non
     tb.setObjectName("reader")
     tb.setOpenExternalLinks(True)
     tb.setStyleSheet(f"QTextBrowser#reader{{background:{bg or C['bg']};border:none;font-size:{size}pt;}}")
+    f = tb.document().defaultFont()
+    f.setPointSizeF(size)
+    tb.document().setDefaultFont(f)
     if search_paths:
         tb.setSearchPaths([str(x) for x in search_paths])
     tb.document().setDefaultStyleSheet(
-        f"h1,h2,h3,h4{{color:{C['text']};}} h2{{font-size:15pt;}} h3{{font-size:12.5pt;}}"
+        f"h1,h2,h3,h4{{color:{C['text']};}} h2{{font-size:{size + 5.5}pt;}} h3{{font-size:{size + 2.5}pt;}}"
         f"code{{background:{C['code']};}} b{{color:{C['text']};}} li{{margin-bottom:5px;}}"
-        f"td,th{{padding:4px 8px;}} a{{color:{C['accent_text']};}}")
+        f"td,th{{padding:5px 9px;}} a{{color:{C['accent_text']};}}")
     if markdown is not None:
         tb.setMarkdown(markdown)
     elif html is not None:

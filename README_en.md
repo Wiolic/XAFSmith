@@ -4,7 +4,7 @@
 
 **Agent-ready synchrotron XAFS analysis software.**
 
-XAFSmith processes synchrotron X-ray absorption spectra (XANES + EXAFS): energy calibration, normalization, χ(k), Fourier and wavelet transforms, FEFF calculations, EXAFS fitting, linear combination fitting, oxidation-state estimation, journal figures and summary reports. Use it in either of two ways, or mix them:
+XAFSmith processes synchrotron X-ray absorption spectra (XANES + EXAFS): energy calibration, normalization, χ(k), Fourier and wavelet transforms, FEFF calculations, EXAFS fitting, linear combination fitting, oxidation-state estimation, figure export (including Origin files) and reports. Use it in either of two ways, or mix them:
 
 - **🖱 Mouse**: the graphical interface covers every feature — no code, no command line;
 - **🤖 AI assistant**: open an AI assistant such as Claude Code, Codex or Cursor in the project folder and **say what you want in plain language**. It drives XAFSmith to process, fit, plot and report, writes everything back into the project, and you check each step in the GUI.
@@ -41,9 +41,8 @@ Compared with a typical Athena / Artemis workflow:
 | FEFF calculations | Atoms builds the input from a CIF, then run FEFF | Pick a CIF or built-in structure → one click; **FEFF6L (seconds) and FEFF8L (self-consistent) built in**, easy to compare, no separate FEFF install |
 | Wavelet transform (light vs heavy scatterers, overlapping shells) | Needs other software | Built in (Morlet / Cauchy); k of the maximum per R window, **one-click export of data and figure**, in-page guidance on every parameter |
 | Judge a fit and find out why it does not match | Mostly the R-factor and experience | An **automatic quality check** after every fit (R-factor, variables, residual/noise, errors, bounds, ΔE0, σ², ΔR, correlations, point by point); **fit diagnosis** (k-space residual, glitches located and converted to energy, misfit by segment, hints); **robustness check**; **F-test** |
-| Publication figures and the methods section | Export data, redraw in Origin etc.; write methods by hand | **One-click journal figures** (single / double column, 600 dpi TIFF, SVG, PDF, English captions); **one-click methods paragraph** (Chinese and English) |
-| Methods section and Supporting Information | Assemble by hand from Artemis reports | **Methods export**: a Methods paragraph (English and Chinese) from the project records, one-click copy of the parameter table (N, R, σ², ΔE0, R-factor), .md with the fitting text |
-| Figures | Format by hand in Origin | **Figure export**: 24 palettes, standards in grey; 600 dpi TIFF / SVG, or an **Origin project (.opju)** in one consistent format |
+| Methods section and Supporting Information | Write methods by hand, copy parameters from Artemis reports | **Methods export**: a Methods paragraph (English and Chinese) from the project records, one-click copy of the parameter table (N, R, σ², ΔE0, R-factor), .md with the fitting text |
+| Publication figures | Export data, redraw and format in Origin | **Figure export**: **exports Origin files (.opju) directly**, in one consistent format (font sizes, line widths, layer size) and editable in Origin; also single / double column, 600 dpi TIFF, PNG, SVG, PDF with English captions; 24 palettes, standards drawn in grey automatically |
 | Collect all results | Copy tables by hand | **One-click summary report**: Excel + HTML with figures |
 | Cross-check with Athena / Artemis | — | **One-click export of an Athena project (.prj)** with XAFSmith's processing parameters |
 | Reproduce results months later | Find the project file, recall the parameters | Raw data are read-only and all parameters live in project files; results can always be regenerated from the raw data |
@@ -80,7 +79,7 @@ A native desktop window (PySide6) that opens in seconds. Pages are grouped by wo
 </tr>
 <tr>
 <td><b>Normalization</b>: pre/post-edge lines, overlay, derivative, merging<br/><img src="docs/images/en/normalization.png"/></td>
-<td><b>Figure export</b>: 24 palettes, 600 dpi, English captions, Origin project<br/><img src="docs/images/en/journal_figure.png"/></td>
+<td><b>Figure export</b>: exports Origin files directly; 24 palettes, 600 dpi, English captions<br/><img src="docs/images/en/journal_figure.png"/></td>
 </tr>
 <tr>
 <td><b>Exported Origin project</b>: 25×19 cm layer, Arial 32 pt, boxed frame, blue samples / grey standards<br/><img src="docs/images/en/origin_export.png"/></td>

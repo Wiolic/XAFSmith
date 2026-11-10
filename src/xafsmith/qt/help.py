@@ -22,9 +22,54 @@ ASSETS = Path(__file__).resolve().parent.parent / "assets"
 def doc_specs():
     en = W.en()
     return [("gui", T("图形界面使用指南", "GUI guide"), "doc", "GUI_guide_en.md" if en else "图形界面使用指南.md"),
-            ("tutorial", T("零基础拟合教程", "Beginner fitting tutorial"), "fit", "fitting_tutorial_en.md" if en else "零基础拟合教程.md"),
+            ("tutorial", T("零基础拟合教程", "Fitting for beginners"), "fit", "fitting_tutorial_en.md" if en else "零基础拟合教程.md"),
             ("quality", T("拟合质量提升教程", "Improving fit quality"), "chart", "fit_quality_guide_en.md" if en else "拟合质量提升教程.md"),
             ("basics", T("XAFS 基础讲义", "XAFS basics"), "atom", "XAFS_basics_en.md" if en else "XAFS基础讲义.md")]
+
+
+def _tex(s):
+    """Markdown 中的 LaTeX → matplotlib mathtext 能识别的写法"""
+    import re
+    s = s.replace("\\!", "").replace("\\text{", "\\mathrm{").replace("\\left", "").replace("\\right", "")
+    s = s.replace("\\|", "|")
+    return re.sub(r"\\(?:,|;|quad)", " ", s)
+
+
+def render_math(md, size=14):
+    """把 $$…$$（独立公式）与 $…$（行内公式）渲染成 PNG（matplotlib mathtext），换成图片引用；
+    同一段公式只渲染一次（按内容与颜色缓存）。GitHub 上同一份 Markdown 由网页直接渲染公式。"""
+    import hashlib
+    import re
+    import tempfile
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
+    d = Path(tempfile.gettempdir()) / "xafsmith_math"
+    d.mkdir(parents=True, exist_ok=True)
+    col = C["text"]
+
+    def img(tex, display):
+        key = hashlib.md5(f"v2|{tex}|{display}|{col}|{size}".encode("utf-8")).hexdigest()[:16]
+        f = d / f"xs_math_{key}.png"
+        if not f.exists():
+            try:                  # 透明背景；行内公式与正文同高，独立公式稍大
+                fig = Figure()
+                FigureCanvasAgg(fig)
+                fig.text(0, 0, f"${_tex(tex)}$", fontsize=size * (1.3 if display else 1.0), color=col)
+                fig.savefig(str(f), dpi=96 * 1.05, transparent=True, bbox_inches="tight", pad_inches=0.02, format="png")
+            except Exception:     # noqa: BLE001  无法渲染时保留原文
+                return None
+        return f.name
+
+    def disp(m):
+        n = img(m.group(1).strip(), True)
+        return f"\n\n![formula]({n})\n\n" if n else m.group(0)      # 空的替代文字会被 Qt 丢掉
+
+    def inline(m):
+        n = img(m.group(1), False)
+        return f"![formula]({n})" if n else m.group(0)
+    md = re.sub(r"\$\$(.+?)\$\$", disp, md, flags=re.S)
+    md = re.sub(r"(?<![\\$])\$([^$\n]+?)\$", inline, md)
+    return md, d
 
 
 class HelpWindow(QMainWindow):
@@ -43,7 +88,8 @@ class HelpWindow(QMainWindow):
         h.setSpacing(0)
         side = QWidget()
         side.setObjectName("sidebar")
-        side.setFixedWidth(210)
+        side.setStyleSheet("QPushButton#nav{font-size:11pt;padding-top:7px;padding-bottom:7px;}")
+        side.setFixedWidth(230)
         v = QVBoxLayout(side)
         v.setContentsMargins(12, 16, 12, 14)
         v.setSpacing(2)
@@ -90,8 +136,9 @@ class HelpWindow(QMainWindow):
     def _doc(self, fn):
         p = DOCS / fn
         md = p.read_text(encoding="utf-8") if p.exists() else fn
-        tb = W.prose_browser(markdown=md, size=11.5, search_paths=[DOCS])     # 讲义中的图片与公式（images/…）
-        tb.setObjectName("doc")
+        md, mdir = render_math(md)
+        # 讲义中的图片（images/…）与公式；不要改 objectName（全局样式表里 #doc 的字号会覆盖这里的 14 pt）
+        tb = W.prose_browser(markdown=md, size=14, search_paths=[DOCS, mdir])
         return tb
 
     def _about(self):

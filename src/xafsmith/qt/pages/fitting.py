@@ -864,7 +864,7 @@ class HistoryPage(Page):
             for f in S.fits:
                 save_fit(f)
             W.toast(self, T(f"已保存 {len(S.fits)} 个拟合", f"{len(S.fits)} fits saved"))
-        card.add(W.hbox(None, W.button(T("全部保存到 output/fits/（汇总与 SI 会用到）", "Save all to output/fits/ (used by summary and SI)"),
+        card.add(W.hbox(None, W.button(T("全部保存到 output/fits/（报告与方法导出会用到）", "Save all to output/fits/ (used by report and methods export)"),
                                        icon_name="save", slot=lambda: W.wait_cursor(save_all))))
         self.add(card)
         ft = Card(T("F 检验（Hamilton）", "F-test (Hamilton)"))
