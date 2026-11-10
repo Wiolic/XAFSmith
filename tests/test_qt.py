@@ -1,5 +1,5 @@
 """图形界面自动测试（PySide6，无窗口运行）：逐页构建、载入、去毛刺、FEFF6L/8L、拟合、诊断、已保存模型、
-稳健性、.prj 导出、边前峰、期刊出图、LCF、汇总、方法段落、SI，最后用英文界面再逐页构建一遍。
+稳健性、.prj 导出、边前峰、图片导出（配色、Origin 说明）、LCF、报告导出、方法导出、制样指导、吸收边查询，最后用英文界面再逐页构建一遍。
 
 运行：python tests/test_qt.py --project <项目目录>
 本测试使用 IrTaOx 项目的样品名（Ir foil、IrO2、IrCoOx_OCP … 与 Ta 批次）；其他项目请改样品名。
@@ -19,6 +19,7 @@ ap.add_argument("--quick", action="store_true", help="跳过 FEFF8L 与稳健性
 ARGS = ap.parse_args()
 os.environ["XAFSMITH_PROJECT"] = str(Path(ARGS.project).resolve())
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ["XAFSMITH_NO_RECENT"] = "1"          # 不写入用户的“最近的项目”
 
 from PySide6.QtWidgets import QApplication, QLabel, QPushButton   # noqa: E402
 
@@ -72,6 +73,53 @@ def texts(page):
     return " ".join(l.text() for l in page.findChildren(QLabel))
 
 
+def no_console_check():
+    """桌面快捷方式用 pythonw 启动：没有控制台（sys.stdout 为 None）时处理也必须正常"""
+    from xafsmith.qt import app as qapp
+    from xafsmith import pipeline as pl
+    out, err = sys.stdout, sys.stderr
+    sys.stdout = sys.stderr = None
+    try:
+        qapp._no_console_output()
+        pl.build_sample("IrO2")
+        ok = True
+        msg = ""
+    except Exception as ex:      # noqa: BLE001
+        ok, msg = False, f": {ex}"
+    finally:
+        log = sys.stdout
+        sys.stdout, sys.stderr = out, err
+        if log not in (out, None):
+            log.close()
+    say(ok, "无控制台（pythonw）时载入样品" + msg)
+
+
+def copy_register_check(app, w):
+    """在临时文件夹新建项目，复制原始文件后应自动登记"""
+    import tempfile
+    from PySide6.QtWidgets import QFileDialog
+    from xafsmith.cli import create_project
+    src = sorted((PROJ / "data" / "raw" / "Ir").glob("Ir*"))
+    src = [str(p) for p in src if p.is_file()][:2]
+    with tempfile.TemporaryDirectory() as td:
+        create_project(td)
+        w.open_project(td)
+        w.go("data")
+        old = QFileDialog.getOpenFileNames
+        QFileDialog.getOpenFileNames = staticmethod(lambda *a, **k: (src, ""))
+        n = len(W.ERRORS)
+        try:
+            click(w.pages["data"], "选择文件，复制到批次并登记…")
+        finally:
+            QFileDialog.getOpenFileNames = old
+        import pandas as pd
+        meta = pd.read_csv(Path(td) / "data" / "meta.csv", dtype=str)
+        step("新项目：复制文件并登记", n)
+        say(len(list((Path(td) / "data" / "raw").rglob("*"))) >= len(src) and len(meta) == len(src),
+            f"复制 {len(src)} 个文件，登记 {len(meta)} 行")
+        w.open_project(str(PROJ))
+
+
 def main():
     W.QUIET["v"] = True
     app, w = make_window(str(PROJ), lang="zh", dark=False)
@@ -82,6 +130,9 @@ def main():
     n = len(W.ERRORS)
     w.go("home")
     step("启动", n)
+    no_console_check()
+    copy_register_check(app, w)
+    S, P = w.S, w.pages
 
     # 数据登记：检查
     w.go("data")
@@ -196,12 +247,34 @@ def main():
         print(f"   拟合: R={s['rfactor']:.4f} nvarys={s['nvarys']}", {k: round(v["value"], 4) for k, v in s["params"].items()})
 
     say("拟合质量检查" in t and "R 因子" in t and "注意事项与“拟合得好”的标准" in " ".join(
-        b.text() for b in pg.findChildren(W.QToolButton)), "拟合质量检查与注意事项")
+        b.text() for b in pg.findChildren(QPushButton)), "拟合质量检查与注意事项按钮")
+    # 采纳拟合值：写回参数表；参数表可输入任意位小数
+    n = len(W.ERRORS)
+    click(pg, "采纳拟合值到参数")
+    pt = pg._ptab["tab"]
+    fitted = S.fits[-1]["summ"]["params"]
+    good = all(abs(pt.m.df.loc[pt.m.df.name == k, "value"].iloc[0] - v["value"]) < 1e-12
+               for k, v in fitted.items() if v["vary"] and not v["expr"] and k in set(pt.m.df.name))
+    idx = pt.m.index(int((pt.m.df.name == "ss1").to_numpy().nonzero()[0][0]), list(pt.m.df.columns).index("value"))
+    pt.m.setData(idx, "0.00412345")
+    step("采纳拟合值", n)
+    say(good and abs(pt.m.df.loc[pt.m.df.name == "ss1", "value"].iloc[0] - 0.00412345) < 1e-12
+        and isinstance(pt.m.data(idx, W.Qt.ItemDataRole.EditRole), str),
+        "采纳拟合值写回参数表；value 可输入 8 位小数")
+    from xafsmith.qt.pages.fitting import show_fit_guide
+    from xafsmith.qt.pages.process import show_wavelet_guide
+    show_fit_guide(pg)
+    show_wavelet_guide(pg)
+    pump(app)
+    say({"fit_guide", "wt_guide"} <= set(W._INFO), "注意事项、小波说明：独立窗口")
+    for d_ in list(W._INFO.values()):
+        d_.close()
 
     # 小波：极大值表与导出
     w.go("wavelet")
-    P["wavelet"].state.update(k="IrO2", kind="Morlet", kw=2)
+    P["wavelet"].state.update(k="IrO2", k2="Ir foil", kind="Morlet", kw=2)
     P["wavelet"].refresh()
+    say(len(P["wavelet"].findChildren(W.Plot)[0].axes) == 2, "小波：两条谱左右对比")
     n = len(W.ERRORS)
     click(P["wavelet"], "导出数据与图")
     step("小波导出", n)
@@ -211,12 +284,14 @@ def main():
     mat = np.genfromtxt(made[0], delimiter=",", comments="#") if made[0].exists() else None
     say(all(p.exists() for p in made[:4]) and mat is not None and mat.shape[0] > 10 and mat.shape[1] > 10,
         f"小波导出文件：矩阵 {None if mat is None else mat.shape}")
-    for p in made:
+    made2 = [wd / f"Ir_foil_morlet_k2{s}" for s in (".csv", "_maxima.csv", ".png", ".svg", ".txt", ".params.json")]
+    say(made2[0].exists(), "小波导出：对比谱也导出")
+    for p in made + made2:
         if p.exists():
             p.unlink()
 
-    # SI 方法
-    w.go("si")
+    # 方法导出（SI 拟合表）
+    w.go("methods")
     from xafsmith import si_text as si
     r = si.build([k for k in si.fit_keys() if k.startswith("IrO2|")][-1:])
     say("IrO2" in r["en"] and "FEFF" in r["en"] and len(r["table"]) >= 1 and "Table S" in r["en"],
@@ -287,6 +362,21 @@ def main():
     say({p.suffix for p in made} >= {".tiff", ".png", ".svg", ".txt"}, f"出图文件：{sorted(p.suffix for p in made)}")
     for p in made:
         p.unlink()
+    # 配色方案与 Origin 说明（不启动 Origin）
+    from xafsmith import pubfig as pf, origin_export as oe
+    cols = pf.series_colors(["IrO2", "Ir foil"], "glacier", ["Ir foil"])
+    say(len(pf.PALETTES) >= 20 and cols[0] == ("#1E5FBF", False) and cols[1][1], f"配色方案 {len(pf.PALETTES)} 种；标样画灰色")
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        import matplotlib.pyplot as plt
+        from xafsmith.qt.state import plain_rc
+        with plain_rc():
+            fig, _ = pf.xanes([S.groups["IrO2"], S.groups["Ir foil"]], offset=0.5, colors=cols)
+        spec = oe.figure_spec(fig, td, "t", kind="xanes")
+        g0 = spec["graphs"][0]
+        say(g0["xlabel"] == "Energy (eV)" and g0["xlim"][0] > 10000 and g0["hide_y"] and g0["lines"][0]["legend"] == "IrO\\-(2)"
+            and Path(g0["csv"]).exists(), f"Origin 说明：横轴 E、图例 {g0['lines'][0]['legend']}")
+        plt.close(fig)
 
     # LCF
     w.go("lcf")
@@ -297,12 +387,12 @@ def main():
     step("LCF", n)
     say(S.extra.get("lcf") is not None, "LCF 结果")
 
-    # 汇总 + 方法段落
+    # 报告导出 + 方法导出
     w.go("summary")
     n = len(W.ERRORS)
-    click(P["summary"], "生成汇总")
+    click(P["summary"], "生成报告")
     wait(app)
-    step("汇总报告", n)
+    step("报告导出", n)
     sd = S.extra.get("summary_dir")
     d = Path(sd).resolve() if sd else None
     good = d is not None and (d / "汇总.xlsx").exists() and (d / "汇总报告.html").exists()
@@ -312,15 +402,47 @@ def main():
     if good and d.parent == reports and d.name.startswith("汇总_"):
         shutil.rmtree(d)
     n = len(W.ERRORS)
-    click(P["summary"], "生成方法段落")
+    w.go("methods")
+    click(P["methods"], "生成方法段落")
     step("方法段落", n)
     m = S.extra.get("methods") or {}
     say("AUTOBK" in m.get("en", "") and "XAFSmith" in m.get("zh", ""),
         f"方法段落：中文 {len(m.get('zh', ''))} 字，英文 {len(m.get('en', '').split())} 词")
 
+    # 制样指导：元素来自化学式；吸收边查询：滤片
+    w.go("planner")
+    P["planner"].state.update(formula="IrCo0.2O2", el="Ir", ed="L3")
+    P["planner"].refresh()
+    say("Ir, Co, O" in texts(P["planner"]), "制样指导：体系元素由化学式读取")
+    from xafsmith import mut_planner as xm
+    r = xm.fluor_filter("Fe", "K")
+    say(r["table"]["filter"].iloc[0] == "Mn", f"荧光滤片 Fe K → {r['table']['filter'].iloc[0]}（Z−1）")
+    w.go("elements")
+    P["elements"].state["el"] = "Ta"
+    P["elements"].refresh()
+    say("Ta" in texts(P["elements"]) and "tantalum" in texts(P["elements"]), "吸收边查询：Ta")
+    # 项目页不在导航里；流程与本项目悬浮窗
+    w.go("data")
+    w.flow_btn.open()
+    pump(app, 0.1)
+    say("home" not in w.nav and w.flow_btn.pop is not None and "本项目" in texts(w.flow_btn.pop), "流程与本项目悬浮窗")
+    w.flow_btn.close_pop()
+
     # 署名与免责声明始终可见
     lbls = " ".join(l.text() for l in w.findChildren(QLabel))
     say("Claude Opus 5.5" in lbls and "Athena / Artemis" in lbls, "侧栏署名与底部免责声明")
+    # 使用指南：独立窗口，讲义在最后，“关于”单独一页
+    from xafsmith.qt.help import HelpWindow
+    cur = w.S.extra.get("page")
+    w.go("help")
+    hw = w._help
+    keys = list(hw.btn)
+    about_txt = " ".join(l.text() for l in hw.btn["about"][1].findChildren(QLabel))
+    say(isinstance(hw, HelpWindow) and hw.isVisible() and w.S.extra.get("page") == cur
+        and keys[:4] == ["gui", "tutorial", "quality", "basics"] and keys[-1] == "about"
+        and "Claude Opus 5.5" in about_txt and "Athena / Artemis" in about_txt,
+        f"使用指南独立窗口：{keys}，主窗口仍在 {cur}")
+    hw.close()
 
     # 英文界面逐页（不保存语言设置）
     W.LANG["v"] = "en"

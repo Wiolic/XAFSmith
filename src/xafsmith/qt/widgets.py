@@ -95,6 +95,10 @@ def hbox(*ws, spacing=10, stretch_last=False, margins=(0, 0, 0, 0)):
             lay.addStretch(1)
         elif isinstance(x, int):
             lay.addSpacing(x)
+        elif isinstance(x, QLabel) and x.wordWrap():
+            # 会换行的说明文字：占据剩余宽度（否则被挤成很窄的一列，逐字换行）
+            x.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            lay.addWidget(x, 20)
         else:
             lay.addWidget(x)
     if stretch_last:
@@ -375,6 +379,7 @@ class Page(QScrollArea):
     title_en = ""
     icon_name = "doc"
     max_width = 1180
+    fill = False          # True：内容占满页面高度（左右分栏、各自滚动），不出现整页滚动条
 
     def __init__(self, app):
         super().__init__()
@@ -385,7 +390,7 @@ class Page(QScrollArea):
         self._inner = QWidget()
         self._inner.setObjectName("page")
         outer = QHBoxLayout(self._inner)
-        outer.setContentsMargins(40, 30, 40, 24)
+        outer.setContentsMargins(*((28, 20, 28, 12) if self.fill else (40, 30, 40, 24)))
         self._col = QWidget()
         self._col.setMaximumWidth(self.max_width)
         outer.addStretch(1)
@@ -442,7 +447,8 @@ class Page(QScrollArea):
             ERRORS.append(f"{type(self).__name__}: {ex}\n{traceback.format_exc()}")
             self.add(Banner("err", f"{type(ex).__name__}: {ex}"))
             self.add(code_block(traceback.format_exc()))
-        self.body.addStretch(1)
+        if not self.fill:
+            self.body.addStretch(1)
         self._built = True
         QTimer.singleShot(0, lambda: self.verticalScrollBar().setValue(y))
 
@@ -587,6 +593,130 @@ def collapsible(title, content, expanded=False):
     return w
 
 
+def _block_images(tb, blk, max_w):
+    """块中的图片：超过 max_w 的按比例缩小；返回是否含图片"""
+    from PySide6.QtCore import QUrl
+    from PySide6.QtGui import QImage, QPixmap, QTextCursor, QTextDocument
+    doc = tb.document()
+    found = False
+    it = blk.begin()
+    while not it.atEnd():
+        frag = it.fragment()
+        it += 1
+        if not (frag.isValid() and frag.charFormat().isImageFormat()):
+            continue
+        found = True
+        imf = frag.charFormat().toImageFormat()
+        if imf.width() > 0:
+            continue
+        res = doc.resource(QTextDocument.ResourceType.ImageResource.value, QUrl(imf.name()))
+        if res is None or isinstance(res, (bytes, bytearray)) and not res:
+            res = tb.loadResource(QTextDocument.ResourceType.ImageResource.value, QUrl(imf.name()))
+        if isinstance(res, (bytes, bytearray)) or (hasattr(res, "data") and not isinstance(res, (QImage, QPixmap))):
+            img = QImage.fromData(bytes(res))
+        else:
+            img = res
+        if not isinstance(img, (QImage, QPixmap)) or img.width() <= 0:
+            continue
+        w_, h_ = img.width(), img.height()
+        if w_ > max_w:
+            imf.setWidth(max_w)
+            imf.setHeight(h_ * max_w / w_)
+            c = QTextCursor(doc)
+            c.setPosition(frag.position())
+            c.setPosition(frag.position() + frag.length(), QTextCursor.MoveMode.KeepAnchor)
+            c.setCharFormat(imf)
+    return found
+
+
+def prose_style(tb, size=11.0, line=170, doc_margin=26, max_img=660):
+    """QTextBrowser 的阅读排版：较大的字号、行距与段距、标题上方留白（对 Markdown 与 HTML 都有效；在设置内容之后调用）。
+    含图片的段落不加行距（否则图片下方留出大片空白），过宽的图片按比例缩到 max_img 像素宽。"""
+    from PySide6.QtGui import QTextBlockFormat, QTextCursor
+    doc = tb.document()
+    doc.setDocumentMargin(doc_margin)
+    blk = doc.begin()
+    prop = QTextBlockFormat.LineHeightTypes.ProportionalHeight.value
+    while blk.isValid():
+        fmt = blk.blockFormat()
+        lvl = fmt.headingLevel()
+        in_table = QTextCursor(blk).currentTable() is not None
+        if _block_images(tb, blk, max_img):
+            fmt.setLineHeight(100, prop)
+            fmt.setTopMargin(8)
+            fmt.setBottomMargin(14)
+        elif lvl:
+            fmt.setTopMargin({1: 6, 2: 30, 3: 22}.get(lvl, 16))
+            fmt.setBottomMargin(10)
+            fmt.setLineHeight(130, prop)
+        elif in_table:
+            fmt.setLineHeight(135, prop)
+        else:
+            fmt.setLineHeight(line, prop)
+            lst = QTextCursor(blk).currentList()
+            fmt.setBottomMargin(6 if lst is not None else 12)
+        QTextCursor(blk).setBlockFormat(fmt)
+        blk = blk.next()
+
+
+def prose_browser(html=None, markdown=None, size=11.0, search_paths=None, bg=None):
+    """排版良好的只读文本（说明、指南）"""
+    tb = QTextBrowser()
+    tb.setObjectName("reader")
+    tb.setOpenExternalLinks(True)
+    tb.setStyleSheet(f"QTextBrowser#reader{{background:{bg or C['bg']};border:none;font-size:{size}pt;}}")
+    if search_paths:
+        tb.setSearchPaths([str(x) for x in search_paths])
+    tb.document().setDefaultStyleSheet(
+        f"h1,h2,h3,h4{{color:{C['text']};}} h2{{font-size:15pt;}} h3{{font-size:12.5pt;}}"
+        f"code{{background:{C['code']};}} b{{color:{C['text']};}} li{{margin-bottom:5px;}}"
+        f"td,th{{padding:4px 8px;}} a{{color:{C['accent_text']};}}")
+    if markdown is not None:
+        tb.setMarkdown(markdown)
+    elif html is not None:
+        tb.setHtml(html)
+    prose_style(tb, size)
+    return tb
+
+
+_INFO = {}
+
+
+def info_window(parent, key, title, html, size=(760, 760)):
+    """独立的说明窗口（不阻塞主窗口，可一边看一边操作）；同一个 key 只开一个"""
+    from PySide6.QtWidgets import QDialog
+    old = _INFO.get(key)
+    if old is not None:
+        try:
+            old.show()
+            old.raise_()
+            old.activateWindow()
+            return old
+        except RuntimeError:
+            pass
+    top = parent.window() if parent is not None else None
+    dlg = QDialog(top)
+    dlg.setWindowTitle(title)
+    dlg.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
+    dlg.setWindowFlag(Qt.WindowType.WindowMinMaxButtonsHint, True)
+    dlg.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+    dlg.resize(*size)
+    v = QVBoxLayout(dlg)
+    v.setContentsMargins(0, 0, 0, 0)
+    h = QLabel(title)
+    h.setObjectName("h1")
+    h.setContentsMargins(26, 20, 26, 0)
+    v.addWidget(h)
+    v.addWidget(prose_browser(html=html), 1)
+    _INFO[key] = dlg
+    dlg.destroyed.connect(lambda *_: _INFO.pop(key, None))
+    if top is not None:
+        g = top.geometry()
+        dlg.move(max(0, g.right() - size[0] - 20), g.top() + 60)
+    dlg.show()
+    return dlg
+
+
 def ask(parent, title, text_):
     return QMessageBox.question(parent, title, text_) == QMessageBox.StandardButton.Yes
 
@@ -626,7 +756,7 @@ class DFModel(QAbstractTableModel):
                 return ""
             if isinstance(v, (float, np.floating)):
                 if role == Qt.ItemDataRole.EditRole:
-                    return float(v)
+                    return f"{float(v):.10g}"          # 文本编辑：小数位不受限制（默认数字框只能输两位）
                 return f"{v:.{self.dec}g}" if abs(v) < 1e-3 or abs(v) >= 1e5 else f"{round(float(v), self.dec):g}"
             if isinstance(v, (bool, np.bool_)):
                 return "✓" if v else ""
@@ -694,7 +824,7 @@ class Table(QTableView):
     edited = Signal()
 
     def __init__(self, df, editable=(), bools=(), choices=None, height=None, header_fmt=None, decimals=4,
-                 stretch=True, max_height=420):
+                 stretch=True, max_height=420, click_edit=False, fit=False):
         super().__init__()
         self.m = DFModel(df, editable, bools, choices, header_fmt, decimals)
         self.setModel(self.m)
@@ -705,8 +835,12 @@ class Table(QTableView):
         self.setAlternatingRowColors(True)
         self.setShowGrid(False)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked | QAbstractItemView.EditTrigger.SelectedClicked
-                             | QAbstractItemView.EditTrigger.EditKeyPressed | QAbstractItemView.EditTrigger.AnyKeyPressed)
+        trig = (QAbstractItemView.EditTrigger.DoubleClicked | QAbstractItemView.EditTrigger.SelectedClicked
+                | QAbstractItemView.EditTrigger.EditKeyPressed | QAbstractItemView.EditTrigger.AnyKeyPressed)
+        if click_edit:                       # 单击即编辑（参数、路径表）
+            trig |= QAbstractItemView.EditTrigger.CurrentChanged
+            self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
+        self.setEditTriggers(trig)
         self.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         hh = self.horizontalHeader()
@@ -715,9 +849,14 @@ class Table(QTableView):
         self.resizeColumnsToContents()
         for i in range(self.m.columnCount()):
             self.setColumnWidth(i, min(max(self.columnWidth(i) + 12, 60), 360))
-        if stretch:
+        if fit:                               # 所有列按宽度均分、不出现横向滚动条（紧凑的小表）
+            hh.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+            if self.m.df.shape[1] and not pd.api.types.is_numeric_dtype(self.m.df.iloc[:, -1]):
+                hh.setSectionResizeMode(self.m.df.shape[1] - 1, QHeaderView.ResizeMode.ResizeToContents)   # 文字列完整显示
+            self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        elif stretch:
             hh.setStretchLastSection(True)
-        self.verticalHeader().setDefaultSectionSize(28)
+        self.verticalHeader().setDefaultSectionSize(26 if fit else 28)
         rows = len(self.m.df)
         self.setFixedHeight(height or min(max_height, 32 + 28 * max(rows, 1) + 6))
         self.m.dataChanged.connect(lambda *_: self.edited.emit())

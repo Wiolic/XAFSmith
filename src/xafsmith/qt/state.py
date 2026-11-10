@@ -55,6 +55,9 @@ def recent_projects():
 
 
 def remember(root):
+    import os
+    if os.environ.get("XAFSMITH_NO_RECENT"):      # 自动测试 / 截图时不写入“最近的项目”
+        return
     lst = [str(root)] + [p for p in recent_projects() if p != str(root)]
     try:
         RECENT.parent.mkdir(parents=True, exist_ok=True)

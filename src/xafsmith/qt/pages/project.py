@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFileDialog, QGridLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QWidget
+from PySide6.QtWidgets import QFileDialog, QListWidget, QListWidgetItem
 
 from xafsmith import paths
 from .. import widgets as W
@@ -16,119 +16,25 @@ from ..widgets import T, Banner, Card, Page
 
 
 class HomePage(Page):
-    title_zh, title_en, icon_name = "项目", "Project", "home"
+    """打开或新建项目（侧栏“打开 / 新建项目”进入；不在导航中显示）。流程进度与本项目信息在侧栏“流程与本项目”的悬浮窗口中。"""
+    title_zh, title_en, icon_name = "打开或新建项目", "Open or create a project", "home"
 
     def title(self):
-        return paths.ROOT.name if is_project() else T("欢迎使用 XAFSmith", "Welcome to XAFSmith")
+        return T("打开或新建项目", "Open or create a project") if is_project() else T("欢迎使用 XAFSmith", "Welcome to XAFSmith")
 
     def focus_open(self):
-        self.state["open_expanded"] = True
         self.refresh()
-        if hasattr(self, "_open_card"):
-            self.ensureWidgetVisible(self._open_card)
 
     def build(self):
         if not is_project():
             self.header(T("可连接 AI 助手的同步辐射 XAFS 分析软件。打开一个项目文件夹，或新建一个。",
                           "Agent-ready synchrotron XAFS analysis. Open a project folder or create a new one."))
-            self.add(self._open_card_w(True))
-            return
-        self.header(actions=[W.button(T("打开项目文件夹", "Open project folder"), icon_name="folder",
-                                      slot=lambda: W.open_folder(paths.ROOT), tip=str(paths.ROOT))])
-        self.add(self._workflow())
-        row = QWidget()
-        g = QHBoxLayout(row)
-        g.setContentsMargins(0, 0, 0, 0)
-        g.setSpacing(16)
-        g.addWidget(self._outputs(), 1)
-        g.addWidget(self._session(), 1)
-        self.add(row)
-        self.add(self._open_card_w(self.state.get("open_expanded", False)))
-
-    # ---------------------------------------------------------------- 流程进度
-    def _workflow(self):
-        from xafsmith import pipeline as pl
-        from ..state import feff_dirs
-        nmeta = len(pl.load_meta()) if paths.META.exists() else 0
-        ncal = len(self.S.calib)
-        nproc = len(list(paths.PROC.glob("*"))) if paths.PROC.exists() else 0
-        nfeff = len(feff_dirs())
-        nfit = len(pd.read_csv(paths.FITS_CSV, encoding="utf-8-sig")) if paths.FITS_CSV.exists() else 0
-        nrep = len(list(paths.REPORTS.glob("*"))) if paths.REPORTS.exists() else 0
-        steps = [
-            ("data", T("登记数据", "Register data"), nmeta, T(f"{nmeta} 个文件", f"{nmeta} files")),
-            ("batch", T("校准与处理", "Calibrate & process"), nproc,
-             T(f"{ncal} 个参比 · {nproc} 个结果", f"{ncal} references · {nproc} outputs")),
-            ("load", T("查看与检查谱", "Inspect spectra"), len(self.S.groups),
-             T(f"已载入 {len(self.S.groups)} 条", f"{len(self.S.groups)} loaded")),
-            ("feff", T("FEFF 路径", "FEFF paths"), nfeff, T(f"{nfeff} 个计算", f"{nfeff} calculations")),
-            ("fit", T("拟合", "Fit"), nfit, T(f"{nfit} 个已保存的拟合", f"{nfit} saved fits")),
-            ("summary", T("导出", "Export"), nrep, T(f"{nrep} 个报告", f"{nrep} reports")),
-        ]
-        card = Card(T("流程", "Workflow"))
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(12)
-        grid.setVerticalSpacing(12)
-        nxt = next((i for i, s in enumerate(steps) if not s[2]), None)
-        for i, (key, name, n, sub) in enumerate(steps):
-            box = W.QFrame()
-            box.setObjectName("projectCard")
-            if i == nxt:
-                box.setStyleSheet(f"QFrame#projectCard{{border:1.5px solid {C['accent']};}}")
-            v = W.QVBoxLayout(box)
-            v.setContentsMargins(14, 12, 14, 12)
-            v.setSpacing(4)
-            top = QHBoxLayout()
-            num = QLabel(f"{i + 1}")
-            num.setFixedSize(22, 22)
-            num.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            done = bool(n)
-            num.setStyleSheet(f"border-radius:11px;font-weight:600;font-size:9pt;"
-                              f"background:{C['ok_soft'] if done else (C['accent_soft'] if i == nxt else C['hover'])};"
-                              f"color:{C['ok'] if done else (C['accent_text'] if i == nxt else C['text3'])};")
-            if done:
-                num.setText("✓")
-            top.addWidget(num)
-            t = QLabel(name)
-            t.setObjectName("h3")
-            top.addWidget(t, 1)
-            v.addLayout(top)
-            v.addWidget(W.label(sub, "faint"))
-            v.addWidget(W.hbox(W.link(T("打开 →", "Open →"), lambda k=key: self.app.go(k)), None))
-            grid.addWidget(box, i // 3, i % 3)
-        card.add(grid)
-        return card
-
-    # ---------------------------------------------------------------- 输出
-    def _outputs(self):
-        card = Card(T("输出", "Output"))
-        rows = [dict(目录=paths.rel(d), 文件数=sum(1 for x in d.rglob("*") if x.is_file()) if d.exists() else 0)
-                for d in paths.OUTPUT_DIRS]
-        df = pd.DataFrame(rows)
-        if W.en():
-            df.columns = ["Folder", "Files"]
-        card.add(W.Table(df, max_height=330))
-        card.add(W.hbox(W.button(T("打开 output", "Open output"), icon_name="external",
-                                 slot=lambda: W.open_folder(paths.OUT)),
-                        W.button(T("打开项目文件夹", "Open project folder"), icon_name="folder",
-                                 slot=lambda: W.open_folder(paths.ROOT)), None))
-        return card
-
-    def _session(self):
-        S = self.S
-        card = Card(T("本次会话", "This session"))
-        card.add(W.metrics((T("已载入的谱", "Spectra loaded"), len(S.groups)),
-                           (T("拟合", "Fits"), len(S.fits)),
-                           (T("参比校准", "Reference calibrations"), len(S.calib))))
-
-        def save_session():
-            from xafsmith.common import write_params
-            write_params(paths.GUI / "gui_session.params.json",
-                         dict(norm=S.norm_par, bkg=S.bkg_par, ft=S.ft_par, calib=S.calib, groups=list(S.groups)), "gui")
-            W.toast(self, T("已保存 output/gui/gui_session.params.json", "Saved output/gui/gui_session.params.json"))
-        card.add(W.hbox(W.button(T("保存会话参数", "Save session parameters"), icon_name="save", slot=save_session), None))
-        card.lay.addStretch(1)
-        return card
+        else:
+            self.header(T(f"当前项目：{paths.ROOT.name}。流程进度与本项目信息：把鼠标移到右上角“流程与本项目”。",
+                          f"Current project: {paths.ROOT.name}. Workflow and project info: hover “Workflow & project” at the top right."),
+                        actions=[W.button(T("打开当前项目文件夹", "Open current project folder"), icon_name="folder",
+                                          slot=lambda: W.open_folder(paths.ROOT), tip=str(paths.ROOT))])
+        self.add(self._open_card_w(True))
 
     # ---------------------------------------------------------------- 打开 / 新建
     def _open_card_w(self, expanded):
@@ -197,13 +103,26 @@ class DataPage(Page):
                 return
             d = paths.RAW / (batch.text().strip() or "batch1")
             d.mkdir(parents=True, exist_ok=True)
-            n = 0
+            copied, skipped, failed = [], [], []
             for f in fs:
-                if not (d / Path(f).name).exists():
-                    shutil.copy2(f, d / Path(f).name)
-                    n += 1
-            W.toast(self, T(f"已复制 {n} 个文件到 {paths.rel(d)}（同名文件未覆盖）",
-                            f"Copied {n} files to {paths.rel(d)} (existing files kept)"))
+                dst = d / Path(f).name
+                if dst.exists():
+                    skipped.append(dst.name)
+                    continue
+                try:
+                    shutil.copy2(f, dst)
+                    copied.append(dst.name)
+                except Exception as ex:      # noqa: BLE001
+                    failed.append(f"{Path(f).name}: {ex}")
+            meta, nreg = pl.scan_raw()           # 复制后直接登记
+            pl.init_config(meta)
+            msg = T(f"复制 {len(copied)} 个文件到 {paths.rel(d)}", f"Copied {len(copied)} files to {paths.rel(d)}")
+            if skipped:
+                msg += T(f"；{len(skipped)} 个同名文件已存在，未覆盖", f"; {len(skipped)} already there, not overwritten")
+            msg += T(f"；登记新文件 {nreg} 个", f"; {nreg} new files registered")
+            W.toast(self, msg, "err" if failed else "ok")
+            for e in failed:
+                W.toast(self, e, "err")
             self.refresh()
 
         def scan():
@@ -212,10 +131,12 @@ class DataPage(Page):
             W.toast(self, T(f"新增 {n} 行；吸收边 {list(cfg['edges'])}", f"{n} new rows; edges {list(cfg['edges'])}"))
             self.refresh()
         up.add(W.hbox(W.field(T("批次文件夹", "Batch folder"), batch),
-                      W.vbox(None, W.button(T("选择文件并复制到批次…", "Choose files and copy to batch…"),
-                                            icon_name="upload", slot=add_files)),
+                      W.vbox(None, W.button(T("选择文件，复制到批次并登记…", "Choose files, copy to batch and register…"),
+                                            primary=True, icon_name="upload", slot=add_files)),
                       W.vbox(None, W.button(T("扫描 data/raw，登记新文件", "Scan data/raw and register new files"),
-                                            primary=True, icon_name="refresh", slot=scan)),
+                                            icon_name="refresh", slot=scan,
+                                            tip=T("用资源管理器直接把文件放进 data/raw 后，点这里登记",
+                                                  "After copying files into data/raw with Explorer, click here to register them"))),
                       None, spacing=12))
         self.add(up)
         # meta.csv

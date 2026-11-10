@@ -24,4 +24,4 @@
     cli         命令行 xafsmith
     qt          图形界面（PySide6 原生窗口，xafsmith gui）
 """
-__version__ = "0.4.0"
+__version__ = "0.5.0"

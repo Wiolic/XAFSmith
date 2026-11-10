@@ -286,9 +286,9 @@ For edge positions, valence calibration and pre-edge peaks see **XANES quantific
 
 ---
 
-## 13. Summary report
+## 13. Report export
 
-**Operation**: **Summary report** → **Generate summary** produces:
+**Operation**: **Report export** → **Build report** produces:
 - the Excel file: samples, calibration, quality check, processing parameters, fit overview per model and per-path parameters, LCF;
 - the HTML report: tables plus all figures, printable to PDF.
 
@@ -298,7 +298,7 @@ For a paper, report:
 - S0² and its source (which standard);
 - for every shell N, R, σ², plus ΔE₀ and the R-factor, all with errors.
 
-The **Methods paragraph** generator on the same page drafts this text from the project files; **Journal figures** produces publication-style figures.
+**Methods export** drafts this text from the project files; **Figure export** produces publication-style figures.
 
 ---
 

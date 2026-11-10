@@ -4,7 +4,7 @@
 
 **可连接 AI 助手（agent）的同步辐射 XAFS 分析软件。**
 
-XAFSmith 处理同步辐射 X 射线吸收谱（XANES + EXAFS）：能量校准、归一化、χ(k)、傅里叶变换、小波变换、FEFF 计算、EXAFS 拟合、线性组合拟合、价态估算、期刊出图、汇总报告。你可以用两种方式使用它，也可以混用：
+XAFSmith 处理同步辐射 X 射线吸收谱（XANES + EXAFS）：能量校准、归一化、χ(k)、傅里叶变换、小波变换、FEFF 计算、EXAFS 拟合、线性组合拟合、价态估算、图片导出（含 Origin 工程）、报告导出。你可以用两种方式使用它，也可以混用：
 
 - **🖱 鼠标**：图形界面覆盖全部功能，不需要写代码、不需要命令行；
 - **🤖 AI 助手**：在项目文件夹里打开 Claude Code、Codex、Cursor 等 AI 助手，**用中文说出要做的事**，它会调用 XAFSmith 完成处理、拟合、出图和报告，结果写回项目，你在图形界面里逐项检查。
@@ -42,13 +42,14 @@ XAFSmith 处理同步辐射 X 射线吸收谱（XANES + EXAFS）：能量校准�
 | 小波变换（区分轻 / 重散射体、重叠壳层） | 需借助其他程序 | 直接计算（Morlet / Cauchy），按 R 区间读出极大值所在 k，**一键导出数据与图**，页面内说明每个参数的影响 |
 | 判断拟合好不好、为什么对不上 | 主要看 R 因子与经验 | 每次拟合后**自动质量检查**（R 因子、变量数、残差与噪声之比、误差、边界、ΔE0、σ²、ΔR、相关性逐条判断）；**拟合诊断**（k 空间残差、自动定位毛刺并换算成能量、分段失配、改进建议）；**稳健性检查**；**F 检验** |
 | 出论文图、写方法部分 | 导出数据再用 Origin 等重画；方法自己写 | **一键期刊图**（单栏 / 双栏，600 dpi TIFF、SVG、PDF，自动英文图注）；**一键中英文“实验方法”段落** |
-| 写补充材料（SI）中的拟合细节 | 从 Artemis 报告手工整理 | **SI 方法**：选拟合 → 一键复制拟合方法文本（k/R 范围、FEFF 版本、约束、S0² 来源、误差估计）和参数表（N、R、σ²、ΔE0、R 因子） |
-| 整理全部结果 | 手工抄表 | **一键汇总报告**：Excel + 带图 HTML |
+| 写论文方法与补充材料（SI） | 从 Artemis 报告手工整理 | **方法导出**：由项目记录生成中英文“方法”段落，一键复制拟合参数表（N、R、σ²、ΔE0、R 因子），另存带拟合说明的 .md |
+| 整理全部结果 | 手工抄表 | **报告导出**：Excel + 带图 HTML（缩略图，点击放大缩放） |
+| 出图 | 手工在 Origin 里调格式 | **图片导出**：24 种配色、标样自动灰色；600 dpi TIFF / SVG，或直接生成统一格式的 **Origin 工程（.opju）** |
 | 和 Athena / Artemis 对照 | — | **一键导出 Athena 工程（.prj）**，带本软件的处理参数 |
 | 半年后重现结果 | 找工程文件、回忆参数 | 原始数据只读，参数都写在项目文件里，结果随时可从原始数据重新生成 |
 | 学 XAFS 原理 | 另找教材 | 软件内 **XAFS 基础讲义**：从 X 射线吸收讲到拟合，公式、实测谱图与算例 |
 
-此外还有：XANES 定量（边位置、白线、价态标定、边前峰拟合）、XANES / χ(k) 线性组合拟合（含组合枚举）、样品设计（μt、边跳、压片质量、干扰吸收边）、可视化去毛刺、中英文界面、软件内一键更新。
+此外还有：XANES 定量（边位置、白线、价态标定、边前峰拟合）、XANES / χ(k) 线性组合拟合（含组合枚举）、制样指导（压片制样计算器、干扰吸收边筛查）、吸收边查询（同 Hephaestus：吸收边、荧光线、荧光滤片）、可视化去毛刺、中英文界面、软件内一键更新。
 
 ---
 
@@ -56,30 +57,34 @@ XAFSmith 处理同步辐射 X 射线吸收谱（XANES + EXAFS）：能量校准�
 
 原生桌面窗口（PySide6），几秒内打开。左侧按使用流程分组，窗口底部始终显示免责声明。截图来自演示项目（Ir 箔与 IrO₂，Ir L3 边）。
 
-**项目首页**：流程六步，已完成的打勾，下一步用蓝框标出。
+**流程与本项目**：固定在右上角的按钮，悬停弹出流程六步（完成的打勾、下一步蓝框，点击跳转）与本项目信息。
 
-![项目首页](docs/images/zh/home.png)
+![流程与本项目](docs/images/zh/flow.png)
 
-**EXAFS 拟合**：路径表、参数表直接编辑；拟合结果同时给出 k 空间、|χ(R)| 与 Re χ(R)。
+**EXAFS 拟合**：左栏设置（数据、范围、路径、参数，“拟合”按钮固定在底部），右栏始终显示结果，改参数—拟合—看结果不用上下翻；一键把拟合值采纳为下次初值。
 
 ![拟合结果](docs/images/zh/fit_result.png)
 
-**拟合质量检查**：每次拟合后自动逐条判断（R 因子、变量数、残差与噪声之比、误差、边界、ΔE0、σ²、ΔR、相关性），并给出诊断与稳健性检查。
+**质量检查**：每次拟合后自动逐条判断（R 因子、变量数、残差与噪声之比、误差、边界、ΔE0、σ²、ΔR、相关性）；诊断、稳健性、完整报告在同一组标签页里。
 
 ![拟合质量检查](docs/images/zh/fit_quality.png)
 
 <table>
 <tr>
-<td width="50%"><b>小波变换</b>：各 R 区间极大值、一键导出数据，附参数说明<br/><img src="docs/images/zh/wavelet.png"/></td>
+<td width="50%"><b>小波变换</b>：两条谱左右对比、各 R 区间极大值、一键导出数据，附参数说明<br/><img src="docs/images/zh/wavelet.png"/></td>
 <td width="50%"><b>χ(k) 与 FT</b>：参数改动立即重算<br/><img src="docs/images/zh/chi_ft.png"/></td>
 </tr>
 <tr>
-<td><b>SI 方法</b>：一键复制补充材料用的拟合方法与参数表<br/><img src="docs/images/zh/si_methods.png"/></td>
+<td><b>方法导出</b>：中英文“方法”段落与拟合参数表，一键复制<br/><img src="docs/images/zh/methods_export.png"/></td>
 <td><b>AI 助手</b>：一键写入给 AI 的说明文件<br/><img src="docs/images/zh/ai_assistant.png"/></td>
 </tr>
 <tr>
 <td><b>归一化</b>：边前 / 边后线、叠加、导数、合并扫描<br/><img src="docs/images/zh/normalization.png"/></td>
-<td><b>期刊出图</b>：单栏 / 双栏、600 dpi、英文图注<br/><img src="docs/images/zh/journal_figure.png"/></td>
+<td><b>图片导出</b>：24 种配色、600 dpi、英文图注、Origin 工程<br/><img src="docs/images/zh/journal_figure.png"/></td>
+</tr>
+<tr>
+<td><b>导出的 Origin 工程</b>：图层 25×19 cm、Arial 32 pt、四边框、样品蓝 / 标样灰<br/><img src="docs/images/zh/origin_export.png"/></td>
+<td><b>吸收边查询</b>：点元素看吸收边、荧光线与荧光滤片<br/><img src="docs/images/zh/edge_lookup.png"/></td>
 </tr>
 </table>
 
@@ -156,7 +161,7 @@ AI 助手的安装和账号按各自官方说明完成。第一次可以先说�
 > 用 FEFF8L 重新计算路径，同一模型分别用 FEFF6 和 FEFF8 拟合，比较参数是否在误差内一致。
 
 **导出**
-> 把这个序列的 |χ(R)| 和最终拟合导出成双栏期刊图（TIFF + SVG），再生成汇总报告和中英文方法段落，告诉我文件在哪里。
+> 把这个序列的 |χ(R)| 和最终拟合导出成双栏期刊图（TIFF + SVG），再生成报告和中英文方法段落，告诉我文件在哪里。
 
 ### 第 5 步：AI 实际运行的命令
 
@@ -170,7 +175,7 @@ AI 助手的安装和账号按各自官方说明完成。第一次可以先说�
 | 诊断 / 稳健性 / 显著性 | `xafsmith diagnose 模型名`、`robust 模型名`、`ftest 小模型 大模型` | 屏幕、`output/fits/` |
 | LCF / XANES | `xafsmith lcf …`、`xafsmith xanes …` | `output/lcf/`、`output/xanes/` |
 | **期刊图** | `xafsmith figure --kind chir --samples A B --size double` | `output/figs/journal/` |
-| **汇总报告** | `xafsmith summary` | `output/reports/汇总_<时间>/` |
+| **报告导出** | `xafsmith summary` | `output/reports/汇总_<时间>/` |
 | **方法段落** | `xafsmith methods` | `output/reports/方法段落.md` |
 | **SI 拟合方法 + 参数表** | `xafsmith si --lang en` | `output/reports/SI_EXAFS拟合方法.md` |
 | **导出 Athena** | `xafsmith export-prj --samples A B` | `output/gui/athena/` |
@@ -179,7 +184,7 @@ AI 助手的安装和账号按各自官方说明完成。第一次可以先说�
 
 - **EXAFS 拟合 → 运行已保存的模型**：AI 写的每个模型都在 `models/`，选中就能在界面里重跑，查看拟合曲线、**拟合诊断**、**稳健性检查**；
 - **拟合历史**：比较模型；
-- **汇总报告**、**期刊出图**：查看和重新导出；
+- **报告导出**、**图片导出**、**方法导出**：查看和重新导出；
 - `notes/` 文件夹：AI 按规则写下的分析记录（做了什么、结论、下一步）。
 
 ### 安全与规则
@@ -224,7 +229,7 @@ AI 仍可能出错，**关键结论请在图形界面中核对**，必要时与 
 
 论文中使用本软件，请引用本仓库（GitHub 页面右侧 **Cite this repository**）：
 
-*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 0.4.0. https://github.com/Wiolic/XAFSmith*
+*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 0.5.0. https://github.com/Wiolic/XAFSmith*
 
 并引用所依赖的程序：
 - Larch：M. Newville, *J. Phys.: Conf. Ser.* **430**, 012007 (2013).

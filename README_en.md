@@ -42,7 +42,8 @@ Compared with a typical Athena / Artemis workflow:
 | Wavelet transform (light vs heavy scatterers, overlapping shells) | Needs other software | Built in (Morlet / Cauchy); k of the maximum per R window, **one-click export of data and figure**, in-page guidance on every parameter |
 | Judge a fit and find out why it does not match | Mostly the R-factor and experience | An **automatic quality check** after every fit (R-factor, variables, residual/noise, errors, bounds, ΔE0, σ², ΔR, correlations, point by point); **fit diagnosis** (k-space residual, glitches located and converted to energy, misfit by segment, hints); **robustness check**; **F-test** |
 | Publication figures and the methods section | Export data, redraw in Origin etc.; write methods by hand | **One-click journal figures** (single / double column, 600 dpi TIFF, SVG, PDF, English captions); **one-click methods paragraph** (Chinese and English) |
-| Fitting details for the Supporting Information | Assemble by hand from Artemis reports | **SI methods**: pick fits → one-click copy of the fitting text (k/R ranges, FEFF version, constraints, S0² source, uncertainty estimation) and the parameter table (N, R, σ², ΔE0, R-factor) |
+| Methods section and Supporting Information | Assemble by hand from Artemis reports | **Methods export**: a Methods paragraph (English and Chinese) from the project records, one-click copy of the parameter table (N, R, σ², ΔE0, R-factor), .md with the fitting text |
+| Figures | Format by hand in Origin | **Figure export**: 24 palettes, standards in grey; 600 dpi TIFF / SVG, or an **Origin project (.opju)** in one consistent format |
 | Collect all results | Copy tables by hand | **One-click summary report**: Excel + HTML with figures |
 | Cross-check with Athena / Artemis | — | **One-click export of an Athena project (.prj)** with XAFSmith's processing parameters |
 | Reproduce results months later | Find the project file, recall the parameters | Raw data are read-only and all parameters live in project files; results can always be regenerated from the raw data |
@@ -56,30 +57,34 @@ Also: XANES quantification (edge position, white line, oxidation-state calibrati
 
 A native desktop window (PySide6) that opens in seconds. Pages are grouped by workflow on the left; a disclaimer is always visible at the bottom. Screenshots come from a demo project (Ir foil and IrO₂, Ir L3 edge).
 
-**Project home**: the six workflow steps; finished steps are ticked, the next one is framed in blue.
+**Workflow & project**: a button fixed at the top right; hover for the six workflow steps (finished ones ticked, the next framed in blue, click to go) and project information.
 
-![project home](docs/images/en/home.png)
+![workflow pop-up](docs/images/en/flow.png)
 
-**EXAFS fitting**: edit path and parameter tables directly; each result shows k space, |χ(R)| and Re χ(R).
+**EXAFS fitting**: settings on the left (data, ranges, paths, parameters; the Fit button pinned at the bottom), the result always on the right — change, fit and read without scrolling; one click adopts the fitted values as the next start values.
 
 ![fit result](docs/images/en/fit_result.png)
 
-**Fit quality check**: after every fit, an automatic point-by-point check (R-factor, variables, residual/noise, errors, bounds, ΔE0, σ², ΔR, correlations), followed by the fit diagnosis and robustness check.
+**Quality check**: after every fit, an automatic point-by-point check (R-factor, variables, residual/noise, errors, bounds, ΔE0, σ², ΔR, correlations); diagnosis, robustness and the full report sit in the same set of tabs.
 
 ![fit quality](docs/images/en/fit_quality.png)
 
 <table>
 <tr>
-<td width="50%"><b>Wavelet transform</b>: maxima per R window, one-click data export, parameter guidance<br/><img src="docs/images/en/wavelet.png"/></td>
+<td width="50%"><b>Wavelet transform</b>: two spectra side by side, maxima per R window, one-click data export, parameter guidance<br/><img src="docs/images/en/wavelet.png"/></td>
 <td width="50%"><b>χ(k) &amp; FT</b>: recomputed as you change parameters<br/><img src="docs/images/en/chi_ft.png"/></td>
 </tr>
 <tr>
-<td><b>SI methods</b>: one-click copy of the fitting text and table for the Supporting Information<br/><img src="docs/images/en/si_methods.png"/></td>
+<td><b>Methods export</b>: Methods paragraph and fit-parameter table, one-click copy<br/><img src="docs/images/en/methods_export.png"/></td>
 <td><b>AI assistant</b>: one click writes the instruction files for the AI<br/><img src="docs/images/en/ai_assistant.png"/></td>
 </tr>
 <tr>
 <td><b>Normalization</b>: pre/post-edge lines, overlay, derivative, merging<br/><img src="docs/images/en/normalization.png"/></td>
-<td><b>Journal figures</b>: single / double column, 600 dpi, English captions<br/><img src="docs/images/en/journal_figure.png"/></td>
+<td><b>Figure export</b>: 24 palettes, 600 dpi, English captions, Origin project<br/><img src="docs/images/en/journal_figure.png"/></td>
+</tr>
+<tr>
+<td><b>Exported Origin project</b>: 25×19 cm layer, Arial 32 pt, boxed frame, blue samples / grey standards<br/><img src="docs/images/en/origin_export.png"/></td>
+<td><b>Edge lookup</b>: click an element for edges, fluorescence lines and a filter<br/><img src="docs/images/en/edge_lookup.png"/></td>
 </tr>
 </table>
 
@@ -169,8 +174,8 @@ You do not need to remember them, but they help you follow what the AI does:
 | Fit | `xafsmith fit model_name` (model in `models/model_name.json`) | `output/fits/` |
 | Diagnosis / robustness / significance | `xafsmith diagnose model`, `robust model`, `ftest small large` | screen, `output/fits/` |
 | LCF / XANES | `xafsmith lcf …`, `xafsmith xanes …` | `output/lcf/`, `output/xanes/` |
-| **Journal figures** | `xafsmith figure --kind chir --samples A B --size double` | `output/figs/journal/` |
-| **Summary report** | `xafsmith summary` | `output/reports/汇总_<time>/` |
+| **Figure export** | `xafsmith figure --kind chir --samples A B --size double` | `output/figs/journal/` |
+| **Report export** | `xafsmith summary` | `output/reports/汇总_<time>/` |
 | **Methods paragraph** | `xafsmith methods` | `output/reports/方法段落.md` |
 | **SI fitting text + table** | `xafsmith si --lang en` | `output/reports/SI_EXAFS拟合方法.md` |
 | **Athena export** | `xafsmith export-prj --samples A B` | `output/gui/athena/` |
@@ -179,7 +184,7 @@ You do not need to remember them, but they help you follow what the AI does:
 
 - **EXAFS fitting → Run a saved model**: every model the AI writes is in `models/`; rerun it in the GUI and inspect the fit, the **fit diagnosis** and the **robustness check**;
 - **Fit history**: compare models;
-- **Summary report**, **Journal figures**: view and re-export;
+- **Report export**, **Figure export**, **Methods export**: view and re-export;
 - `notes/`: the analysis notes the AI writes (what was done, conclusions, next step).
 
 ### Safety and rules
@@ -223,7 +228,7 @@ Always measure the **elemental reference** (metal foil or powder) in the same se
 
 If you use XAFSmith in a publication, please cite this repository (**Cite this repository** on the right of the GitHub page):
 
-*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 0.4.0. https://github.com/Wiolic/XAFSmith*
+*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 0.5.0. https://github.com/Wiolic/XAFSmith*
 
 and the programs it builds on:
 - Larch: M. Newville, *J. Phys.: Conf. Ser.* **430**, 012007 (2013).

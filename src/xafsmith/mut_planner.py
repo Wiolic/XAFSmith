@@ -94,6 +94,65 @@ def k_limit(elements, element, edge, emax_data, margin_k=0.3):
     return kdata, df
 
 
+# ----------------------------------------------------------------------------- 元素吸收边查询（同 Hephaestus 的周期表）
+MAIN_LINE = {"K": "Ka1", "L3": "La1", "L2": "Lb1", "L1": "Lb3", "M5": "Ma", "M4": "Mb"}
+
+
+def element_info(el):
+    z = int(xraydb.atomic_number(el))
+    return dict(symbol=el, Z=z, name=str(xraydb.atomic_name(z)), mass=float(xraydb.atomic_mass(el)),
+                density=float(xraydb.atomic_density(el)))
+
+
+def edge_table(el):
+    """吸收边：能量 (eV)、荧光产额、跳跃比（xraydb / Elam）"""
+    rows = [dict(edge=k, energy=float(v.energy), fyield=float(v.fyield), jump_ratio=float(v.jump_ratio))
+            for k, v in xraydb.xray_edges(el).items()]
+    return pd.DataFrame(rows, columns=["edge", "energy", "fyield", "jump_ratio"]).sort_values("energy", ascending=False)        .reset_index(drop=True)
+
+
+def line_table(el, min_intensity=0.001):
+    """荧光线：Siegbahn 名称、能量 (eV)、相对强度（同一初始能级内归一）、跃迁（初态 → 末态）"""
+    rows = [dict(line=k, energy=float(v.energy), intensity=float(v.intensity), transition=f"{v.initial_level} → {v.final_level}")
+            for k, v in xraydb.xray_lines(el).items() if float(v.intensity) >= min_intensity]
+    return pd.DataFrame(rows, columns=["line", "energy", "intensity", "transition"]).sort_values("energy", ascending=False)        .reset_index(drop=True)
+
+
+def fluor_filter(el, edge, n_abs=3.0, de=50.0, n_best=4):
+    """荧光测量用的滤片（Z−1 规则的推广）：滤片元素的吸收边要落在“主荧光线”与“目标吸收边”之间——
+    它强烈吸收入射能量附近的弹性 / 康普顿散射，而让荧光线基本通过。
+    厚度按目标边以上 de eV 处 μx = n_abs 计算（单质密度）；同时给出主荧光线的透过率。"""
+    import numpy as _np
+    e_edge = float(xraydb.xray_edges(el)[edge].energy)
+    lines = xraydb.xray_lines(el)
+    ln = MAIN_LINE.get(edge)
+    if ln not in lines:
+        cand = [(k, v) for k, v in lines.items() if v.initial_level == edge]
+        if not cand:
+            raise ValueError(f"{el} {edge}: 没有荧光线数据")
+        ln = max(cand, key=lambda kv: kv[1].intensity)[0]
+    e_line = float(lines[ln].energy)
+    rows = []
+    for z in range(3, 93):
+        sym = xraydb.atomic_symbol(z)
+        if sym == el:
+            continue
+        for en in ("K", "L3"):
+            ed = xraydb.xray_edges(sym).get(en)
+            if ed is None or not (e_line + 30 < ed.energy < e_edge - 10):
+                continue
+            rho = float(xraydb.atomic_density(sym))
+            mu_hi = float(xraydb.mu_elam(sym, e_edge + de)) * rho        # 1/cm
+            mu_ln = float(xraydb.mu_elam(sym, e_line)) * rho
+            x_cm = n_abs / mu_hi
+            rows.append(dict(filter=sym, Z=z, edge=en, edge_energy=float(ed.energy), thickness_um=x_cm * 1e4,
+                             line_transmission=float(_np.exp(-mu_ln * x_cm))))
+    df = pd.DataFrame(rows, columns=["filter", "Z", "edge", "edge_energy", "thickness_um", "line_transmission"])
+    # 同样吸收 n_abs 个吸收长度的散射时，荧光线透过率越高越好（Fe K → Mn，即经典的 Z−1 规则）
+    df = df.sort_values("line_transmission", ascending=False).head(n_best).reset_index(drop=True)
+    return dict(edge_energy=e_edge, line=ln, line_energy=e_line, table=df)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--formula")

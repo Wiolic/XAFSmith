@@ -38,9 +38,9 @@ A “project” is a folder in which XAFSmith keeps data, parameters and results
 1. Double-click the **XAFSmith** icon on the desktop.
 2. Click **Open / new project** at the top left → **Browse…** to an empty folder → **Create project**.
 
-To reopen it later, **double-click** it under “Recent projects”. The **Project** page then shows the six workflow steps: finished ones are ticked, the next one is framed in blue, and **Open →** takes you there.
+To reopen it later, **double-click** it under “Recent projects”. You land on **Register data**; hover **Workflow & project** at the top right for the six workflow steps: finished ones are ticked, the next one is framed in blue, and a click takes you there.
 
-![project home](docs/images/en/home.png)
+![workflow pop-up](docs/images/en/flow.png)
 
 ### Step 2 — Add and register the data (5 min)
 
@@ -92,7 +92,7 @@ Click **Save parameters**.
 
 ### Step 7 — Fit the standard and determine S0² (10 min)
 
-**EXAFS fitting** (read **Before you fit, and what counts as a good fit** at the top before your first fit):
+**EXAFS fitting** (open **Before you fit · what is a good fit** at the top right — a separate window — and read it before your first fit). Settings on the left, result on the right:
 
 1. **Data**: the standard; **FEFF folders**: its structure;
 2. **Fit range**: the k range from step 5; an R window covering only the first shell (e.g. 1.0–2.1 Å); tick k-weights 1, 2 and 3. N_idp is shown;
@@ -100,9 +100,10 @@ Click **Save parameters**.
 4. **Parameters**: S0², ΔE0, ΔR and σ² free → **Fit**;
 5. check the result:
    - does the fit follow the data inside the window (both |χ(R)| and Re χ(R))?
-   - **Fit quality check** (automatic, below the result): which points are ✓ and which ⚠, with the reason;
-   - expand **Fit diagnosis**: where is the residual, any glitch hints?
-   - expand **Robustness check** → run: every parameter should be “stable”;
+   - the **Quality** tab on the right (automatic): which points are ✓ and which ⚠, with the reason;
+   - the **Diagnosis** tab: where is the residual, any glitch hints?
+   - the **Robustness** tab → run: every parameter should be “stable”;
+   - to keep refining from this result, click **Use fitted values as start**, change parameters and fit again (Ctrl+Enter);
 
    ![fit result](docs/images/en/fit_result.png)
 
@@ -114,17 +115,17 @@ Click **Save parameters**.
 ### Step 8 — Fit the samples (batch)
 
 1. On **EXAFS fitting** choose one sample as **Data**, with the same paths and ranges as the standard; in **4 Parameters** set **s02's value to the step-7 result and untick vary** (fixed). **Fit** → check → **Save result**.
-2. At the top of **EXAFS fitting** open **Run a saved model** → choose this sample model → select **all samples** → **Run**. Results go to **Fit history**.
+2. At the top of the left column of **EXAFS fitting** open **Run a saved model** → choose this sample model → select **all samples** → **Run**. Results go to **Fit history**.
 3. Second shell: fit once with the extra path, then **Fit history** → select the fits without and with the shell → **F-test**. Only **p < 0.05** lets you say the shell is present.
 
 ### Step 9 — Export (2 min)
 
 | You want | Go to |
 |---|---|
-| All results in one table + a report with figures | **Summary report** → Build summary → open the folder / save the Excel / open the report in a browser |
-| Publication figures (single / double column, 600 dpi TIFF, SVG, PDF, English captions) | **Journal figures** |
-| A draft “Methods” paragraph (Chinese and English) | bottom of **Summary report** |
-| Fitting text and parameter table for the SI, one-click copy | **SI methods** |
+| All results in one table + a report with figures | **Report export** → Build report → open the folder / save the Excel / open the report in a browser |
+| Publication figures (single / double column, 600 dpi TIFF, SVG, PDF, English captions; 24 palettes) | **Figure export** |
+| Origin project (one consistent format, editable in Origin) | **Figure export** → Export Origin project (.opju) |
+| A draft “Methods” paragraph (English and Chinese) and the fit-parameter table for the SI | **Methods export** |
 | Wavelet data matrix, maxima table and figure | **Wavelet transform** → Export data and figure |
 | Cross-check in Athena / Artemis | bottom of **Normalization** → export `.prj` |
 | Edge position, white line, oxidation state, pre-edge peaks | **XANES quantification** |
@@ -132,7 +133,7 @@ Click **Save parameters**.
 
 Every file is also in the project's `output` folder.
 
-![SI methods](docs/images/en/si_methods.png)
+![Methods export](docs/images/en/methods_export.png)
 
 ---
 
@@ -190,11 +191,11 @@ The AI runs commands such as `xafsmith qc`, `process`, `feff`, `fit`, `diagnose`
 
 | What to check | Where |
 |---|---|
-| The AI's fit models; rerun, fit diagnosis, robustness | top of **EXAFS fitting** → **Run a saved model** |
+| The AI's fit models; rerun, fit diagnosis, robustness | top of the left column of **EXAFS fitting** → **Run a saved model** |
 | Model comparison, F-test | **Fit history** |
 | Deglitch ranges and reasons | bottom of **Quality check** |
 | Processing parameters | **Calibrate & process → Processing parameters** |
-| Journal figures, summary report, methods paragraph | **Journal figures**, **Summary report**, or the project's `output` folder |
+| Figures, report, methods paragraph | **Figure export**, **Report export**, **Methods export**, or the project's `output` folder |
 | The AI's analysis notes | the project's `notes` folder |
 
 > AI makes mistakes too. **Verify key numbers and conclusions in the GUI**; when in doubt, ask the AI “what is this conclusion based on, what is the F-test p-value, did the robustness check pass?”

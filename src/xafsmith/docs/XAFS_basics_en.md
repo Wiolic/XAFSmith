@@ -64,7 +64,7 @@ absorption edges.
 Pressing 14.2 mg IrO₂ with 100 mg BN into a φ13 mm pellet (1.327 cm²) gives a total μt ≈ 2.0 above the edge and an edge step
 Δμt ≈ 1.09 — right in the ideal window for transmission (total μt 1.5–2.6, Δμt ≥ 0.2).
 
-> **In XAFSmith**: “Sample design” recommends the pellet mass from formula, area and target μt, and lists interfering edges.
+> **In XAFSmith**: “Sample preparation” recommends the pellet mass from formula, area and target μt (pellet calculator) and lists interfering edges (interfering-edge screening); “Edge lookup” shows the edges, fluorescence lines and filters of any element.
 
 ---
 
@@ -97,7 +97,7 @@ surroundings of Ir and of Co separately.
 **Interfering edges**: if another edge falls inside the scan (e.g. Ir's own L2 edge 1 609 eV above L3, k ≈ 20.6 Å⁻¹), the data can
 only be used up to it.
 
-> **In XAFSmith**: “χ(k) & FT → k-range check” and “Sample design → Interfering edges” list these edges and convert them to a
+> **In XAFSmith**: “χ(k) & FT → k-range check” and “Sample preparation → Interfering-edge screening” list these edges and convert them to a
 > usable k limit.
 
 ---

@@ -136,25 +136,64 @@ def _html(title, sheets, figs):
         if name in sheets:
             parts.append(f"<h2>{name}</h2>" + _table(sheets[name]))
     if figs:
-        parts.append("<h2>图</h2>")
+        parts.append("<h2>图</h2><p class=m>点击缩略图放大查看：滚轮缩放，拖动平移，双击复位，Esc 或点击空白处关闭。</p>")
         groups = {}
         for f in figs:
             key = "拟合" if f.endswith("_fit.png") else ("LCF" if f.startswith("lcf_") else "谱图")
             groups.setdefault(key, []).append(f)
         for k in ("谱图", "拟合", "LCF"):
-            for f in groups.get(k, []):
-                parts.append(f"<figure><img src='figs/{html.escape(f)}'><figcaption>{html.escape(f)}</figcaption></figure>")
+            if not groups.get(k):
+                continue
+            parts.append(f"<h3>{k}</h3><div class=g>")
+            for f in groups[k]:
+                parts.append(f"<figure><img src='figs/{html.escape(f)}' loading=lazy alt='{html.escape(f)}'>"
+                             f"<figcaption>{html.escape(f)}</figcaption></figure>")
+            parts.append("</div>")
     css = ("body{font-family:'Microsoft YaHei',sans-serif;margin:24px;color:#222}"
            "h1{font-size:22px}h2{font-size:18px;border-bottom:1px solid #ccc;padding-bottom:4px;margin-top:28px}"
            ".m{color:#666;font-size:13px}table.t{border-collapse:collapse;font-size:12px;margin:6px 0}"
            "table.t th,table.t td{border:1px solid #ddd;padding:3px 6px;text-align:right}"
-           "table.t th{background:#f3f3f3}figure{margin:12px 0}img{max-width:100%;border:1px solid #eee}"
-           "figcaption{font-size:12px;color:#666}"
+           "table.t th{background:#f3f3f3}"
+           ".g{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin:8px 0 18px}"
+           "figure{margin:0;background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:8px}"
+           "figure img{width:100%;height:auto;cursor:zoom-in;display:block}"
+           "figcaption{font-size:12px;color:#666;margin-top:4px;word-break:break-all}"
+           "#lb{position:fixed;inset:0;background:rgba(20,20,20,.86);display:none;overflow:hidden;z-index:9}"
+           "#lb img{position:absolute;left:50%;top:50%;max-width:none;transform-origin:0 0;cursor:grab;background:#fff}"
+           "#lb .bar{position:fixed;top:12px;right:16px;display:flex;gap:6px;z-index:10}"
+           "#lb .bar button{font-size:15px;padding:4px 11px;border-radius:6px;border:none;background:#fff;cursor:pointer}"
+           "#lb .cap{position:fixed;bottom:12px;left:16px;color:#ddd;font-size:13px}"
            ".w{background:#fff4e5;border:1px solid #f0b46a;padding:8px 12px;margin:10px 0;font-size:13px}"
            ".c{background:#eef5ff;border:1px solid #9cc0f0;padding:8px 12px;margin:10px 0;font-size:13px}"
            ".c ul{margin:4px 0 0 18px;padding:0}")
     return f"<!doctype html><html><head><meta charset='utf-8'><title>{html.escape(title)}</title>" \
-           f"<style>{css}</style></head><body>{''.join(parts)}</body></html>"
+           f"<style>{css}</style></head><body>{''.join(parts)}{_LIGHTBOX}</body></html>"
+
+
+# 报告中的图：缩略图网格 + 点击放大（滚轮缩放、拖动平移、双击复位、Esc 关闭）
+_LIGHTBOX = """<div id=lb><div class=bar><button id=zi>＋</button><button id=zo>－</button><button id=z1>1:1</button>
+<button id=zf>适应</button><button id=zx>✕</button></div><img id=lbi><div class=cap id=lbc></div></div>
+<script>
+(function(){var lb=document.getElementById('lb'),im=document.getElementById('lbi'),cap=document.getElementById('lbc');
+var s=1,x=0,y=0,drag=null;
+function ap(){im.style.transform='translate('+x+'px,'+y+'px) scale('+s+')';}
+function fit(){var w=im.naturalWidth,h=im.naturalHeight,W=innerWidth-40,H=innerHeight-60;s=Math.min(W/w,H/h,1);
+ x=-w*s/2;y=-h*s/2;ap();}
+function zoom(f,cx,cy){var r=lb.getBoundingClientRect();cx=(cx===undefined?innerWidth/2:cx)-innerWidth/2;
+ cy=(cy===undefined?innerHeight/2:cy)-innerHeight/2;x=cx-(cx-x)*f;y=cy-(cy-y)*f;s*=f;ap();}
+document.querySelectorAll('figure img').forEach(function(e){e.addEventListener('click',function(){
+ im.onload=fit;im.src=e.src;cap.textContent=e.alt;lb.style.display='block';if(im.complete)fit();});});
+lb.addEventListener('wheel',function(e){e.preventDefault();zoom(e.deltaY<0?1.15:1/1.15,e.clientX,e.clientY);},{passive:false});
+im.addEventListener('mousedown',function(e){e.preventDefault();drag=[e.clientX-x,e.clientY-y];im.style.cursor='grabbing';});
+addEventListener('mousemove',function(e){if(drag){x=e.clientX-drag[0];y=e.clientY-drag[1];ap();}});
+addEventListener('mouseup',function(){drag=null;im.style.cursor='grab';});
+im.addEventListener('dblclick',fit);
+lb.addEventListener('click',function(e){if(e.target===lb)lb.style.display='none';});
+document.getElementById('zi').onclick=function(){zoom(1.25);};document.getElementById('zo').onclick=function(){zoom(0.8);};
+document.getElementById('z1').onclick=function(){var w=im.naturalWidth,h=im.naturalHeight;s=1;x=-w/2;y=-h/2;ap();};
+document.getElementById('zf').onclick=fit;document.getElementById('zx').onclick=function(){lb.style.display='none';};
+addEventListener('keydown',function(e){if(e.key==='Escape')lb.style.display='none';});})();
+</script>"""
 
 
 def safe(name):

@@ -6,7 +6,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from PySide6.QtWidgets import QFileDialog, QTextBrowser, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QFileDialog, QWidget
 
 from xafsmith import paths
 from .. import widgets as W
@@ -125,8 +126,10 @@ class FeffPage(Page):
                        T("FEFF 运行中…（FEFF8L 约 1–3 分钟）", "Running FEFF… (FEFF8L 1–3 min)") if c == "feff8" else T("FEFF 运行中…", "Running FEFF…"),
                        run)
         run.clicked.connect(go)
-        card.add(W.hbox(W.label(T("FEFF6L 与 FEFF8L 的 ΔE0 零点不同：换版本后，固定 e0 的模型要重新确定 e0。",
-                                  "FEFF6L and FEFF8L have different ΔE0 zeros: re-determine e0 for models that fix it."), "faint"), None, run))
+        card.add(W.label(T("注意：FEFF6L 与 FEFF8L 的 ΔE0 零点不同。换 FEFF 版本后，固定 e0 的模型要重新确定 e0。",
+                            "Note: FEFF6L and FEFF8L have different ΔE0 zeros. After switching, re-determine e0 for models that fix it."),
+                          "faint"))
+        card.add(W.hbox(None, run))
         upd_out()
         self.add(card)
         self._existing()
@@ -157,7 +160,7 @@ class FeffPage(Page):
 
 # ============================================================================= 拟合质量
 FIT_GUIDE_ZH = """
-<p><b>拟合前</b></p>
+<h3>拟合前</h3>
 <ul>
 <li><b>先标样、后样品</b>：在结构已知的标样上拟合得到 S0²（通常 0.7–1.0），样品中固定为这个值（在“校准与处理 → 处理参数”中记录来源）。
 S0² 与配位数 N 完全相关，两者不能同时自由。</li>
@@ -166,7 +169,8 @@ S0² 与配位数 N 完全相关，两者不能同时自由。</li>
 <li><b>同时用 k¹、k²、k³ 拟合</b>（k 权重多选），可降低 N–σ²、ΔE0–ΔR 的相关性。</li>
 <li><b>从简单到复杂</b>：先第一壳层，再逐条加路径；每加一条都与前一个模型做 F 检验。</li>
 </ul>
-<p><b>怎样算拟合得好</b>（拟合后，结果下方的“拟合质量检查”会逐条判断）</p>
+<h3>怎样算拟合得好</h3>
+<p>拟合后，右侧结果的“质量检查”标签页会逐条判断下面各项。</p>
 <ul>
 <li><b>R 因子</b>：&lt; 0.02 很好；0.02–0.05 对第一壳层可接受；&gt; 0.05 说明模型或数据有问题。R 因子随窗口变宽而变大，只在相同范围之间比较。</li>
 <li><b>残差 / 噪声</b>（拟合诊断）：≈ 1–2 表示已到数据极限；明显大于 2 说明还有系统偏差。</li>
@@ -179,10 +183,11 @@ N 在合理范围内且误差明显小于数值。</li>
 <li><b>图上</b>：窗口内 |χ(R)| 与 Re χ(R) 都要对上，Re 对上比 |χ(R)| 对上更严格；k 空间残差不集中在某一段。</li>
 <li><b>稳健</b>：改变 kmin、kmax、Rmax 与 k 权重后结论不变（稳健性检查）。</li>
 </ul>
+<h3>别追求严丝合缝</h3>
 <p>“严丝合缝”不是目标：残差已接近噪声时，再加参数只是在拟合噪声。详见“使用指南 → 拟合质量提升教程”。</p>
 """
 FIT_GUIDE_EN = """
-<p><b>Before fitting</b></p>
+<h3>Before fitting</h3>
 <ul>
 <li><b>Standard first, then samples</b>: fit S0² on a standard of known structure (usually 0.7–1.0) and fix it for the samples
 (record the source under “Calibrate &amp; process → Processing parameters”). S0² and N are fully correlated; never vary both.</li>
@@ -193,7 +198,8 @@ shells you fit. Check N_idp = 2ΔkΔR/π first.</li>
 <li><b>Fit k¹, k² and k³ together</b> (select several k-weights) to reduce N–σ² and ΔE0–ΔR correlations.</li>
 <li><b>Simple to complex</b>: first shell first, then add paths one at a time, F-testing each against the previous model.</li>
 </ul>
-<p><b>What counts as a good fit</b> (after fitting, “Fit quality check” below the result checks each point)</p>
+<h3>What counts as a good fit</h3>
+<p>After a fit, the “Quality” tab of the result on the right checks each point.</p>
 <ul>
 <li><b>R-factor</b>: &lt; 0.02 very good; 0.02–0.05 acceptable for a first shell; &gt; 0.05 points to a problem with the model or
 the data. It grows with the window, so compare only fits over the same ranges.</li>
@@ -210,6 +216,7 @@ parameter — fix or constrain it.</li>
 concentrated in one region.</li>
 <li><b>Robust</b>: conclusions survive changes of kmin, kmax, Rmax and k-weight (robustness check).</li>
 </ul>
+<h3>Do not chase a perfect match</h3>
 <p>A “perfect” match is not the goal: once the residual is near the noise, extra parameters only fit noise. See
 “Help → Improving fit quality”.</p>
 """
@@ -234,7 +241,7 @@ def quality_checks(fit, dg=None):
         r = dg["ratio"]
         out.append((r <= 2.5, T(f"残差 / 噪声 = {r:.1f}", f"Residual / noise = {r:.1f}")
                     + (T("：已接近数据极限", ": close to the data limit") if r <= 2.5
-                       else T("：残差是系统性的（见下方拟合诊断）", ": systematic residual (see fit diagnosis)"))))
+                       else T("：残差是系统性的（见“诊断”标签）", ": systematic residual (see the Diagnosis tab)"))))
     P = s["params"]
     mpar = md.get("params", {})
     for name, v in P.items():
@@ -292,33 +299,45 @@ def quality_checks(fit, dg=None):
         out.append((None, T("只用了单一 k 权重：同时拟合 k¹、k²、k³ 能降低相关性",
                             "Single k-weight: fitting k¹, k², k³ together reduces correlations")))
     if fit.get("robust") is None:
-        out.append((None, T("尚未运行稳健性检查（见下方）", "Robustness check not run yet (below)")))
+        out.append((None, T("尚未运行稳健性检查（见“稳健性”标签）", "Robustness check not run yet (Robustness tab)")))
     return out
 
 
 # ============================================================================= 拟合结果视图
 class FitView(QWidget):
-    """一个拟合的结果：指标、参数、路径、k / R 图、报告、保存、诊断、稳健性"""
-    def __init__(self, page, fit, key=""):
+    """一个拟合的结果：指标与按钮、k / R 图；参数、路径、质量检查、诊断、稳健性、完整报告放在标签页里（不用上下翻）。
+    adopt：把拟合值写回参数表的回调（EXAFS 拟合页提供；拟合历史页没有）"""
+    def __init__(self, page, fit, key="", adopt=None):
         super().__init__()
         self.page, self.fit = page, fit
-        S = page.S
         s, c, md = fit["summ"], fit["curves"], fit["model"]
         lay = W.QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(14)
-        card = Card(T(f"拟合结果 · {s['model']}", f"Fit result · {s['model']}"))
+        lay.setSpacing(12)
+        card = Card()
+        head = W.QHBoxLayout()
+        t = W.label(T(f"拟合结果 · {s['model']}", f"Fit result · {s['model']}"), "h2")
+        t.setWordWrap(True)
+        head.addWidget(t, 1)
+
+        def save():
+            base = save_fit(fit)
+            W.toast(page, T(f"已保存：output/fits/exafs_fits.csv、models/{base}.json、报告与拟合图",
+                            f"Saved: output/fits/exafs_fits.csv, models/{base}.json, report and figure"))
+        if adopt is not None:
+            head.addWidget(W.button(T("采纳拟合值到参数", "Use fitted values as start"), icon_name="check",
+                                    slot=lambda: adopt(fit),
+                                    tip=T("把本次拟合得到的变量值写回左侧参数表的 value 列，作为下一次拟合的初值",
+                                          "Copy the fitted values into the value column of the parameter table (start values for the next fit)")))
+        head.addWidget(W.button(T("保存结果", "Save result"), primary=True, icon_name="save", slot=save))
+        card.add(head)
         card.add(W.metrics((T("R 因子", "R-factor"), f"{s['rfactor']:.4f}"), ("χ²_ν", f"{s['chi2_reduced']:.1f}"),
                            ("N_idp", f"{s['n_idp']:.1f}"), (T("变量数", "Variables"), s["nvarys"]),
                            (T("样品", "Sample"), s["sample"])))
         for w_ in s["warnings"]:
             card.add(Banner("warn", w_))
-        pt = pd.DataFrame([{T("参数", "Parameter"): k, T("值", "Value"): v["value"], T("误差", "Error"): v["stderr"],
-                            T("变化", "Vary"): v["vary"], T("表达式", "Expr"): v["expr"]} for k, v in s["params"].items()])
-        card.add(W.Table(pt, max_height=320))
-        card.add(W.Table(pd.DataFrame(s["paths"]), max_height=320))
         kw = W.combo([1, 2, 3], page.state.get("kwshow", 2))
-        plot = W.Plot(380, 1, 2)
+        plot = W.Plot(330, 1, 2)
         card.add(W.hbox(W.label(T("显示 k 权重", "Display k-weight"), "faint"), kw, None))
         card.add(plot)
 
@@ -347,17 +366,22 @@ class FitView(QWidget):
             self._kw = k
         kw.currentIndexChanged.connect(lambda *_: draw())
         draw()
-
-        def save():
-            base = save_fit(fit)
-            W.toast(page, T(f"已保存：output/fits/exafs_fits.csv、models/{base}.json、报告与拟合图",
-                            f"Saved: output/fits/exafs_fits.csv, models/{base}.json, report and figure"))
-        card.add(W.hbox(W.collapsible(T("完整拟合报告", "Full fit report"), W.code_block(fit["report"], height=320)), None,
-                        W.button(T("保存结果", "Save result"), primary=True, icon_name="save", slot=save)))
         lay.addWidget(card)
-        lay.addWidget(self._quality())
-        lay.addWidget(self._diagnose())
-        lay.addWidget(self._robust())
+        # 详细内容：标签页
+        pt = pd.DataFrame([{T("参数", "Parameter"): k, T("值", "Value"): v["value"], T("误差", "Error"): v["stderr"],
+                            T("变化", "Vary"): v["vary"], T("表达式", "Expr"): v["expr"]} for k, v in s["params"].items()])
+        p_tab = W.vbox(W.Table(pt, max_height=420))
+        path_tab = W.vbox(W.Table(pd.DataFrame(s["paths"]), max_height=420))
+        q = self._quality()
+        nwarn = sum(1 for st_, _ in self._checks if st_ is False)
+        rep = W.vbox(W.code_block(fit["report"], height=420))
+        tabs = W.tabs((T("参数", "Parameters"), p_tab), (T("路径", "Paths"), path_tab),
+                      (T("质量检查", "Quality") + (f"  ⚠ {nwarn}" if nwarn else "  ✓"), q),
+                      (T("诊断", "Diagnosis"), self._diagnose()), (T("稳健性", "Robustness"), self._robust()),
+                      (T("完整报告", "Full report"), rep))
+        tabs.setCurrentIndex(page.state.get("fit_tab", 0))
+        tabs.currentChanged.connect(lambda i: page.state.__setitem__("fit_tab", i))
+        lay.addWidget(tabs)
 
     def _dg(self):
         """拟合诊断（只算一次，质量检查与诊断共用）"""
@@ -373,31 +397,36 @@ class FitView(QWidget):
         return self._dg_cache
 
     def _quality(self):
-        card = Card(T("拟合质量检查", "Fit quality check"))
+        card = Card(T("拟合质量检查", "Fit quality check"), flat=True)
+        card.lay.setContentsMargins(4, 12, 4, 4)
         self._quality_card = card
         dg = self._dg()
-        for state, txt in quality_checks(self.fit, None if isinstance(dg, Exception) else dg):
+        self._checks = quality_checks(self.fit, None if isinstance(dg, Exception) else dg)
+        for state, txt in self._checks:
             col, mark = {True: (C["ok"], "✓"), False: (C["warn"], "⚠"), None: (C["text3"], "•")}[state]
             card.add(W.label(f'<span style="color:{col};font-weight:700">{mark}</span>&nbsp;&nbsp;{txt}', rich=True))
         card.add(W.label(T("这些是必要条件，不是充分条件：新增的壳层还要通过“拟合历史”中的 F 检验（p &lt; 0.05），并在稳健性检查中稳定。",
                            "These are necessary, not sufficient: an added shell must also pass the F-test in “Fit history” "
                            "(p &lt; 0.05) and stay stable in the robustness check."), "faint", rich=True))
+        card.lay.addStretch(1)
         return card
 
     def _diagnose(self):
         fit = self.fit
         body = Card(flat=True)
+        body.lay.setContentsMargins(4, 12, 4, 4)
         dg = self._dg()
         if isinstance(dg, Exception):
             body.add(Banner("err", str(dg)))
-            return W.collapsible(T("拟合诊断：残差在哪里、为什么对不上", "Fit diagnosis: where is the residual and why"), body)
+            return body
+        body.add(W.label(T("拟合诊断：残差在哪里、为什么对不上", "Fit diagnosis: where is the residual and why"), "h3"))
         body.add(W.metrics((T("窗口内残差 RMS", "Residual RMS in window"), f"{dg['resid_R']:.4f}"),
                            (T("白噪声估计 (R 15–25 Å)", "White noise (R 15–25 Å)"), f"{dg['noise_R']:.4f}"),
                            (T("残差 / 噪声", "Residual / noise"), f"{dg['ratio']:.1f}")))
         for h in dg["hints"]:
             body.add(Banner("info", h))
         c, md, kw = fit["curves"], fit["model"], getattr(self, "_kw", 2)
-        p = W.Plot(300)
+        p = W.Plot(280)
         p.ax.plot(c["k"], c["chi"] * c["k"] ** kw, color=C["text"], lw=1, label=T("数据", "data"))
         p.ax.plot(dg["k"], dg["resid_k"], color=C["accent"], lw=1, label=T("残差", "residual"))
         p.ax.axvspan(md["kmin"], md["kmax"], color="#C29A1C", alpha=0.08, lw=0)
@@ -414,12 +443,14 @@ class FitView(QWidget):
                            "Residual/noise ≈ 1–2 means the data limit is reached; ≫ 2 means a systematic residual. It cannot "
                            "always be — and should not always be — removed by adding parameters: every added path must pass "
                            "the F-test and the robustness check."), "faint"))
-        return W.collapsible(T("拟合诊断：残差在哪里、为什么对不上", "Fit diagnosis: where is the residual and why"), body)
+        return body
 
     def _robust(self):
         fit, page = self.fit, self.page
         body = Card(flat=True)
+        body.lay.setContentsMargins(4, 12, 4, 4)
         out = W.vbox()
+        body.add(W.label(T("稳健性检查：改变拟合条件重复拟合", "Robustness check: refit under varied conditions"), "h3"))
         body.add(W.label(T("依次改变 kmin ±0.5、kmax ±1、Rmax ±0.2 Å，以及（多 k 权重时）单独用 k¹/k²/k³，看变量的变化是否超过统计误差。",
                            "Vary kmin ±0.5, kmax ±1, Rmax ±0.2 Å and (with several k-weights) use k¹/k²/k³ alone; check whether "
                            "each variable moves by more than its statistical error."), "faint"))
@@ -459,56 +490,143 @@ class FitView(QWidget):
         body.add(out)
         if fit.get("robust"):
             show()
-        return W.collapsible(T("稳健性检查：改变拟合条件重复拟合", "Robustness check: refit under varied conditions"), body,
-                             expanded=bool(fit.get("robust")))
+        body.lay.addStretch(1)
+        return body
+
+
+def show_fit_guide(parent):
+    W.info_window(parent, "fit_guide", T("拟合注意事项与“拟合得好”的标准", "Before you fit, and what counts as a good fit"),
+                  FIT_GUIDE_EN if W.en() else FIT_GUIDE_ZH)
 
 
 # ============================================================================= EXAFS 拟合
 class FitPage(Page):
+    """左右分栏：左侧依次设置数据、范围、路径、参数（“拟合”按钮固定在左下角），右侧始终显示最近一次拟合。
+    改参数 → 拟合 → 看结果 → 再改，全程不用上下翻页。"""
     title_zh, title_en, icon_name = "EXAFS 拟合", "EXAFS fitting", "fit"
+    fill = True
+    max_width = 100000
 
     def build(self):
+        from PySide6.QtGui import QKeySequence, QShortcut
+        from PySide6.QtWidgets import QSplitter
         S = self.S
+        self._fit_go = None
+        self.__dict__.pop("_ptab", None)
+        if not hasattr(self, "_shortcuts"):           # 只建一次（页面重建时不重复）
+            self._shortcuts = []
+            for seq in ("Ctrl+Return", "Ctrl+Enter"):
+                sc = QShortcut(QKeySequence(seq), self)
+                sc.activated.connect(lambda: self._fit_go and self._fit_go())
+                self._shortcuts.append(sc)
         self.header(T("先在标样上确定 S0²，样品中固定；加壳层要通过 F 检验。变量数 ≤ N_idp/2。",
-                      "Determine S0² on the standard and fix it for samples; added shells must pass the F-test. Variables ≤ N_idp/2."))
-        tb = QTextBrowser()
-        tb.setObjectName("doc")
-        tb.setHtml(FIT_GUIDE_EN if W.en() else FIT_GUIDE_ZH)
-        tb.setMinimumHeight(600)
-        self.add(W.collapsible(T("注意事项与“拟合得好”的标准", "Before you fit, and what counts as a good fit"), tb,
-                               expanded=not S.fits))
-        self.add(self._saved())
+                      "Determine S0² on the standard and fix it for samples; added shells must pass the F-test. Variables ≤ N_idp/2."),
+                    actions=[W.button(T("注意事项与“拟合得好”的标准", "Before you fit · what is a good fit"), icon_name="help",
+                                      slot=lambda: show_fit_guide(self))])
+        sp = QSplitter(Qt.Orientation.Horizontal)
+        sp.setChildrenCollapsible(False)
+        sp.setHandleWidth(10)
+        # 左：设置（可滚动）+ 固定的拟合按钮栏
+        left = QWidget()
+        lv = W.QVBoxLayout(left)
+        lv.setContentsMargins(0, 0, 0, 0)
+        lv.setSpacing(8)
+        lsa, lcol = self._scroll()
+        lv.addWidget(lsa, 1)
+        self._bar = W.QHBoxLayout()
+        self._bar.setContentsMargins(0, 4, 4, 0)
+        lv.addLayout(self._bar)
+        # 右：结果（可滚动）
+        rsa, rcol = self._scroll()
+        self._right = rcol
+        sp.addWidget(left)
+        sp.addWidget(rsa)
+        sp.setStretchFactor(0, 9)
+        sp.setStretchFactor(1, 11)
+        sizes = self.state.get("split")
+        if sizes:
+            sp.setSizes(sizes)
+        else:
+            sp.setSizes([620, 760])
+        sp.splitterMoved.connect(lambda *_: self.state.__setitem__("split", sp.sizes()))
+        self.body.addWidget(sp, 1)
+        add = lcol.addWidget
+        add(self._saved())
         cands = [k for k, g in S.groups.items() if has_chi(g)]
         dirs = feff_dirs()
         if not cands or not dirs:
-            self.add(Banner("info", T("需要：已载入并算出 χ(k) 的数据（载入谱 / χ(k) 与 FT）与 FEFF 计算（FEFF 路径）。",
-                                      "Needs data with χ(k) (Load spectra / χ(k) & FT) and a FEFF calculation (FEFF paths).")))
-            if S.fits:
-                self.add(FitView(self, S.fits[-1], "last"))
+            add(Banner("info", T("需要：已载入并算出 χ(k) 的数据（载入谱 / χ(k) 与 FT）与 FEFF 计算（FEFF 路径）。",
+                                 "Needs data with χ(k) (Load spectra / χ(k) & FT) and a FEFF calculation (FEFF paths).")))
+        else:
+            c1 = Card(T("1  数据与 FEFF", "1  Data and FEFF"))
+            data = W.combo(cands, self.state.get("data"))
+            g = S.groups[data.value()]
+            tag = f"_{g.element}{g.edge}"
+            match = [d for d in dirs if tag in str(d.relative_to(paths.FEFF))]
+            fd_key = "fdirs_" + data.value()
+            fdirs = W.MultiSelect(dirs, [Path(x) for x in self.state.get(fd_key, [str(d) for d in match[:1]])],
+                                  T("选择 FEFF 目录（可多选：多物相 / 多位点）", "FEFF folders (several: phases / sites)"),
+                                  fmt=lambda p: str(p.relative_to(paths.ROOT)))
+            data.currentIndexChanged.connect(lambda *_: (self.state.__setitem__("data", data.value()), self.refresh()))
+            fdirs.changed.connect(lambda v: (self.state.__setitem__(fd_key, [str(x) for x in v]), self.refresh()))
+            c1.add(W.field(T("数据", "Data"), data))
+            c1.add(W.field(T("FEFF 目录", "FEFF folders"), fdirs))
+            add(c1)
+            if fdirs.value():
+                self._model_cards(add, data.value(), fdirs.value())
+            else:
+                add(Banner("info", T("选择至少一个 FEFF 目录。", "Choose at least one FEFF folder.")))
+        lcol.addStretch(1)
+        self._show_result(S.fits[-1] if S.fits else None)
+
+    def _scroll(self):
+        from PySide6.QtWidgets import QScrollArea
+        sa = QScrollArea()
+        sa.setWidgetResizable(True)
+        sa.setFrameShape(W.QFrame.Shape.NoFrame)
+        sa.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        inner = QWidget()
+        inner.setObjectName("page")
+        col = W.QVBoxLayout(inner)
+        col.setContentsMargins(2, 2, 10, 8)
+        col.setSpacing(12)
+        sa.setWidget(inner)
+        return sa, col
+
+    def _show_result(self, fit):
+        W._clear_layout(self._right)
+        if fit is None:
+            self._right.addWidget(Banner("info", T("还没有拟合。在左侧选好路径与参数后点“拟合”（或按 Ctrl+Enter），结果显示在这里。",
+                                                   "No fit yet. Set paths and parameters on the left and click “Fit” (or Ctrl+Enter); "
+                                                   "the result appears here.")))
+        else:
+            self._right.addWidget(FitView(self, fit, "last", adopt=self._adopt if hasattr(self, "_ptab") else None))
+        self._right.addStretch(1)
+
+    def _adopt(self, fit):
+        """把拟合值写回参数表（只改变量；固定与约束的参数不动）"""
+        cur = getattr(self, "_ptab", {})
+        t = cur.get("tab")
+        if t is None:
             return
-        # 1 数据与路径来源
-        c1 = Card(T("1  数据与 FEFF", "1  Data and FEFF"))
-        data = W.combo(cands, self.state.get("data"))
-        g = S.groups[data.value()]
-        tag = f"_{g.element}{g.edge}"
-        match = [d for d in dirs if tag in str(d.relative_to(paths.FEFF))]
-        fd_key = "fdirs_" + data.value()
-        fdirs = W.MultiSelect(dirs, [Path(x) for x in self.state.get(fd_key, [str(d) for d in match[:1]])],
-                              T("选择 FEFF 目录（可多选：多物相 / 多位点）", "FEFF folders (several: phases / sites)"),
-                              fmt=lambda p: str(p.relative_to(paths.ROOT)))
-        data.currentIndexChanged.connect(lambda *_: (self.state.__setitem__("data", data.value()), self.refresh()))
-        fdirs.changed.connect(lambda v: (self.state.__setitem__(fd_key, [str(x) for x in v]), self.refresh()))
-        c1.add(W.hbox(W.field(T("数据", "Data"), data), W.field(T("FEFF 目录", "FEFF folders"), fdirs), spacing=12))
-        c1.lay.itemAt(c1.lay.count() - 1).widget().layout().setStretch(1, 2)
-        self.add(c1)
-        sel_dirs = fdirs.value()
-        if not sel_dirs:
-            if S.fits:
-                self.add(FitView(self, S.fits[-1], "last"))
-            return
-        self._model_cards(data.value(), sel_dirs)
-        if S.fits:
-            self.add(FitView(self, S.fits[-1], "last"))
+        fp = fit["summ"]["params"]
+        m = t.m
+        m.beginResetModel()
+        n = 0
+        for i, r in m.df.iterrows():
+            v = fp.get(r["name"])
+            if v is None or v.get("expr") or not v.get("vary", True):
+                continue
+            if isinstance(r["expr"], str) and r["expr"].strip():
+                continue
+            m.df.at[i, "value"] = float(v["value"])
+            n += 1
+        m.endResetModel()
+        t.edited.emit()
+        self.state["partab"] = pd.concat([self.state.get("partab", m.df.iloc[0:0])[lambda d: ~d.name.isin(m.df.name)], m.df],
+                                         ignore_index=True)
+        W.toast(self, T(f"已把 {n} 个变量的拟合值写入参数表（作为下次拟合的初值）",
+                        f"{n} fitted values copied into the parameter table (start values for the next fit)"))
 
     def _saved(self):
         S = self.S
@@ -549,16 +667,19 @@ class FitPage(Page):
             def done(fits):
                 S.fits.extend(fits)
                 S.emit("fits")
-                W.toast(self, T(f"完成 {len(fits)} 个拟合（见下方与“拟合历史”）", f"{len(fits)} fit(s) done (below and in “Fit history”)"))
-                self.refresh()
+                W.toast(self, T(f"完成 {len(fits)} 个拟合（右侧与“拟合历史”）", f"{len(fits)} fit(s) done (right and in “Fit history”)"))
+                self._show_result(fits[-1] if fits else None)
             W.run_task(self, work, done, T("拟合中…", "Fitting…"), btn, progress=True)
         btn.clicked.connect(go)
-        body.add(W.hbox(W.field(T("模型", "Model"), mf), W.field(T("样品", "Samples"), smp), W.vbox(None, btn), spacing=12))
-        return W.collapsible(T(f"运行已保存的模型（models/ 中 {len(models)} 个）", f"Run a saved model ({len(models)} in models/)"), body,
-                             expanded=self.state.get("saved_open", False))
+        body.add(W.field(T("模型", "Model"), mf))
+        body.add(W.hbox(W.field(T("样品", "Samples"), smp), W.vbox(None, btn), spacing=10))
+        cl = W.collapsible(T(f"运行已保存的模型（models/ 中 {len(models)} 个）", f"Run a saved model ({len(models)} in models/)"), body,
+                           expanded=self.state.get("saved_open", False))
+        cl.findChild(W.QToolButton).toggled.connect(lambda on: self.state.__setitem__("saved_open", on))
+        return cl
 
-    def _model_cards(self, data_k, fdirs):
-        from xafsmith import feff_wrap as xfeff, fit_exafs as xfit
+    def _model_cards(self, add, data_k, fdirs):
+        from xafsmith import feff_wrap as xfeff
         from xafsmith.common import n_idp
         S = self.S
         allp = pd.concat([xfeff.list_paths(d).assign(dir=str(d.relative_to(paths.ROOT))) for d in fdirs], ignore_index=True)
@@ -569,12 +690,12 @@ class FitPage(Page):
         w = dict(kmin=W.num(st["kmin"], 0, 10, 0.1), kmax=W.num(st["kmax"], 3, 25, 0.1), dk=W.num(st["dk"], 0, 5, 0.1),
                  win=W.combo(["hanning", "kaiser", "sine"], st["win"]), kws=W.MultiSelect([1, 2, 3], st["kws"]),
                  rmin=W.num(st["rmin"], 0, 6, 0.05), rmax=W.num(st["rmax"], 0.5, 10, 0.05), space=W.combo(["r", "k", "q"], st["space"]))
-        c2.add(W.fields(("kmin", w["kmin"]), ("kmax", w["kmax"]), ("dk", w["dk"]), (T("窗", "Window"), w["win"]),
-                        (T("k 权重", "k-weights"), w["kws"]), ("Rmin", w["rmin"]), ("Rmax", w["rmax"]),
-                        (T("拟合空间", "Fit space"), w["space"])))
+        c2.add(W.fields(("kmin", w["kmin"]), ("kmax", w["kmax"]), ("dk", w["dk"]), (T("窗", "Window"), w["win"]), cols=4))
+        c2.add(W.fields((T("k 权重", "k-weights"), w["kws"]), ("Rmin", w["rmin"]), ("Rmax", w["rmax"]),
+                        (T("拟合空间", "Fit space"), w["space"]), cols=4))
         nid = W.label("", rich=True)
         c2.add(nid)
-        self.add(c2)
+        add(c2)
         # 3 路径
         key = "pathtab_" + "|".join(str(d) for d in fdirs)
         if key not in self.state:
@@ -590,24 +711,27 @@ class FitPage(Page):
                                  sigma2=f"ss{sh + 1}", third="", dir=r.dir, file=r.file))
             self.state[key] = pd.DataFrame(rows)
         c3 = Card(T("3  路径", "3  Paths"))
-        c3.add(W.label(T("勾选使用；N 留空 = FEFF 简并度；N、s02、e0、deltar、sigma2 都可以写表达式（如 ss1*1.5）。双击单元格修改。",
-                         "Tick to use; empty N = FEFF degeneracy; N, s02, e0, deltar, sigma2 accept expressions (e.g. ss1*1.5). "
-                         "Double-click to edit."), "faint"))
+        c3.add(W.label(T("勾选使用；单击单元格即可修改。N 留空 = FEFF 简并度；N、s02、e0、deltar、sigma2 都可以写表达式（如 ss1*1.5）。",
+                         "Tick to use; click a cell to edit. Empty N = FEFF degeneracy; N, s02, e0, deltar, sigma2 accept "
+                         "expressions (e.g. ss1*1.5)."), "faint"))
         ptab = W.Table(self.state[key], editable=["use", "label", "N", "s02", "e0", "deltar", "sigma2", "third"],
-                       bools=["use"], max_height=360)
+                       bools=["use"], max_height=280, click_edit=True)
         ptab.hide_cols("file")
         c3.add(ptab)
-        self.add(c3)
+        add(c3)
         # 4 参数
         c4 = Card(T("4  参数", "4  Parameters"))
-        c4.add(W.label(T("vary 不勾 = 固定；expr 非空 = 约束。", "Untick vary = fixed; non-empty expr = constrained."), "faint"))
+        c4.add(W.label(T("vary 不勾 = 固定；expr 非空 = 约束。value 可输入任意位小数；拟合后可在右侧点“采纳拟合值到参数”。",
+                         "Untick vary = fixed; non-empty expr = constrained. Values take any number of decimals; after a fit, "
+                         "“Use fitted values as start” copies the results here."), "faint"))
         holder = W.vbox()
         c4.add(holder)
         nv = W.label("", rich=True)
         c4.add(nv)
-        self.add(c4)
+        add(c4)
         defaults = {"s02": (0.85, True, 0.3, 1.5), "e0": (0.0, True, -15, 15)}
         cur = {}
+        self._ptab = cur
 
         def names_used():
             used = ptab.df()
@@ -642,7 +766,8 @@ class FitPage(Page):
             df["expr"] = df["expr"].fillna("").astype(object)
             df["vary"] = df["vary"].astype(bool)
             W._clear_layout(holder.layout())
-            t = W.Table(df, editable=["value", "vary", "min", "max", "expr"], bools=["vary"], max_height=320)
+            t = W.Table(df, editable=["value", "vary", "min", "max", "expr"], bools=["vary"], max_height=300, click_edit=True,
+                        decimals=6)
             t.edited.connect(count)
             holder.layout().addWidget(t)
             cur["tab"] = t
@@ -668,13 +793,16 @@ class FitPage(Page):
             w[k_].currentIndexChanged.connect(lambda *_: count())
         w["kws"].changed.connect(lambda *_: count())
         rebuild_params()
-        # 拟合
+        # 拟合按钮栏（固定在左下角，不随左侧滚动）
         names, used = names_used()
         mname = W.text(self.state.get("mname_" + data_k, f"{Path(data_k).name}_{len(used)}paths"))
         mname.textChanged.connect(lambda s: self.state.__setitem__("mname_" + data_k, s))
-        btn = W.button(T("拟合", "Fit"), primary=True, icon_name="play")
+        btn = W.button(T("拟合", "Fit"), primary=True, icon_name="play", tip="Ctrl+Enter")
+        btn.setMinimumWidth(110)
 
         def go():
+            if not btn.isEnabled():
+                return
             count()
             _, used = names_used()
             if not len(used):
@@ -706,10 +834,13 @@ class FitPage(Page):
             def done(fit):
                 S.fits.append(fit)
                 S.emit("fits")
-                self.refresh()
+                self._show_result(fit)          # 只更新右侧：左侧的设置与滚动位置不变
             W.run_task(self, lambda: run_model(S, model, S.groups[data_k]), done, T("拟合中…", "Fitting…"), btn)
         btn.clicked.connect(go)
-        self.add(W.hbox(W.field(T("模型名", "Model name"), mname), None, W.vbox(None, btn), spacing=12))
+        self._fit_go = go
+        self._bar.addWidget(W.label(T("模型名", "Model name"), "faint"))
+        self._bar.addWidget(mname, 1)
+        self._bar.addWidget(btn)
 
 
 # ============================================================================= 拟合历史

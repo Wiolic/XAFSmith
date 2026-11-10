@@ -32,16 +32,66 @@ def page_specs():
     return [
         ("home", pj.HomePage), ("data", pj.DataPage), ("batch", pj.BatchPage),
         None,
-        ("load", pr.LoadPage), ("qc", pr.QCPage), ("calib", pr.CalibPage), ("norm", pr.NormPage),
+        ("spectra", SpectraTabs), ("norm", pr.NormPage),
         ("chi", pr.ChiPage), ("wavelet", pr.WaveletPage),
         None,
         ("feff", ft.FeffPage), ("fit", ft.FitPage), ("history", ft.HistoryPage), ("lcf", ft.LCFPage),
         ("xanes", ft.XanesPage),
         None,
-        ("summary", op.SummaryPage), ("pubfig", op.PubFigPage), ("si", op.SIPage),
+        ("summary", op.SummaryPage), ("pubfig", op.PubFigPage), ("methods", op.MethodsPage),
         None,
-        ("planner", op.PlannerPage), ("agent", op.AgentPage), ("help", op.HelpPage),
+        ("planner", op.PlannerPage), ("elements", op.ElementsPage), ("agent", op.AgentPage), ("help", op.HelpPage),
     ]
+
+
+# “载入与检查”一页三个标签：载入谱、质量检查、能量校准（各自仍可用 go("load") 等直接打开）
+TABBED = {"spectra": ("load", "qc", "calib")}
+PARENT = {k: g for g, ks in TABBED.items() for k in ks}
+HIDDEN = {"home"}              # 不在导航中显示：由“打开 / 新建项目”按钮进入
+NO_PROJECT = ("home", "planner", "elements", "help")     # 未打开项目时也能用的页面
+
+
+class SpectraTabs(QWidget):
+    """载入谱 / 质量检查 / 能量校准 合并为一页（标签切换），各标签仍是独立的页面对象"""
+    title_zh, title_en, icon_name = "载入与检查", "Load & check", "upload"
+
+    def __init__(self, app):
+        super().__init__()
+        from PySide6.QtWidgets import QTabWidget
+        from .pages import process as pr
+        self.app = app
+        self.subs = {"load": pr.LoadPage(app), "qc": pr.QCPage(app), "calib": pr.CalibPage(app)}
+        v = QVBoxLayout(self)
+        v.setContentsMargins(0, 6, 0, 0)
+        v.setSpacing(0)
+        self.tabs = QTabWidget()
+        self.tabs.setObjectName("pageTabs")
+        self.tabs.setDocumentMode(True)
+        self.tabs.setStyleSheet("QTabWidget#pageTabs::tab-bar{left:36px;}")
+        for k, pg in self.subs.items():
+            self.tabs.addTab(pg, "  " + T(pg.title_zh, pg.title_en) + "  ")
+        self.tabs.currentChanged.connect(self._changed)
+        v.addWidget(self.tabs)
+        self._quiet = False
+
+    def show_sub(self, key):
+        self._quiet = True
+        self.tabs.setCurrentWidget(self.subs[key])
+        self._quiet = False
+
+    def _changed(self, i):
+        if self._quiet:
+            return
+        pg = self.tabs.widget(i)
+        key = next(k for k, v in self.subs.items() if v is pg)
+        self.app.S.extra["page"] = key
+        pg.on_show()
+
+    def refresh(self):
+        self.tabs.currentWidget().refresh()
+
+    def on_show(self):
+        self.tabs.currentWidget().on_show()
 
 
 class MainWindow(QMainWindow):
@@ -83,6 +133,14 @@ class MainWindow(QMainWindow):
                                f"QProgressBar::chunk{{background:{C['accent']};}}")
         self.bar.hide()
         v.addWidget(self.bar)
+        # 右上角：流程与本项目（与导航分开，始终在同一位置）
+        top = QHBoxLayout()
+        top.setContentsMargins(0, 8, 22, 0)
+        top.addStretch(1)
+        self.flow_btn = FlowButton(self)
+        self.flow_btn.setEnabled(is_project())
+        top.addWidget(self.flow_btn)
+        v.addLayout(top)
         self.stack = QStackedWidget()
         v.addWidget(self.stack, 1)
         v.addWidget(self._footer())
@@ -95,9 +153,11 @@ class MainWindow(QMainWindow):
             p = cls(self)
             self.pages[key] = p
             self.stack.addWidget(p)
+            if key in TABBED:                  # 标签页也登记为页面（go("qc") 等）
+                self.pages.update(p.subs)
         self._toast = QLabel(self)
         self._toast.hide()
-        self.go("home" if not is_project() else self.S.extra.get("page", "home"))
+        self.go("home" if not is_project() else self.S.extra.get("page", "data"))
 
     def _sidebar(self):
         side = QWidget()
@@ -156,6 +216,8 @@ class MainWindow(QMainWindow):
                 nv.addSpacing(10)
                 continue
             key, cls = spec
+            if key in HIDDEN:
+                continue
             b = QPushButton("  " + T(cls.title_zh, cls.title_en).replace("&", "&&"))
             b.setObjectName("nav")
             b.setCheckable(True)
@@ -163,7 +225,7 @@ class MainWindow(QMainWindow):
             b.setIconSize(QSize(17, 17))
             b.setCursor(Qt.CursorShape.PointingHandCursor)
             b.clicked.connect(lambda _=False, k=key: self.go(k))
-            b.setEnabled(on or key in ("home", "planner", "help"))
+            b.setEnabled(on or key in NO_PROJECT)
             grp.addButton(b)
             self.nav[key] = b
             nv.addWidget(b)
@@ -180,7 +242,7 @@ class MainWindow(QMainWindow):
         self.upd_btn = QPushButton()
         self.upd_btn.setObjectName("link")
         self.upd_btn.hide()
-        self.upd_btn.clicked.connect(lambda: self.go("help"))
+        self.upd_btn.clicked.connect(lambda: self.open_help("about"))
         v.addWidget(self.upd_btn)
         pc = QFrame()
         pc.setObjectName("projectCard")
@@ -229,15 +291,29 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------------ 行为
     def go(self, key):
+        if key == "help":                     # 使用指南在独立窗口中打开，主窗口停在当前页
+            self.open_help()
+            cur = PARENT.get(self.S.extra.get("page", "home"), self.S.extra.get("page", "home"))
+            if cur in self.nav:
+                self.nav[cur].setChecked(True)
+            return
         if key not in self.pages:
             key = "home"
-        if not is_project() and key not in ("home", "planner", "help"):
+        if not is_project() and key not in NO_PROJECT:
             key = "home"
         self.S.extra["page"] = key
-        if key in self.nav:
-            self.nav[key].setChecked(True)
+        nk = PARENT.get(key, key)
+        if nk in self.nav:
+            self.nav[nk].setChecked(True)
         p = self.pages[key]
-        self.stack.setCurrentWidget(p)
+        if key in PARENT:                      # 合并页中的一个标签
+            box = self.pages[PARENT[key]]
+            self.stack.setCurrentWidget(box)
+            box.show_sub(key)
+        elif key in TABBED:
+            self.stack.setCurrentWidget(p)
+        else:
+            self.stack.setCurrentWidget(p)
         p.on_show()
 
     def refresh_current(self):
@@ -253,6 +329,30 @@ class MainWindow(QMainWindow):
             self.proj_lbl.setToolTip(str(paths.ROOT))
         else:
             self.proj_lbl.setText(T("未打开项目", "No project"))
+
+    def open_help(self, tab=None):
+        """使用指南：独立窗口，便于一边操作一边查看"""
+        from .help import HelpWindow
+        hw = getattr(self, "_help", None)
+        if hw is None or hw.lang != W.LANG["v"]:
+            if hw is not None:
+                hw.close()
+            hw = HelpWindow(self)
+            self._help = hw
+            g = self.geometry()
+            hw.resize(920, max(700, g.height()))
+            hw.move(g.right() - 920 + 40, g.top() + 30)
+        if tab is not None:
+            hw.show_tab(tab)
+        hw.show()
+        hw.raise_()
+        hw.activateWindow()
+
+    def closeEvent(self, e):
+        hw = getattr(self, "_help", None)
+        if hw is not None:
+            hw.close()
+        super().closeEvent(e)
 
     def rebuild(self):
         """语言或项目改变后重建整个界面（会话数据保留在 State 中）"""
@@ -280,7 +380,7 @@ class MainWindow(QMainWindow):
         paths.ensure()
         remember(paths.ROOT)
         self.S.reset()
-        self.S.extra["page"] = "home"
+        self.S.extra["page"] = "data"
         self.rebuild()
 
     def busy(self, on, text=""):
@@ -296,12 +396,15 @@ class MainWindow(QMainWindow):
                         f"border-left:4px solid {col};")
         t.setMaximumWidth(620)
         t.adjustSize()
-        t.move((self.width() + 250 - t.width()) // 2, self.height() - t.height() - 56)
+        t.move((self.width() + 250 - t.width()) // 2, self.height() - t.height() - 110)
         t.raise_()
         t.show()
         QTimer.singleShot(3200, t.hide)
 
     def show_disclaimer(self):
+        self.open_help("about")
+
+    def _disclaimer_dialog(self):
         from xafsmith import about, __version__
         dlg = QDialog(self)
         dlg.setWindowTitle(T("免责声明与引用", "Disclaimer & citation"))
@@ -351,6 +454,164 @@ class MainWindow(QMainWindow):
         threading.Thread(target=work, daemon=True).start()
 
 
+class FlowButton(QPushButton):
+    """侧栏固定按钮“流程与本项目”：鼠标悬停弹出小窗口（流程进度、本项目、常用文件夹），点击可打开 / 关闭"""
+
+    def __init__(self, win):
+        super().__init__(T(" 流程与本项目", " Workflow && project"))
+        self.win = win
+        self.setObjectName("flowBtn")
+        self.setIcon(icon("layers", C["accent_text"], 16))
+        self.setIconSize(QSize(16, 16))
+        self.setStyleSheet(f"QPushButton#flowBtn{{background:{C['accent_soft']};color:{C['accent_text']};font-weight:600;"
+                           f"border:1px solid {C['accent']};border-radius:13px;padding:4px 14px;min-height:18px;}}"
+                           f"QPushButton#flowBtn:hover{{background:{C['accent']};color:#FFFFFF;}}"
+                           f"QPushButton#flowBtn:disabled{{background:transparent;color:{C['text3']};border-color:{C['border']};}}")
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.pop = None
+        self._timer = QTimer(self)
+        self._timer.setInterval(300)
+        self._timer.timeout.connect(self._check)
+        self.clicked.connect(self.toggle)
+
+    def enterEvent(self, e):
+        if self.isEnabled():
+            self.open()
+        super().enterEvent(e)
+
+    def toggle(self):
+        if self.pop is not None and self.pop.isVisible():
+            self.close_pop()
+        else:
+            self.open()
+
+    def open(self):
+        if self.pop is not None and self.pop.isVisible():
+            return
+        self.close_pop()
+        self.pop = FlowPopup(self.win, self)
+        p = self.mapTo(self.win, self.rect().bottomRight())     # 在按钮正下方，右对齐
+        self.pop.adjustSize()
+        self.pop.move(max(8, p.x() - self.pop.width()), p.y() + 6)
+        self.pop.show()
+        self.pop.raise_()
+        self._timer.start()
+
+    def close_pop(self):
+        self._timer.stop()
+        if self.pop is not None:
+            self.pop.hide()
+            self.pop.deleteLater()
+            self.pop = None
+
+    def _check(self):
+        from PySide6.QtGui import QCursor
+        if self.pop is None:
+            return
+        pos = QCursor.pos()
+        inside = (self.pop.rect().adjusted(-24, -12, 12, 12).contains(self.pop.mapFromGlobal(pos))
+                  or self.rect().contains(self.mapFromGlobal(pos)))
+        if not inside:
+            self.close_pop()
+
+
+class FlowPopup(QFrame):
+    """流程进度（每步可点击跳转）+ 本项目（已载入、拟合、参比）+ 常用文件夹"""
+
+    def __init__(self, win, btn):
+        super().__init__(win)
+        import pandas as pd
+        from PySide6.QtGui import QColor
+        from PySide6.QtWidgets import QGraphicsDropShadowEffect
+        from xafsmith import pipeline as pl
+        from .state import feff_dirs
+        self.win, self.btn = win, btn
+        self.setObjectName("flowPopup")
+        self.setStyleSheet(f"QFrame#flowPopup{{background:{C['card']};border:1px solid {C['border2']};border-radius:14px;}}")
+        self.setFixedWidth(400)
+        sh = QGraphicsDropShadowEffect(self)
+        sh.setBlurRadius(28)
+        sh.setOffset(0, 6)
+        sh.setColor(QColor(0, 0, 0, 60))
+        self.setGraphicsEffect(sh)
+        v = QVBoxLayout(self)
+        v.setContentsMargins(16, 14, 16, 14)
+        v.setSpacing(4)
+        S = win.S
+        nmeta = len(pl.load_meta()) if paths.META.exists() else 0
+        ncal = len(S.calib)
+        nproc = len(list(paths.PROC.glob("*"))) if paths.PROC.exists() else 0
+        nfeff = len(feff_dirs())
+        try:
+            nfit = len(pd.read_csv(paths.FITS_CSV, encoding="utf-8-sig")) if paths.FITS_CSV.exists() else 0
+        except Exception:
+            nfit = 0
+        nrep = len(list(paths.REPORTS.glob("*"))) if paths.REPORTS.exists() else 0
+        steps = [
+            ("data", T("登记数据", "Register data"), nmeta, T(f"{nmeta} 个文件", f"{nmeta} files")),
+            ("batch", T("校准与处理", "Calibrate & process"), nproc, T(f"{ncal} 个参比 · {nproc} 个结果", f"{ncal} refs · {nproc} outputs")),
+            ("load", T("查看与检查谱", "Inspect spectra"), len(S.groups), T(f"已载入 {len(S.groups)} 条", f"{len(S.groups)} loaded")),
+            ("feff", T("FEFF 路径", "FEFF paths"), nfeff, T(f"{nfeff} 个计算", f"{nfeff} calculations")),
+            ("fit", T("拟合", "Fit"), nfit, T(f"{nfit} 个已保存的拟合", f"{nfit} saved fits")),
+            ("summary", T("导出", "Export"), nrep, T(f"{nrep} 个报告", f"{nrep} reports")),
+        ]
+        h = QLabel(T("流程", "Workflow"))
+        h.setObjectName("h2")
+        v.addWidget(h)
+        v.addSpacing(4)
+        nxt = next((i for i, s in enumerate(steps) if not s[2]), None)
+        for i, (key, name, n, sub) in enumerate(steps):
+            b = QPushButton()
+            b.setObjectName("flowStep")
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            done = bool(n)
+            col = C["ok"] if done else (C["accent_text"] if i == nxt else C["text3"])
+            row = QHBoxLayout(b)
+            row.setContentsMargins(8, 4, 8, 4)
+            row.setSpacing(10)
+            num = QLabel("✓" if done else str(i + 1))
+            num.setFixedSize(22, 22)
+            num.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            num.setStyleSheet(f"border-radius:11px;font-weight:600;font-size:9pt;color:{col};"
+                              f"background:{C['ok_soft'] if done else (C['accent_soft'] if i == nxt else C['hover'])};")
+            tx = QLabel(f"<b>{name}</b>&nbsp;&nbsp;<span style='color:{C['text3']}'>{sub}</span>")
+            tx.setTextFormat(Qt.TextFormat.RichText)
+            for x in (num, tx):
+                x.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+            row.addWidget(num)
+            row.addWidget(tx, 1)
+            b.setMinimumHeight(38)
+            b.setStyleSheet("QPushButton#flowStep{text-align:left;border-radius:8px;background:transparent;"
+                            + (f"border:1.5px solid {C['accent']};}}" if i == nxt else "border:none;}")
+                            + f"QPushButton#flowStep:hover{{background:{C['hover']};}}")
+            b.clicked.connect(lambda _=False, k=key: (self.btn.close_pop(), self.win.go(k)))
+            v.addWidget(b)
+        v.addSpacing(10)
+        h2 = QLabel(T("本项目", "This project"))
+        h2.setObjectName("h2")
+        v.addWidget(h2)
+        nm = QLabel(paths.ROOT.name)
+        nm.setObjectName("muted")
+        nm.setToolTip(str(paths.ROOT))
+        v.addWidget(nm)
+        v.addWidget(W.metrics((T("已载入的谱", "Loaded"), len(S.groups)), (T("拟合", "Fits"), len(S.fits)),
+                              (T("参比校准", "References"), ncal)))
+
+        def save_session():
+            from xafsmith.common import write_params
+            write_params(paths.GUI / "gui_session.params.json",
+                         dict(norm=S.norm_par, bkg=S.bkg_par, ft=S.ft_par, calib=S.calib, groups=list(S.groups)), "gui")
+            self.win.toast(T("已保存 output/gui/gui_session.params.json", "Saved output/gui/gui_session.params.json"))
+        g = QHBoxLayout()
+        g.setSpacing(6)
+        for txt, ic, fn in ((T("项目文件夹", "Project folder"), "folder", lambda: W.open_folder(paths.ROOT)),
+                            ("output", "external", lambda: W.open_folder(paths.OUT)),
+                            (T("保存处理参数", "Save parameters"), "save", save_session)):
+            g.addWidget(W.button(txt, icon_name=ic, slot=fn))
+        v.addSpacing(4)
+        v.addLayout(g)
+
+
 def make_window(project=None, lang=None, dark=None):
     """创建程序与主窗口（不进入事件循环；测试也用它）"""
     import matplotlib
@@ -390,7 +651,25 @@ def make_window(project=None, lang=None, dark=None):
     return app, w
 
 
+def _no_console_output():
+    """pythonw（桌面快捷方式）没有控制台，sys.stdout / sys.stderr 为 None；
+    larch 等库会直接调用 sys.stdout.write，必须给它们一个可写的文件，否则处理和拟合会报错。"""
+    if sys.stdout is not None and sys.stderr is not None:
+        return
+    try:
+        d = Path.home() / ".xafsmith"
+        d.mkdir(parents=True, exist_ok=True)
+        f = open(d / "xafsmith.log", "w", encoding="utf-8", buffering=1)
+    except Exception:
+        f = open(os.devnull, "w", encoding="utf-8")
+    if sys.stdout is None:
+        sys.stdout = f
+    if sys.stderr is None:
+        sys.stderr = f
+
+
 def run(project=None):
+    _no_console_output()
     app, w = make_window(project)
     w.show()
     QTimer.singleShot(400, w.start_background)

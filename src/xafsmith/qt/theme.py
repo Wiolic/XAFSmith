@@ -132,6 +132,11 @@ QCheckBox::indicator {{ width: 16px; height: 16px; border-radius: 5px; border: 1
     background: {c['card']}; }}
 QCheckBox::indicator:hover {{ border-color: {c['text3']}; }}
 QCheckBox::indicator:checked {{ background: {c['accent']}; border-color: {c['accent']}; image: url(xs:tick); }}
+QListWidget::indicator, QTableView::indicator {{ width: 16px; height: 16px; border-radius: 5px;
+    border: 1px solid {c['border2']}; background: {c['card']}; }}
+QListWidget::indicator:hover, QTableView::indicator:hover {{ border-color: {c['accent']}; }}
+QListWidget::indicator:checked, QTableView::indicator:checked {{ background: {c['accent']}; border-color: {c['accent']};
+    image: url(xs:tick); }}
 QRadioButton {{ spacing: 7px; }}
 
 /* 菜单与提示 */
