@@ -168,6 +168,11 @@ class HelpWindow(QMainWindow):
         for u in about.UPSTREAM:
             ci.add(W.label("• " + u, "muted"))
         lay.addWidget(ci)
+        lc = Card(T("许可", "License"))
+        lc.add(W.label(about.LICENSE_EN if W.en() else about.LICENSE_CN))
+        lc.add(W.label(f"<a href='{about.REPO}/blob/main/LICENSE'>LICENSE</a> · <a href='{about.REPO}/blob/main/NOTICE'>NOTICE</a>",
+                       "muted", rich=True))
+        lay.addWidget(lc)
         up = Card(T("检查更新", "Updates"))
         s = xup.load_settings()
         auto = W.check(T("启动时自动检查新版本（只访问 github.com，不发送任何数据）",

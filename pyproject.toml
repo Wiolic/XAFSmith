@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xafsmith"
-version = "0.5.0"
+version = "0.5.1"
 description = "可连接 AI 助手（agent）的同步辐射 XAFS（XANES + EXAFS）分析软件：图形界面 + 命令行，基于 xraylarch / FEFF。Agent-ready synchrotron XAFS analysis software."
 readme = "README.md"
-license = { file = "LICENSE" }
+license = { file = "LICENSE" }   # PolyForm Noncommercial 1.0.0
 requires-python = ">=3.10"
 authors = [{ name = "Eggy" }, { name = "Claude (Anthropic)" }]
-classifiers = ["License :: OSI Approved :: MIT License", "Programming Language :: Python :: 3"]
+classifiers = ["License :: Other/Proprietary License", "Programming Language :: Python :: 3"]
 keywords = ["XAFS", "EXAFS", "XANES", "synchrotron", "FEFF", "larch"]
 dependencies = [
     "xraylarch",

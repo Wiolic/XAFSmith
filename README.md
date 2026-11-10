@@ -227,7 +227,7 @@ AI 仍可能出错，**关键结论请在图形界面中核对**，必要时与 
 
 论文中使用本软件，请引用本仓库（GitHub 页面右侧 **Cite this repository**）：
 
-*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 0.5.0. https://github.com/Wiolic/XAFSmith*
+*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 0.5.1. https://github.com/Wiolic/XAFSmith*
 
 并引用所依赖的程序：
 - Larch：M. Newville, *J. Phys.: Conf. Ser.* **430**, 012007 (2013).
@@ -236,4 +236,12 @@ AI 仍可能出错，**关键结论请在图形界面中核对**，必要时与 
 
 ## 作者与许可
 
-Developed by **Eggy** & **Claude Opus 5.5** (Anthropic). [MIT License](LICENSE)：可以自由使用、修改、分发（含商业用途），保留版权与许可声明即可。
+Developed by **Eggy** & **Claude Opus 5.5** (Anthropic).
+
+许可：[PolyForm Noncommercial License 1.0.0](LICENSE)（详见 [NOTICE](NOTICE)）。
+
+- **允许**：个人、学术研究、教学等非商业用途的使用、修改和分发；
+- **不允许**：任何商业用途，包括出售本软件或其修改版、收费分发、作为收费产品或服务的一部分；
+- **分发时**：必须附上许可条款和 LICENSE 中以 “Required Notice:” 开头的引用说明；论文中使用请按上文引用。
+
+商业使用请联系作者另行授权。0.5.0 及更早版本按当时附带的 MIT 许可发布。

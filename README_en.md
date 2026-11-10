@@ -227,7 +227,7 @@ Always measure the **elemental reference** (metal foil or powder) in the same se
 
 If you use XAFSmith in a publication, please cite this repository (**Cite this repository** on the right of the GitHub page):
 
-*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 0.5.0. https://github.com/Wiolic/XAFSmith*
+*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 0.5.1. https://github.com/Wiolic/XAFSmith*
 
 and the programs it builds on:
 - Larch: M. Newville, *J. Phys.: Conf. Ser.* **430**, 012007 (2013).
@@ -236,4 +236,12 @@ and the programs it builds on:
 
 ## Authors and license
 
-Developed by **Eggy** & **Claude Opus 5.5** (Anthropic). [MIT License](LICENSE): free to use, modify and distribute (including commercially) as long as the copyright and license notice are kept.
+Developed by **Eggy** & **Claude Opus 5.5** (Anthropic).
+
+License: [PolyForm Noncommercial License 1.0.0](LICENSE) (see also [NOTICE](NOTICE)).
+
+- **Allowed**: personal, academic, teaching and other noncommercial use, modification and distribution;
+- **Not allowed**: any commercial use, including selling the software or a modified version, paid distribution, or use as part of a paid product or service;
+- **When distributing**: include the license terms and the “Required Notice:” citation line from LICENSE; cite as above in publications.
+
+For commercial use, contact the author for a separate license. Versions 0.5.0 and earlier were released under the MIT License that accompanied them.

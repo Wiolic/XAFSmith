@@ -76,7 +76,7 @@ class Installer(tk.Tk):
         ttk.Label(box, text=f"需要联网（约 1 GB，5–15 分钟）/ Internet needed (~1 GB, 5–15 min)。Python {sys.version.split()[0]}",
                   foreground="#666").grid(row=4, column=0, columnspan=3, sticky="w", padx=8, pady=(0, 6))
 
-        note = ttk.LabelFrame(self, text="免责声明与引用 / Disclaimer & citation")
+        note = ttk.LabelFrame(self, text="免责声明、引用与许可 / Disclaimer, citation & license")
         note.pack(fill="x", padx=14, pady=(0, 8))
         tk.Message(note, width=590, font=("Microsoft YaHei", 9), fg="#8a4b00", text=(
             "本软件按“现状”提供，不附带任何保证；作者不对使用本软件得到的结果负责。"
@@ -85,6 +85,9 @@ class Installer(tk.Tk):
         tk.Message(note, width=590, font=("Microsoft YaHei", 9), fg="#1a4f8a", text=(
             "论文中使用本软件，请引用本仓库：Eggy & Claude, XAFSmith, https://github.com/Wiolic/XAFSmith\n"
             "If you use XAFSmith in a publication, please cite the repository above.")).pack(anchor="w")
+        tk.Message(note, width=590, font=("Microsoft YaHei", 9), fg="#444", text=(
+            "许可：PolyForm Noncommercial 1.0.0——仅限非商业用途（个人、学术研究、教学）；禁止出售或收费分发本软件及其修改版。\n"
+            "License: PolyForm Noncommercial 1.0.0 — noncommercial use only; selling or paid distribution is not allowed.")).pack(anchor="w")
         self.agree = tk.BooleanVar(value=False)
         ttk.Checkbutton(note, text="我已阅读并同意 / I have read and agree", variable=self.agree,
                         command=lambda: self.btn.configure(state="normal" if self.agree.get() else "disabled")

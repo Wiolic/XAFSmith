@@ -494,7 +494,7 @@ After an update (the command path may change), click **Write / update AI instruc
 
 ### 22　Help, language and updates
 
-- **Help**: opens a separate window (the main window stays on its page). On its left: GUI guide, Fitting for beginners, Improving fit quality, XAFS basics; at the bottom a separate page **About & disclaimer** (version and credit, full disclaimer, citation with **Copy citation**, update check).
+- **Help**: opens a separate window (the main window stays on its page). On its left: GUI guide, Fitting for beginners, Improving fit quality, XAFS basics; at the bottom a separate page **About & disclaimer** (version and credit, full disclaimer, citation with **Copy citation**, license, update check).
 - **Language**: choose **English** at the bottom of the sidebar; interface and documents switch, and the choice is remembered.
 - **Updates** (About & disclaimer page):
   - tick “Check for updates at start-up” (contacts github.com only, sends nothing), or click **Check now**;
