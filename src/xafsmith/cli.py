@@ -424,8 +424,8 @@ def cmd_si(a):
 
 def cmd_gui(a):
     from . import paths
-    from . import desktop                     # 只提供独立桌面窗口（不使用浏览器）
-    desktop.run(paths.ROOT if paths.is_project(paths.ROOT) else None)
+    from .qt.app import run                   # PySide6 原生窗口
+    sys.exit(run(paths.ROOT if paths.is_project(paths.ROOT) else None))
 
 
 # ---------------------------------------------------------------- 入口

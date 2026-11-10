@@ -18,11 +18,10 @@
     pubfig      期刊风格出图（600 dpi TIFF / SVG / PDF + 英文图注）
     methods_text 自动生成“方法”段落（中英文）
     update      检查 / 安装 GitHub 上的新版本
-    i18n        图形界面中英文切换
     paths       项目目录标准（xafsmith.json、data/、structures/、models/、output/ …）
     schema      数据标准检查（xafsmith validate）
     pipeline    配置驱动的批处理（meta.csv + xafsmith.json）
     cli         命令行 xafsmith
-    gui         图形界面（xafsmith gui）
+    qt          图形界面（PySide6 原生窗口，xafsmith gui）
 """
-__version__ = "0.3.0"
+__version__ = "0.4.0"

@@ -11,9 +11,18 @@ import argparse
 
 import numpy as np
 import pandas as pd
-import xraydb
 
 from .common import e2k, edge_energy
+
+
+class _LazyXraydb:
+    """xraydb 导入约 0.7 秒：第一次用到时才导入，加快图形界面启动"""
+    def __getattr__(self, name):
+        import xraydb as _x
+        return getattr(_x, name)
+
+
+xraydb = _LazyXraydb()
 
 
 def mass_atten(formula, energy):

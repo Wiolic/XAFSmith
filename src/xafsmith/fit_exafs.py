@@ -33,13 +33,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from larch import Group
-from larch.fitting import param, guess, param_group
-from larch.xafs import feffpath, feffit_transform, feffit_dataset, feffit, feffit_report
 
 from .common import n_idp, write_params
 
 
 def _mkparam(name, spec):
+    from larch.fitting import param, guess  # larch.xafs 导入约 2 秒：用到时才导入，加快启动
     if isinstance(spec, str):
         return param(expr=spec, name=name)
     if isinstance(spec, (int, float)):
@@ -61,6 +60,7 @@ def build_paths(model, root=None):
     """路径文件名相对项目根目录（数据标准：output/feff/...）"""
     from .paths import ROOT
     root = ROOT if root is None else root
+    from larch.xafs import feffpath
     paths = {}
     used = set()
     for i, ps in enumerate(model["paths"]):
@@ -89,6 +89,8 @@ def build_paths(model, root=None):
 
 def run_fit(data, model, root=None):
     """data: 已做 autobk 的 Group（含 k, chi）。返回 (result, dataset, summary dict)"""
+    from larch.fitting import param_group
+    from larch.xafs import feffit_transform, feffit_dataset, feffit
     pars = param_group(**{k: _mkparam(k, v) for k, v in model["params"].items()})
     paths = build_paths(model, root)
     kw = model.get("kweight", 2)
@@ -157,6 +159,7 @@ def _s02val(res):
 
 
 def report_text(res):
+    from larch.xafs import feffit_report
     return feffit_report(res)
 
 

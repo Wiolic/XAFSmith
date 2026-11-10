@@ -8,7 +8,7 @@ if not defined PYW if exist "%LOCALAPPDATA%\XAFSmith\location.txt" (
 )
 if not defined PYW if defined LOC set "PYW=%LOC%\venv\Scripts\pythonw.exe"
 if not defined PYW (
-  echo 没有找到 XAFSmith：请先运行软件包中的 安装XAFSmith.bat
+  echo 没有找到 XAFSmith：请先双击软件包中的 installer.py 安装 / Run installer.py first
   pause
   exit /b 1
 )

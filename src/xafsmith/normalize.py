@@ -11,7 +11,6 @@ import copy
 
 import numpy as np
 from larch import Group
-from larch.xafs import pre_edge
 from scipy.ndimage import gaussian_filter1d
 
 DEFAULT_NORM = dict(pre1=-150.0, pre2=-30.0, norm1=100.0, norm2=None, nnorm=2, nvict=0,
@@ -48,6 +47,7 @@ def find_e0(energy, mu, e_guess=None, window=40.0, smooth_ev=1.0, step=0.05):
 def normalize(g, **kws):
     """对 Group 做边前/边后归一化。参数见 DEFAULT_NORM。结果写回 g：
     e0, edge_step, norm, flat, pre_edge, post_edge, dmude, norm_params"""
+    from larch.xafs import pre_edge  # larch.xafs 导入约 2 秒：用到时才导入，加快启动
     p = dict(DEFAULT_NORM)
     p.update({k: v for k, v in kws.items() if v is not None or k in ("norm2", "e0")})
     e = g.energy

@@ -14,7 +14,6 @@ import itertools
 
 import numpy as np
 import pandas as pd
-from lmfit import Parameters, minimize
 
 
 def _get_space(g, space, kweight=2):
@@ -44,6 +43,7 @@ def lcf(sample, standards, xmin=-20, xmax=30, space="norm", kweight=2, sum_to_on
             xs_s = s.energy - sample.e0   # 用绝对能量对齐（校准后的能量轴）
         comps.append((xs_s, ys_s))
 
+    from lmfit import Parameters, minimize  # lmfit 导入约 0.8 秒：用到时才导入
     params = Parameters()
     n = len(standards)
     # 每个权重都独立带边界；“和为 1”用强罚项实现（避免用表达式时最后一个权重越界）

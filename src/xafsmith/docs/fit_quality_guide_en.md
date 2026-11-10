@@ -1,7 +1,7 @@
 # Improving fit quality: getting the best EXAFS fit XAFSmith (and your data) allow
 
 > For users who can already run a fit (see the *Beginner fitting tutorial*) but whose fit does **not** match the data closely.
-> Everything here is done in the GUI; page numbers ①–⑭ refer to the sidebar.
+> Everything here is done in the GUI; page names refer to the sidebar.
 
 ---
 
@@ -18,10 +18,10 @@ A fit that matches **every wiggle** is usually **neither achievable nor desirabl
 
 | Goal | How to judge | Where |
 |---|---|---|
-| ① Residual near the data limit | in-window residual ÷ noise ≈ 1–2, or at least comparable to a standard measured in the same session | ⑧ fit result → **Fit diagnosis** |
+| ① Residual near the data limit | in-window residual ÷ noise ≈ 1–2, or at least comparable to a standard measured in the same session | EXAFS fitting result → **Fit diagnosis** |
 | ② No removable *structure* left in the residual | no local spikes in the k residual; no single k segment or R region dominating | k / R segment tables in Fit diagnosis |
 | ③ Every parameter physical and robust | σ² > 0, |ΔE0| < 10 eV, nothing at a bound; robustness check “stable” | parameter table, **Robustness check** |
-| ④ Every path earns its place | F-test p < 0.05 when it is added | ⑨ Fit history / F-test |
+| ④ Every path earns its place | F-test p < 0.05 when it is added | Fit history |
 
 **Satisfy ③ and ④ first, then pursue ① and ②.** A “good-looking” fit with unstable parameters is worse than a robust fit with a slightly higher R-factor.
 
@@ -29,7 +29,7 @@ A fit that matches **every wiggle** is usually **neither achievable nor desirabl
 
 ## 1. Always diagnose first — do not start by adding paths
 
-After a fit on page ⑧, open **“Fit diagnosis: where the residual is and why”** below the result.
+After a fit on EXAFS fitting, open **“Fit diagnosis: where the residual is and why”** below the result.
 
 ### 1.1 Three numbers
 
@@ -72,13 +72,13 @@ If the R residual looks like an evenly spaced ripple (≈ 0.6 Å for k₀ ≈ 5 
 
 ### 2.1 Data: glitches (most common, easiest to fix)
 
-**Where**: ② Quality check → **Deglitch** at the bottom.
+**Where**: Quality check → **Deglitch** at the bottom.
 
 1. Select samples and look at μ(E) and I0/median. QC-detected glitch energies are grey dotted lines.
 2. Remove only if all three hold: 1–3 points wide; **at the same energy in several samples**; **a matching dip in I0** (monochromator glitch).
 3. **The range must include every point that deviates from the smooth trend**, not just the sharpest one. Glitches often appear as a high/low pair; removing only the middle leaves an up–down spike in χ(k).
 4. Enter the range (e.g. `9983-9991`; several separated by semicolons) and a **reason (required)** → **Save and reload**.
-5. Refit on ⑧ and re-check the diagnosis: the spike hint should disappear and the k residual should be flat there.
+5. Refit on EXAFS fitting and re-check the diagnosis: the spike hint should disappear and the k residual should be flat there.
 
 **Don’t**: remove more than ~10 eV; remove points near the white line or pre-edge; remove a glitch from one sample but not from other samples of the same batch; remove “ugly” oscillations to lower the R-factor.
 
@@ -103,7 +103,7 @@ Raising kmin usually lowers the R-factor but costs N_idp and light-scatterer sig
 
 ### 2.4 Theory: FEFF6L vs FEFF8L
 
-⑦ FEFF paths → **FEFF version**: **FEFF6L** (non-self-consistent, seconds) or **FEFF8L** (self-consistent SCF potential, 1–3 min; usually better at low k and for ΔE0).
+FEFF paths → **FEFF version**: **FEFF6L** (non-self-consistent, seconds) or **FEFF8L** (self-consistent SCF potential, 1–3 min; usually better at low k and for ΔE0).
 
 1. Compute both for the same structure (FEFF8L output folder gets `_feff8`).
 2. Fit the same model with each path set on the standard and on the samples.
@@ -139,8 +139,8 @@ Only after section 2, and only if the diagnosis still shows a **smooth, regular*
 > **N and σ² are strongly correlated** (amplitude ∝ N·exp(−2k²σ²)). Free one, fix the other, and say so.
 
 ### 3.3 Every addition must pass an F-test
-1. Fit the smaller and the larger model on ⑧ (both go to ⑨ Fit history).
-2. ⑨ → select both → **F-test**. Keep only if p < 0.05; a path with p ≥ 0.05 cannot be reported as “observed”.
+1. Fit the smaller and the larger model on EXAFS fitting (both go to Fit history).
+2. Fit history → select both → **F-test**. Keep only if p < 0.05; a path with p ≥ 0.05 cannot be reported as “observed”.
 3. If you add paths without new variables (all constrained), the F-test does not apply: check χ²_ν and robustness.
 4. Try new paths on the **standard** first.
 
@@ -158,7 +158,7 @@ Only after section 2, and only if the diagnosis still shows a **smooth, regular*
 
 ## 4. Robustness check
 
-⑧ → **Robustness check** varies kmin ±0.5, kmax ±1, Rmax ±0.2 Å and single k-weights. “Spread/error > 1” = **unstable**. All parameters stable is a prerequisite for reporting. For a series, a **trend must hold under every condition**.
+EXAFS fitting → **Robustness check** varies kmin ±0.5, kmax ±1, Rmax ±0.2 Å and single k-weights. “Spread/error > 1” = **unstable**. All parameters stable is a prerequisite for reporting. For a series, a **trend must hold under every condition**.
 
 ---
 
@@ -197,8 +197,8 @@ When all are met but the fit is still not “perfect”, the remaining misfit is
 1. ② QC → k_snr3, glitches → **Deglitch** (range + reason).
 2. ④⑤ one set of processing parameters; inspect k¹/k²/k³.
 3. ⑦ FEFF6L and FEFF8L for the standard structure.
-4. ⑧ model on the **standard** → fit → **Fit diagnosis** → robustness → save; determine S0².
-5. ⑧ “Run a saved model” on all samples.
+4. EXAFS fitting: model on the **standard** → fit → **Fit diagnosis** → robustness → save; determine S0².
+5. EXAFS fitting: “Run a saved model” on all samples.
 6. Diagnose each sample: spike → step 1; low k large → robustness for kmin; smooth localized residual → section 3 with F-tests.
-7. ⑨ F-tests; robustness for every conclusion.
+7. Fit history: F-tests; robustness for every conclusion.
 8. ⑫ summary, ⑭ journal figures; captions state FEFF version, k/R ranges, k-weights, S0² source, number of scans.

@@ -13,7 +13,8 @@ XAFSmith offers two routes with identical results; switch at any time:
 Do route A once to see what each step does; afterwards, routine analysis can go to route B.
 
 Example used here: **one beamtime with an elemental reference foil, one standard of known structure and a few samples**. Goal: process all spectra → determine S0² on the standard → fit the samples → export figures and a report.
-The sidebar lists the pages in workflow order (project → processing → structure & fitting → results & export → help); ⓪–⑮ number the pages. Switch the interface language with **中文 / English** at the bottom of the sidebar.
+The sidebar lists the pages in workflow order (preparation → inspecting data → analysis → export → tools & help, groups separated by space); below, pages are referred to by name. Switch the interface language with **中文 / English** at the bottom of the sidebar.
+New to the principles of XAFS? Read **Help → XAFS basics** first ([online](src/xafsmith/docs/XAFS_basics_en.md)).
 
 ---
 
@@ -35,23 +36,26 @@ The sidebar lists the pages in workflow order (project → processing → struct
 A “project” is a folder in which XAFSmith keeps data, parameters and results in a fixed layout. Make one per study.
 
 1. Double-click the **XAFSmith** icon on the desktop.
-2. **⓪ Project** → expand **Open / create project** → **📁 Browse…** to an empty folder → **Create project**.
+2. Click **Open / new project** at the top left → **Browse…** to an empty folder → **Create project**.
 
-To reopen it later, pick it under “Recent projects” and click **Open**.
+To reopen it later, **double-click** it under “Recent projects”. The **Project** page then shows the six workflow steps: finished ones are ticked, the next one is framed in blue, and **Open →** takes you there.
+
+![project home](docs/images/en/home.png)
 
 ### Step 2 — Add and register the data (5 min)
 
-1. **⓪ Project → 1 Register data**: enter a batch folder name for this beamtime (e.g. `2026-11-05_Cu`), drag all raw files **including the reference foil** into the upload box → **Upload**.
+1. **Register data**: enter a **Batch folder** for this beamtime (e.g. `2026-11-05_Cu`) → **Choose files and copy to batch…** → select all raw files **including the reference foil**. Originals are copied, never changed.
 2. Click **Scan data/raw and register new files**; a table appears with one row per file.
 3. Check and edit the table, then **Save meta.csv**:
    - **sample**: give repeated scans of one sample **the same name** — they are merged automatically;
    - **role**: `reference` for the foil, `standard` for standards, `sample` for samples;
    - **ref_file**: the calibration reference, pre-filled with the reference of the same batch.
-4. **2 Check → Run check** until there are no errors.
+   Double-click a cell to edit it.
+4. At the bottom, **Validate against the data standard → Run check** until there are no errors.
 
 ### Step 3 — Processing parameters (3 min)
 
-**⓪ Project → 4 Processing parameters**: one set per edge, shared by all samples.
+**Calibrate & process → Processing parameters**: one set per edge, shared by all samples.
 
 - **All elements in the sample**, e.g. `Cu, O, C` — used to check neighbouring edges and the usable k range;
 - normalization, background removal (rbkg), Fourier transform (k range, window, k-weight): keep the defaults for now and revisit after step 5;
@@ -59,9 +63,9 @@ To reopen it later, pick it under “Recent projects” and click **Open**.
 
 Click **Save parameters**.
 
-### Step 4 — One-click processing (2 min)
+### Step 4 — Batch processing (2 min)
 
-**⓪ Project → 3 One-click processing**, in order:
+**Calibrate & process**, in order:
 
 1. **① Quality check**: glitches, I0 drop-outs, edge step, usable k (k_snr3);
 2. **② Calibrate with references**: align the first-derivative maximum of the foil to the tabulated energy; every spectrum of the batch gets the same ΔE;
@@ -69,24 +73,26 @@ Click **Save parameters**.
 
 ### Step 5 — Look at the data (5 min)
 
-1. **① Import data** → tick samples at the top → **Load samples** (references are loaded too).
-2. Plot (zoom and hover to read values): **④ Normalization** (XANES, pre/post-edge lines), **⑤ χ(k) & FT** (k¹ / k² / k³; the R axis is marked “not phase-corrected”), **⑥ Wavelet transform** (light vs heavy scatterers at the same R).
-3. **② Quality check**: read the QC table. If there are **glitches**, use **Deglitch** at the bottom: select samples → confirm on the plot → enter energy ranges and a reason → **Save and reload** (raw files are never modified).
+1. **Load spectra** → tick samples → **Load** (references are loaded too).
+2. Plot (pan, zoom to box, reset and save at the top right of each plot; cursor coordinates at the top left): **Normalization** (XANES, pre/post-edge lines), **χ(k) & FT** (k¹ / k² / k³; the R axis is marked “not phase-corrected”), **Wavelet transform** (light vs heavy scatterers at the same R; read the k of the maximum per R window, export data in one click, and read how each parameter changes the map).
 
-> **Choosing the k range**: kmax should not exceed the k_snr3 of the **worst** sample of the series, and all samples of a series must use **the same** k range. Save the parameters on ⓪ and click ③ again.
+   ![χ(k) & FT](docs/images/en/chi_ft.png)
+3. **Quality check**: read the QC table. If there are **glitches**, use **Deglitch** at the bottom: select samples → confirm on the plot → enter energy ranges and a reason → **Save and reload** (raw files are never modified).
+
+> **Choosing the k range**: kmax should not exceed the k_snr3 of the **worst** sample of the series, and all samples of a series must use **the same** k range. Save the parameters under **Calibrate & process** and click ③ again.
 
 ### Step 6 — FEFF paths (2 min)
 
-**⑦ FEFF paths**:
+**FEFF paths**:
 
 1. Structure source: **structures/ folder** (put the CIF in the project's `structures` folder, or upload it on this page), or **Built-in structure**;
-2. choose absorber, edge and RMAX (default 6 Å);
+2. choose absorber (defaults to the heaviest element), edge and RMAX (default 6 Å);
 3. **FEFF version**: **FEFF6L** (seconds) or **FEFF8L** (self-consistent potential, 1–3 min, usually more accurate). You can compute both; they go to separate folders;
 4. click **Run**; the table lists each scattering path's distance, degeneracy and relative amplitude.
 
 ### Step 7 — Fit the standard and determine S0² (10 min)
 
-**⑧ EXAFS fitting**:
+**EXAFS fitting** (read **Before you fit, and what counts as a good fit** at the top before your first fit):
 
 1. **Data**: the standard; **FEFF folders**: its structure;
 2. **Fit range**: the k range from step 5; an R window covering only the first shell (e.g. 1.0–2.1 Å); tick k-weights 1, 2 and 3. N_idp is shown;
@@ -94,30 +100,39 @@ Click **Save parameters**.
 4. **Parameters**: S0², ΔE0, ΔR and σ² free → **Fit**;
 5. check the result:
    - does the fit follow the data inside the window (both |χ(R)| and Re χ(R))?
+   - **Fit quality check** (automatic, below the result): which points are ✓ and which ⚠, with the reason;
    - expand **Fit diagnosis**: where is the residual, any glitch hints?
    - expand **Robustness check** → run: every parameter should be “stable”;
-6. note S0² (e.g. 0.85 ± 0.08) under **⓪ Project → 4 Processing parameters** and save;
+
+   ![fit result](docs/images/en/fit_result.png)
+
+   ![fit quality check](docs/images/en/fit_quality.png)
+
+6. note S0² (e.g. 0.85 ± 0.08) under **Calibrate & process → Processing parameters** and save;
 7. **Save result**: the model goes to `models/` and can be rerun in one click.
 
 ### Step 8 — Fit the samples (batch)
 
-1. On ⑧ choose one sample as **Data**, with the same paths and ranges as the standard; in **3. Parameters** set **s02's value to the step-7 result and untick vary** (fixed). **Fit** → check → **Save result**.
-2. At the top of ⑧ open **Run a saved model** → choose this sample model → select **all samples** → **Run**. Results go to **⑨ Fit history**.
-3. Second shell: fit once with the extra path, then **⑨ Fit history / F-test** → select the fits without and with the shell → **F-test**. Only **p < 0.05** lets you say the shell is present.
+1. On **EXAFS fitting** choose one sample as **Data**, with the same paths and ranges as the standard; in **4 Parameters** set **s02's value to the step-7 result and untick vary** (fixed). **Fit** → check → **Save result**.
+2. At the top of **EXAFS fitting** open **Run a saved model** → choose this sample model → select **all samples** → **Run**. Results go to **Fit history**.
+3. Second shell: fit once with the extra path, then **Fit history** → select the fits without and with the shell → **F-test**. Only **p < 0.05** lets you say the shell is present.
 
 ### Step 9 — Export (2 min)
 
 | You want | Go to |
 |---|---|
-| All results in one table + a report with figures | **⑫ Summary report** → build → download Excel / HTML |
-| Publication figures (single / double column, 600 dpi TIFF, SVG, PDF, English captions) | **⑭ Journal figures** |
-| A draft “Methods” paragraph (Chinese and English) | bottom of **⑫ Summary report** |
-| Fitting text and parameter table for the SI, one-click copy | **⑮ SI methods** |
-| Cross-check in Athena / Artemis | bottom of **④ Normalization** → export `.prj` |
-| Edge position, white line, oxidation state, pre-edge peaks | **⑬ XANES quantification** |
-| XANES or χ(k) linear combination fitting | **⑩ LCF** |
+| All results in one table + a report with figures | **Summary report** → Build summary → open the folder / save the Excel / open the report in a browser |
+| Publication figures (single / double column, 600 dpi TIFF, SVG, PDF, English captions) | **Journal figures** |
+| A draft “Methods” paragraph (Chinese and English) | bottom of **Summary report** |
+| Fitting text and parameter table for the SI, one-click copy | **SI methods** |
+| Wavelet data matrix, maxima table and figure | **Wavelet transform** → Export data and figure |
+| Cross-check in Athena / Artemis | bottom of **Normalization** → export `.prj` |
+| Edge position, white line, oxidation state, pre-edge peaks | **XANES quantification** |
+| XANES or χ(k) linear combination fitting | **LCF** |
 
 Every file is also in the project's `output` folder.
+
+![SI methods](docs/images/en/si_methods.png)
 
 ---
 
@@ -131,8 +146,11 @@ AI assistants such as **Claude Code**, **Codex** and **Cursor** can read files a
    - Claude Code: <https://claude.com/claude-code> (desktop app available)
    - Codex: <https://github.com/openai/codex>
    - Cursor: <https://cursor.com>
-2. Create the project in XAFSmith and add the raw data (the upload part of route A steps 1–2; registration can be left to the AI).
-3. **⓪ Project → 🤖 7 AI assistant → Write / update AI instruction files**.
+2. Create the project in XAFSmith and add the raw data (the file-copy part of route A steps 1–2; registration can be left to the AI).
+3. **AI assistant → Write / update AI instruction files**.
+
+   ![AI assistant](docs/images/en/ai_assistant.png)
+
    This writes `AGENTS.md` (with the full path of the xafsmith command on this computer, workflow, commands and rules) and `CLAUDE.md` into the project folder.
 
 ### B2 — Open the AI in the project folder
@@ -172,11 +190,11 @@ The AI runs commands such as `xafsmith qc`, `process`, `feff`, `fit`, `diagnose`
 
 | What to check | Where |
 |---|---|
-| The AI's fit models; rerun, fit diagnosis, robustness | top of **⑧ EXAFS fitting** → **Run a saved model** |
-| Model comparison, F-test | **⑨ Fit history / F-test** |
-| Deglitch ranges and reasons | bottom of **② Quality check** |
-| Processing parameters | **⓪ Project → 4 Processing parameters** |
-| Journal figures, summary report, methods paragraph | **⑭ Journal figures**, **⑫ Summary report**, or the project's `output` folder |
+| The AI's fit models; rerun, fit diagnosis, robustness | top of **EXAFS fitting** → **Run a saved model** |
+| Model comparison, F-test | **Fit history** |
+| Deglitch ranges and reasons | bottom of **Quality check** |
+| Processing parameters | **Calibrate & process → Processing parameters** |
+| Journal figures, summary report, methods paragraph | **Journal figures**, **Summary report**, or the project's `output` folder |
 | The AI's analysis notes | the project's `notes` folder |
 
 > AI makes mistakes too. **Verify key numbers and conclusions in the GUI**; when in doubt, ask the AI “what is this conclusion based on, what is the F-test p-value, did the robustness check pass?”
@@ -184,7 +202,7 @@ The AI runs commands such as `xafsmith qc`, `process`, `feff`, `fit`, `diagnose`
 ### Mixing the routes
 
 Both routes read and write the same project: process the data yourself and let the AI compare fit models, or let the AI process, refine a model yourself in the GUI, and ask the AI to make the figures.
-After updating XAFSmith, click “Write / update” on **🤖 7 AI assistant** again.
+After updating XAFSmith, click “Write / update” on **AI assistant** again.
 
 ---
 
@@ -194,10 +212,10 @@ After updating XAFSmith, click “Write / update” on **🤖 7 AI assistant** a
 |---|---|
 | Double-clicking `installer.py` does nothing or opens a text editor | Right-click → Open with → Python, or reinstall Python with “Add python.exe to PATH” ticked |
 | “No reference ref_file, cannot calibrate” | The batch has no reference: add it and **Scan and register** again, or choose ref_file in the table |
-| Sharp spikes in χ(k) or in the fit residual | Glitches: step 5 “Deglitch” and the hints in ⑧ Fit diagnosis |
+| Sharp spikes in χ(k) or in the fit residual | Glitches: step 5 “Deglitch” and the hints in the Fit diagnosis on EXAFS fitting |
 | Poor fit, large R-factor | Read [Improving fit quality](src/xafsmith/docs/fit_quality_guide_en.md): diagnose first, then check data → processing → theory → model |
 | FEFF produces no paths | Does the structure contain the absorber? Keep RMAX ≤ 8 Å |
-| The AI cannot find the xafsmith command | ⓪ Project → 🤖 7 AI assistant → “Write / update AI instruction files” again, then ask the AI to reread AGENTS.md |
+| The AI cannot find the xafsmith command | AI assistant → “Write / update AI instruction files” again, then ask the AI to reread AGENTS.md |
 
 ## What to read next
 

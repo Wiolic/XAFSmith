@@ -44,7 +44,7 @@ Fitting means: FEFF tells what each kind of scatterer “looks like”, and the 
 
 ```
 raw data → ① register → ② quality check → ③ energy calibration → ④ normalization → ⑤ background χ(k) → ⑥ Fourier transform χ(R)
-        → ⑦ FEFF paths → ⑧ S0² from a standard → ⑨ fit samples → ⑩ significance test → ⑪ interpretation → ⑫ summary report
+        → FEFF paths → ⑧ S0² from a standard → ⑨ fit samples → ⑩ significance test → ⑪ interpretation → ⑫ summary report
 ```
 
 ---
@@ -54,8 +54,8 @@ raw data → ① register → ② quality check → ③ energy calibration → �
 **Principle**: reproducibility requires **read-only** raw data, with every result regenerable from them. The table `meta.csv` records what each file is (sample, edge, transmission or fluorescence, which reference calibrates it, whether it is used); every later step follows it.
 
 **Operation**:
-1. **⓪ Project** → “Open / create project” → **📁 Browse…** (an empty folder) → **Create project**.
-2. **⓪ Project → 1 Register data**: enter a batch name (e.g. `2026-11-05_Ir`), drag in the files of that beamtime and click **Upload**. **Include the metal foil or powder measured in the same session** (the reference).
+1. **Project** → “Open / create project” → **📁 Browse…** (an empty folder) → **Create project**.
+2. **Register data**: enter a batch name (e.g. `2026-11-05_Ir`), drag in the files of that beamtime and click **Upload**. **Include the metal foil or powder measured in the same session** (the reference).
 3. Click **Scan data/raw and register new files** and check the table:
    - `sample`: rows with the same name are scans of one sample and will be merged;
    - `role`: `reference` for references, `standard` for standards of known structure, `sample` for unknowns;
@@ -75,7 +75,7 @@ raw data → ① register → ② quality check → ③ energy calibration → �
 - **Fluorescence self-absorption**: concentrated samples measured in fluorescence have damped amplitudes and white lines (by up to ~25% in practice). Fluorescence and transmission **amplitudes cannot be compared directly**.
 - **Interfering edges**: if another element (or the L₂ edge of the same element) lies inside the scan range, the k range must stop before it.
 
-**Operation**: **⓪ Project → 3 One-click processing → ① Quality check**, or the **② Quality check** page.
+**Operation**: **Calibrate & process → ① Quality check**, or the **Quality check** page.
 
 **Columns to look at**:
 - `glitch_E`: glitch positions;
@@ -84,7 +84,7 @@ raw data → ① register → ② quality check → ③ energy calibration → �
 - `k_snr3`: k where the signal falls to 3× noise — a guide for kmax;
 - `self_abs_risk`: fluorescence self-absorption risk.
 
-Also check the k limit set by interfering edges in **⑤ χ(k) & FT → k-range check**.
+Also check the k limit set by interfering edges in **χ(k) & FT → k-range check**.
 
 **Right when**: you know how far in k each spectrum is usable, and scans with glitches or beam drops are excluded (`use=0`) or deglitched.
 
@@ -98,7 +98,7 @@ the correction is $\Delta E = E_{\text{table}} - E_{0,\text{meas}}$, and **the s
 
 Why not calibrate each sample on its own? Because the sample's edge position carries chemical information (higher oxidation states shift the edge to higher energy). “Calibrating” every sample to the table value would erase it.
 
-**Operation**: **⓪ Project → 3 One-click processing → ② Calibrate with references**. Results appear on the **③ Energy calibration** page, one ΔE per reference.
+**Operation**: **Calibrate & process → ② Calibrate with references**. Results appear on the **Energy calibration** page, one ΔE per reference.
 
 **Right when**: ΔE is within a few eV, and several references from the same beamtime give similar ΔE.
 
@@ -115,7 +115,7 @@ Why not calibrate each sample on its own? Because the sample's edge position car
 
 Only after normalization can XANES of different samples and modes be compared.
 
-**Operation**: parameters are in **⓪ Project → 4 Processing parameters** (one set per edge, shared by all samples of that edge). View them on **④ Normalization**, tab “μ(E) + pre/post-edge”.
+**Operation**: parameters are in **Calibrate & process → Processing parameters** (one set per edge, shared by all samples of that edge). View them on **Normalization**, tab “μ(E) + pre/post-edge”.
 
 **Right when**: the pre-edge line follows the pre-edge data and the post-edge curve passes through the middle of the oscillations without systematic deviation; after normalization the post-edge oscillates around 1.
 **Use one parameter set for all samples of an edge** — never tune one sample to make it “look nicer”.
@@ -137,7 +137,7 @@ Larch's AUTOBK uses **rbkg** to control how flexible the background is: the spli
 
 Energy is then converted to $k=\sqrt{0.2625\,(E-E_0)}$. Because the oscillations decay at high k, they are usually multiplied by $k^2$ or $k^3$ for viewing and fitting.
 
-**Operation**: **⓪ Project → 3 One-click processing → ③ Process all samples**. To look at the spectra, load samples on **① Import data** (**Load samples**), then use the “χ(k)” and “Background μ0(E)” tabs of **⑤ χ(k) & FT**.
+**Operation**: **Calibrate & process → ③ Process all samples**. To look at the spectra, load samples on **Load spectra** (**Load samples**), then use the “χ(k)” and “Background μ0(E)” tabs of **χ(k) & FT**.
 
 **Right when**: $k^2\chi(k)$ oscillates around 0 without overall tilt or slow undulations; where noise starts to dominate at high k is your candidate kmax.
 
@@ -152,9 +152,9 @@ Energy is then converted to $k=\sqrt{0.2625\,(E-E_0)}$. Because the oscillations
 - **Peak position ≠ bond length**: each scatterer has a phase shift δ(k), so $|\chi(R)|$ peaks appear **~0.3–0.5 Å shorter** than the true distance (the software labels the R axis “not phase-corrected”). True bond lengths come only from fitting.
 - **One peak ≠ one shell**: a peak can come from noise, background residue, window side-lobes or multiple scattering.
 
-**Operation**: on **⑤ χ(k) & FT**, tab “|χ(R)| / Re”, look at both $|\chi(R)|$ and the real part Re χ(R), with k-weights 1, 2 and 3.
+**Operation**: on **χ(k) & FT**, tab “|χ(R)| / Re”, look at both $|\chi(R)|$ and the real part Re χ(R), with k-weights 1, 2 and 3.
 Light scatterers (O) are stronger at low k, heavy ones (Ir, Ta) at high k, so the relative peak heights change with k-weight — itself a clue to the scatterer type.
-If needed, **⑥ Wavelet transform** shows k and R together: heavy atoms have their intensity centre at higher k.
+If needed, **Wavelet transform** shows k and R together: heavy atoms have their intensity centre at higher k.
 
 **Right when**: kmin and kmax are chosen and recorded, and samples of one edge use the same k range.
 
@@ -170,7 +170,7 @@ where Δk is the k range and ΔR the R fitting window. Example: k = 3–12.5, R 
 
 **Rule**: variables ≤ N_idp/2 (at most N_idp − 3). With more parameters than information, any model “fits well” and the result means nothing.
 
-**Operation**: after setting the ranges on **⑧ EXAFS fitting**, the page shows N_idp and the variable limit, with a yellow warning when it is exceeded.
+**Operation**: after setting the ranges on **EXAFS fitting**, the page shows N_idp and the variable limit, with a yellow warning when it is exceeded.
 
 ---
 
@@ -184,8 +184,8 @@ FEFF reads atomic coordinates and lists all **paths** in which the photoelectron
 The FEFF R is a **starting point**; ΔR is allowed to adjust slightly in the fit, and the coordination number can be fixed to the degeneracy or fitted.
 The structure need not be identical to the sample — a similar local environment is enough, e.g. Ta–O paths from KTaO₃ for the first shell of amorphous TaOx.
 
-**Operation**: **⑦ FEFF paths**:
-1. Structure source **Built-in structure** → `IrO2` (for your own structures, put CIFs in **⓪ Project → 5 Structure files**);
+**Operation**: **FEFF paths**:
+1. Structure source **Built-in structure** → `IrO2` (for your own structures, put CIFs in **FEFF paths**);
 2. absorber `Ir`, edge `L3`, RMAX 6 Å;
 3. click **Run FEFF6L**.
 
@@ -200,7 +200,7 @@ The solution is to fit S0² on a **standard of known structure** (known N), then
 S0² depends mainly on the absorbing element and edge, little on the chemical environment, so it is transferable within the same element and edge —
 provided measurements are comparable: both transmission, with suitable thickness.
 
-**Operation (IrO₂ example)**: **⑧ EXAFS fitting**:
+**Operation (IrO₂ example)**: **EXAFS fitting**:
 1. **Data**: IrO₂; **FEFF folders**: the `IrO2_IrL3` calculation.
 2. **Fit range**: kmin 3, kmax 12.5, dk 1, k-weights **1, 2, 3 together**, Rmin 1.0, Rmax 2.5, space `r`.
 3. **Paths**: tick both Ir–O paths. Keep `N` at the FEFF degeneracies (2 and 4, fixed at the structural values).
@@ -209,7 +209,7 @@ provided measurements are comparable: both transmission, with suitable thickness
 5. Click **Fit**.
 
 Actual result in the authors' project: **S0² ≈ 0.82, ΔE₀ ≈ 8.9 eV** (Ir L₃, transmission).
-Enter the S0² in **⓪ Project → 4 Processing parameters → S0²** and click **Save parameters**.
+Enter the S0² in **Calibrate & process → Processing parameters → S0²** and click **Save parameters**.
 
 **Why k¹, k² and k³ together**: different weights emphasize low k (light atoms, ΔE₀) and high k (σ², heavy atoms) differently; fitting them together reduces the S0²–σ² and ΔE₀–ΔR correlations.
 
@@ -224,7 +224,7 @@ Enter the S0² in **⓪ Project → 4 Processing parameters → S0²** and click
 3. Check N_idp after every added shell and run the F-test (section 11).
 
 **Operation**:
-1. **⑧ EXAFS fitting**: choose the sample data and the matching FEFF folder.
+1. **EXAFS fitting**: choose the sample data and the matching FEFF folder.
 2. **Paths**: to fit a coordination number, replace the `N` value with a parameter name such as `n1`. Paths of one shell sharing `n1` share it; if one path's N must be a fixed multiple of another, write e.g. `n1*2`.
 3. **Parameters**:
    - **Fix S0²**: untick `vary` in the `s02` row and set `value` to the standard's value, e.g. 0.82.
@@ -261,7 +261,7 @@ Therefore:
 
 **Principle**: adding parameters always lowers the R-factor, even when the new shell only fits noise. The Hamilton F-test checks whether the improvement exceeds what the extra parameters alone would give.
 
-**Operation**: **⑨ Fit history / F-test** → choose the “simpler model” and the “more complex model” (which must contain the simpler one plus extra parameters) → **Compare**.
+**Operation**: **Fit history** → choose the “simpler model” and the “more complex model” (which must contain the simpler one plus extra parameters) → **Compare**.
 
 **Interpretation**:
 - **p < 0.05**: the new shell is significant and can be reported as “included and significant”;
@@ -275,20 +275,20 @@ Light scatterers (O, K) next to heavy-atom shells are particularly hard to deter
 
 **Principle**: if a sample is a mixture of known phases, its normalized XANES is approximately a weighted sum of the standards' spectra, the weights being the phase fractions (per absorbing atom).
 
-**Operation**: **⑩ LCF**: choose the sample and end members (**measured standards only**), the energy range (commonly E₀−20 to E₀+60 eV) and the space (normalized μ), then click **LCF**. Single-standard fits are shown for comparison.
+**Operation**: **LCF**: choose the sample and end members (**measured standards only**), the energy range (commonly E₀−20 to E₀+60 eV) and the space (normalized μ), then click **LCF**. Single-standard fits are shown for comparison.
 
 **Interpretation**:
 - the weights should sum to about 1;
 - the multi-standard fit should have a clearly lower R-factor than single-standard fits;
 - a missing phase biases the result systematically.
 
-For edge positions, valence calibration and pre-edge peaks see **⑬ XANES quantification** in the GUI guide.
+For edge positions, valence calibration and pre-edge peaks see **XANES quantification** in the GUI guide.
 
 ---
 
 ## 13. Summary report
 
-**Operation**: **⑫ Summary report** → **Generate summary** produces:
+**Operation**: **Summary report** → **Generate summary** produces:
 - the Excel file: samples, calibration, quality check, processing parameters, fit overview per model and per-path parameters, LCF;
 - the HTML report: tables plus all figures, printable to PDF.
 
@@ -298,7 +298,7 @@ For a paper, report:
 - S0² and its source (which standard);
 - for every shell N, R, σ², plus ΔE₀ and the R-factor, all with errors.
 
-The **Methods paragraph** generator on the same page drafts this text from the project files; **⑭ Journal figures** produces publication-style figures.
+The **Methods paragraph** generator on the same page drafts this text from the project files; **Journal figures** produces publication-style figures.
 
 ---
 

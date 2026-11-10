@@ -20,10 +20,11 @@ The computational core is [Larch](https://xraypy.github.io/xraylarch/) (xraylarc
 ## Contents
 
 1. [Why XAFSmith](#why-xafsmith)
-2. [Installation](#installation)
-3. [Connecting an AI assistant (step by step)](#connecting-an-ai-assistant-step-by-step)
-4. [Getting started](#getting-started)
-5. [Supported data, validation, citation](#supported-data)
+2. [A look at the interface](#a-look-at-the-interface)
+3. [Installation](#installation)
+4. [Connecting an AI assistant (step by step)](#connecting-an-ai-assistant-step-by-step)
+5. [Getting started](#getting-started)
+6. [Supported data, validation, citation](#supported-data)
 
 ---
 
@@ -38,15 +39,49 @@ Compared with a typical Athena / Artemis workflow:
 | Make sure a sample series uses **one** parameter set | Check each one yourself | One parameter set per edge stored in the project and shared by all samples; exceptions need a written reason |
 | Apply one fit model to a series (time, potential, temperature) | Usually copy and adjust per sample | **Run a saved model** → select samples → done |
 | FEFF calculations | Atoms builds the input from a CIF, then run FEFF | Pick a CIF or built-in structure → one click; **FEFF6L (seconds) and FEFF8L (self-consistent) built in**, easy to compare, no separate FEFF install |
-| Wavelet transform (light vs heavy scatterers, overlapping shells) | Needs other software | Built in (Morlet / Cauchy) |
-| Judge a fit and find out why it does not match | Mostly the R-factor and experience | **Fit diagnosis** (residual vs noise, k-space residual, glitches located and converted to energy, misfit by segment, hints); **robustness check**; **F-test** in one click |
+| Wavelet transform (light vs heavy scatterers, overlapping shells) | Needs other software | Built in (Morlet / Cauchy); k of the maximum per R window, **one-click export of data and figure**, in-page guidance on every parameter |
+| Judge a fit and find out why it does not match | Mostly the R-factor and experience | An **automatic quality check** after every fit (R-factor, variables, residual/noise, errors, bounds, ΔE0, σ², ΔR, correlations, point by point); **fit diagnosis** (k-space residual, glitches located and converted to energy, misfit by segment, hints); **robustness check**; **F-test** |
 | Publication figures and the methods section | Export data, redraw in Origin etc.; write methods by hand | **One-click journal figures** (single / double column, 600 dpi TIFF, SVG, PDF, English captions); **one-click methods paragraph** (Chinese and English) |
-| Fitting details for the Supporting Information | Assemble by hand from Artemis reports | **⑮ SI methods**: pick fits → one-click copy of the fitting text (k/R ranges, FEFF version, constraints, S0² source, uncertainty estimation) and the parameter table (N, R, σ², ΔE0, R-factor) |
+| Fitting details for the Supporting Information | Assemble by hand from Artemis reports | **SI methods**: pick fits → one-click copy of the fitting text (k/R ranges, FEFF version, constraints, S0² source, uncertainty estimation) and the parameter table (N, R, σ², ΔE0, R-factor) |
 | Collect all results | Copy tables by hand | **One-click summary report**: Excel + HTML with figures |
 | Cross-check with Athena / Artemis | — | **One-click export of an Athena project (.prj)** with XAFSmith's processing parameters |
 | Reproduce results months later | Find the project file, recall the parameters | Raw data are read-only and all parameters live in project files; results can always be regenerated from the raw data |
+| Learn the principles of XAFS | Find a textbook | Built-in **XAFS basics** lecture: from X-ray absorption to fitting, with formulas, measured spectra and worked examples |
 
 Also: XANES quantification (edge position, white line, oxidation-state calibration, pre-edge peak fitting), XANES / χ(k) LCF with combination search, sample design (μt, edge step, pellet mass, interfering edges), visual deglitching, Chinese / English interface, in-app updates.
+
+---
+
+## A look at the interface
+
+A native desktop window (PySide6) that opens in seconds. Pages are grouped by workflow on the left; a disclaimer is always visible at the bottom. Screenshots come from a demo project (Ir foil and IrO₂, Ir L3 edge).
+
+**Project home**: the six workflow steps; finished steps are ticked, the next one is framed in blue.
+
+![project home](docs/images/en/home.png)
+
+**EXAFS fitting**: edit path and parameter tables directly; each result shows k space, |χ(R)| and Re χ(R).
+
+![fit result](docs/images/en/fit_result.png)
+
+**Fit quality check**: after every fit, an automatic point-by-point check (R-factor, variables, residual/noise, errors, bounds, ΔE0, σ², ΔR, correlations), followed by the fit diagnosis and robustness check.
+
+![fit quality](docs/images/en/fit_quality.png)
+
+<table>
+<tr>
+<td width="50%"><b>Wavelet transform</b>: maxima per R window, one-click data export, parameter guidance<br/><img src="docs/images/en/wavelet.png"/></td>
+<td width="50%"><b>χ(k) &amp; FT</b>: recomputed as you change parameters<br/><img src="docs/images/en/chi_ft.png"/></td>
+</tr>
+<tr>
+<td><b>SI methods</b>: one-click copy of the fitting text and table for the Supporting Information<br/><img src="docs/images/en/si_methods.png"/></td>
+<td><b>AI assistant</b>: one click writes the instruction files for the AI<br/><img src="docs/images/en/ai_assistant.png"/></td>
+</tr>
+<tr>
+<td><b>Normalization</b>: pre/post-edge lines, overlay, derivative, merging<br/><img src="docs/images/en/normalization.png"/></td>
+<td><b>Journal figures</b>: single / double column, 600 dpi, English captions<br/><img src="docs/images/en/journal_figure.png"/></td>
+</tr>
+</table>
 
 ---
 
@@ -59,7 +94,7 @@ Windows, about 15 minutes, once:
 2. **Download XAFSmith**: green **Code → Download ZIP** button at the top of this page; unzip anywhere.
 3. **Double-click `installer.py`** in the unzipped folder to open the bilingual setup wizard: choose the location and shortcuts → tick the disclaimer → **Install** (internet needed, 5–15 minutes).
    If double-clicking does nothing or opens a text editor: right-click `installer.py` → Open with → Python.
-4. **Double-click the XAFSmith icon on the desktop**; it opens in its own window. The unzipped folder can be deleted.
+4. **Double-click the XAFSmith icon on the desktop**; it opens as a native desktop window (seconds, no web browser). The unzipped folder can be deleted.
 
 Uninstall: Start menu → XAFSmith → Uninstall XAFSmith (your data are kept).
 There is no installer for macOS / Linux yet; install from the command line, see the [command-line reference](src/xafsmith/docs/命令行速查.md) (Chinese; commands are self-explanatory).
@@ -80,12 +115,12 @@ You (describe the task) → AI assistant → runs xafsmith commands → results 
 
 ### Step 1: have a project
 
-In XAFSmith: **⓪ Project → Open / create project** (a new project gets the AI instruction files automatically).
+In XAFSmith: **Project → Open / create project** (a new project gets the AI instruction files automatically).
 Put the raw data in first (see [Quickstart](QUICKSTART_en.md) steps 1–2), or ask the AI to register them.
 
 ### Step 2: write the AI instruction files
 
-**⓪ Project → 🤖 7 AI assistant → Write / update AI instruction files**. This creates or updates:
+**AI assistant → Write / update AI instruction files**. This creates or updates:
 
 | File | Read by | Content |
 |---|---|---|
@@ -142,9 +177,9 @@ You do not need to remember them, but they help you follow what the AI does:
 
 ### Step 6: check the AI's results
 
-- **⑧ EXAFS fitting → Run a saved model**: every model the AI writes is in `models/`; rerun it in the GUI and inspect the fit, the **fit diagnosis** and the **robustness check**;
-- **⑨ Fit history / F-test**: compare models;
-- **⑫ Summary report**, **⑭ Journal figures**: view and re-export;
+- **EXAFS fitting → Run a saved model**: every model the AI writes is in `models/`; rerun it in the GUI and inspect the fit, the **fit diagnosis** and the **robustness check**;
+- **Fit history**: compare models;
+- **Summary report**, **Journal figures**: view and re-export;
 - `notes/`: the analysis notes the AI writes (what was done, conclusions, next step).
 
 ### Safety and rules
@@ -160,12 +195,13 @@ AI can still make mistakes — **verify key conclusions in the GUI** and, where 
 
 | Guide | For |
 |---|---|
+| [XAFS basics](src/xafsmith/docs/XAFS_basics_en.md) | Undergraduate physics and chemistry only: how synchrotron XAFS works, step by step, with formulas, measured spectra and worked examples |
 | [GUI guide](src/xafsmith/docs/GUI_guide_en.md) | Every page and button |
 | [Beginner fitting tutorial](src/xafsmith/docs/fitting_tutorial_en.md) | Your first EXAFS fit: principles, parameter choices, how to judge success |
 | [Improving fit quality](src/xafsmith/docs/fit_quality_guide_en.md) | When the fit does not match: residual diagnosis, deglitching, FEFF6/FEFF8, when to add paths, when to stop |
 | [Data standard](src/xafsmith/docs/数据标准.md) (Chinese) | What every file in a project means |
 
-All guides are also available in the app under **❓ Help** (Chinese and English).
+All guides are also available in the app under **Help** (Chinese and English).
 
 ---
 
@@ -187,7 +223,7 @@ Always measure the **elemental reference** (metal foil or powder) in the same se
 
 If you use XAFSmith in a publication, please cite this repository (**Cite this repository** on the right of the GitHub page):
 
-*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 0.3.0. https://github.com/Wiolic/XAFSmith*
+*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 0.4.0. https://github.com/Wiolic/XAFSmith*
 
 and the programs it builds on:
 - Larch: M. Newville, *J. Phys.: Conf. Ser.* **430**, 012007 (2013).

@@ -8,7 +8,6 @@
 import argparse
 
 import numpy as np
-from larch.xafs import autobk as _autobk
 
 DEFAULT_BKG = dict(rbkg=1.0, kweight=2, kmin=0.0, kmax=None, dk=0.1, win="hanning",
                    nclamp=3, clamp_lo=0, clamp_hi=1)
@@ -21,6 +20,7 @@ def autobk(g, **kws):
         from .normalize import normalize
         normalize(g)
     npar = getattr(g, "norm_params", {})
+    from larch.xafs import autobk as _autobk  # larch.xafs 导入约 2 秒：用到时才导入，加快启动
     _autobk(g, e0=g.e0, edge_step=g.edge_step, rbkg=p["rbkg"], kweight=p["kweight"],
             kmin=p["kmin"], kmax=p["kmax"], dk=p["dk"], win=p["win"], nclamp=p["nclamp"],
             clamp_lo=p["clamp_lo"], clamp_hi=p["clamp_hi"],
