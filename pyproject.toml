@@ -22,7 +22,10 @@ dependencies = [
     "pandas",
     "pymatgen",
     "openpyxl",
-    "PySide6>=6.5",
+    # PySide6 6.12.0 在 Linux + Python 3.11 上反复多减 None 引用，GUI 测试最终 none_dealloc 崩溃（CI 对比：<6.12 正常）；
+    # 其他平台/版本组合 6.12.0 正常。待上游修复后可放宽。
+    'PySide6>=6.5,<6.12; sys_platform == "linux" and python_version < "3.12"',
+    'PySide6>=6.5; sys_platform != "linux" or python_version >= "3.12"',
 ]
 
 [project.optional-dependencies]
