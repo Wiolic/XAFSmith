@@ -102,12 +102,34 @@ def series_colors(labels, palette="glacier", refs=()):
     return out
 
 
-def chem(label, on=True):
-    """化学式数字下标：IrO2 → IrO$_2$（只处理紧跟在字母或右括号后的数字；名称中含 - _ 空格的不处理）"""
+_ELEMENTS = set("""H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr
+Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os
+Ir Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm""".split())
+
+
+def _is_formula(tok):
+    """tok 是否像化学式（IrO2、Ta2O5、Co3O4、(NH4)2SO4、IrOx）：由元素符号、数字、x/δ、括号组成，且至少两个元素或带数字"""
     import re
-    if not on or re.search(r"[-_\s]", str(label)):
-        return str(label)
-    return re.sub(r"(?<=[A-Za-z)])(\d+(?:\.\d+)?)", lambda m: "$_{" + m.group(1) + "}$", str(label))
+    parts = re.findall(r"[A-Z][a-z]?|\d+(?:\.\d+)?|[xδ()]", tok)
+    if "".join(parts) != tok or not tok[:1].isupper() and not tok.startswith("("):
+        return False
+    syms = [p for p in parts if p[:1].isupper()]
+    return bool(syms) and all(p in _ELEMENTS for p in syms) and any(p[0].isdigit() for p in parts)
+
+
+def chem(label, on=True):
+    """化学式数字下标：IrO2 → IrO$_2$。按 空格 / - / _ 拆成词，只处理"像化学式"的词
+    （IrO2 Batch 1 → IrO$_2$ Batch 1；Ir foil 1W1B、IrTa-100 不变）。"""
+    import re
+    label = str(label)
+    if not on:
+        return label
+
+    def one(tok):
+        if not _is_formula(tok):
+            return tok
+        return re.sub(r"(?<=[A-Za-z)])(\d+(?:\.\d+)?)", lambda m: "$_{" + m.group(1) + "}$", tok)
+    return "".join(one(t) for t in re.split(r"([-_\s]+)", label))
 
 
 def style(size="单栏 85 mm"):
@@ -132,7 +154,8 @@ def style(size="单栏 85 mm"):
 
 def _fig(size, ncols=1):
     s = style(size)
-    fig, axs = plt.subplots(1, ncols, figsize=(s["w"], s["h"]))
+    # constrained 布局：坐标轴标题、图例都落在图内（预览按图尺寸显示，不再被裁切；导出尺寸即期刊栏宽）
+    fig, axs = plt.subplots(1, ncols, figsize=(s["w"], s["h"]), layout="constrained")
     return fig, np.atleast_1d(axs), s
 
 
@@ -212,9 +235,8 @@ def chik(groups, size="单栏 85 mm", kweight=2, offset=0.0, kmax=None, sub=True
         line, = ax.plot(g.k, g.chi * g.k ** kweight + i * offset, label=chem(g.label, sub), **_style_of(i, s, colors))
         f = (fits or {}).get(g.label)
         if f is not None:
-            c, sm = f["curves"], f["summ"]
-            sel = (c["kfit"] >= sm["kmin"] - 0.5) & (c["kfit"] <= sm["kmax"] + 0.5)      # 只画拟合窗口附近
-            ax.plot(c["kfit"][sel], (c["chifit"] * c["kfit"] ** kweight)[sel] + i * offset, color=_fit_color(line.get_color(), len(fits) == 1),
+            c = f["curves"]
+            ax.plot(c["kfit"], c["chifit"] * c["kfit"] ** kweight + i * offset, color=_fit_color(line.get_color(), len(fits) == 1),
                     ls="--", lw=0.9 * s["lw"], label=chem(g.label, sub) + " fit")
     if kmax:
         ax.set_xlim(0, kmax)
@@ -302,7 +324,7 @@ def wavelet(k, r, W, label="", size="单栏 85 mm", rmax=6.0, kweight=2):
     ax.set_ylim(r[0], rmax)
     ax.set_xlabel("k (Å$^{-1}$)"); ax.set_ylabel(RLABEL)
     if label:
-        ax.set_title(label, fontsize=plt.rcParams["font.size"])
+        ax.set_title(chem(label), fontsize=plt.rcParams["font.size"])
     return fig, f"Wavelet transform (k$^{kweight}$-weighted) of {label}; R not phase-corrected."
 
 
