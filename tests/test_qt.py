@@ -652,6 +652,7 @@ def main():
     # 项目页不在导航里；流程与本项目悬浮窗
     w.go("data")
     w.flow_btn.open()
+    w.flow_btn._timer.stop()      # 悬浮窗 300 ms 检查一次鼠标、不在窗内就关闭；测试不模拟鼠标，慢的 CI 机器上会先被关掉
     pump(app, 0.1)
     say("home" not in w.nav and w.flow_btn.pop is not None and "本项目" in texts(w.flow_btn.pop), "流程与本项目悬浮窗")
     w.flow_btn.close_pop()
