@@ -7,9 +7,7 @@
 - 警告：能运行，但违反数据规范或可能不物理（k 范围超出数据或越过干扰边、变量数 > N_idp/2、rbkg 偏大）。
 """
 from xafsmith import logs
-import math
 import json
-from pathlib import Path
 
 import pandas as pd
 

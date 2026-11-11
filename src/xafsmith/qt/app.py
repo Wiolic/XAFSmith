@@ -276,6 +276,12 @@ class MainWindow(QMainWindow):
         self.busy_lbl = QLabel("")
         self.busy_lbl.setObjectName("faint")
         lay.addWidget(self.busy_lbl, 1)
+        self._cancel_cb = None
+        self.cancel_btn = W.button(T("取消", "Cancel"), tip=T("在当前步骤结束后停止（一次拟合 / 一次 FEFF 运行不能中途停止）",
+                                                              "Stops after the current step (a single fit / FEFF run cannot be interrupted)"))
+        self.cancel_btn.clicked.connect(lambda: self._cancel_cb() if self._cancel_cb else None)
+        self.cancel_btn.hide()
+        lay.addWidget(self.cancel_btn)
         ic = QLabel()
         ic.setPixmap(icon("shield", C["text2"], 15).pixmap(15, 15))
         lay.addWidget(ic)
@@ -385,9 +391,17 @@ class MainWindow(QMainWindow):
         self.S.extra["page"] = "data"
         self.rebuild()
 
-    def busy(self, on, text=""):
+    def busy(self, on, text="", frac=None, cancel=None):
+        """状态栏：on=忙碌；frac（0–1）有值时显示确定进度，否则为不确定动画；cancel 有值时显示“取消”按钮"""
         self.bar.setVisible(on)
+        if on and frac is not None:
+            self.bar.setRange(0, 1000)
+            self.bar.setValue(int(max(0.0, min(1.0, frac)) * 1000))
+        else:
+            self.bar.setRange(0, 0)
         self.busy_lbl.setText(text if on else "")
+        self._cancel_cb = cancel if on else None
+        self.cancel_btn.setVisible(on and cancel is not None)
 
     def toast(self, text, kind="ok"):
         t = self._toast

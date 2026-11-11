@@ -173,7 +173,7 @@ class MethodsPage(Page):
 class PubFigPage(Page):
     title_zh, title_en, icon_name = "图片导出", "Figure export", "chart"
 
-    KINDS = ["xanes", "deriv", "chik", "chir", "fit"]
+    KINDS = ["xanes", "deriv", "chik", "chir"]
 
     def build(self):
         from xafsmith import pubfig as pf
@@ -182,7 +182,7 @@ class PubFigPage(Page):
                       "Arial, consistent line widths and palettes; 600 dpi TIFF (LZW) / PNG, vector SVG / PDF and an English "
                       "caption, or an Origin project (.opju)."))
         names = {"xanes": T("归一化 XANES", "Normalized XANES"), "deriv": T("XANES 导数", "XANES derivative"), "chik": "kⁿχ(k)",
-                 "chir": "|χ(R)|", "fit": T("拟合（k + R）", "Fit (k + R)")}
+                 "chir": "|χ(R)|"}
         sizes = {"单栏 85 mm": T("单栏 85 mm", "Single column 85 mm"), "1.5 栏 120 mm": T("1.5 栏 120 mm", "1.5 column 120 mm"),
                  "双栏 178 mm": T("双栏 178 mm", "Double column 178 mm"), "汇报 16:9": T("汇报 16:9", "Slide 16:9")}
         ctl = Card()
@@ -195,18 +195,10 @@ class PubFigPage(Page):
                       fmt=lambda k: T(pf.PALETTES[k]["zh"], pf.PALETTES[k]["en"]))
         ctl.add(kind)
         k_ = self.state.get("kind", "xanes")
+        if k_ not in self.KINDS:       # 旧版本的“拟合（k + R）”并入 χ(k)/|χ(R)| 的“叠加拟合”
+            k_ = "chir"
         opt = {}
-        if k_ == "fit":
-            if not S.fits:
-                self.add(ctl)
-                self.add(Banner("info", T("还没有拟合：在“EXAFS 拟合”中拟合或运行已保存的模型。",
-                                          "No fits yet: fit or run a saved model under “EXAFS fitting”.")))
-                return
-            opt["fit"] = W.combo(list(range(len(S.fits))), self.state.get("fit", len(S.fits) - 1), fmt=lambda i: fit_label(S.fits[i]))
-            opt["kw"] = W.combo([1, 2, 3], self.state.get("kw", 2))
-            opt["rmax"] = W.num(self.state.get("rmax", 6.0), 2, 10, 0.5)
-            ctl.add(W.fields((T("拟合", "Fit"), opt["fit"]), (T("k 权重", "k-weight"), opt["kw"]), (T("R 上限", "R max"), opt["rmax"])))
-        else:
+        if True:
             need_chi = k_ in ("chik", "chir")
             cands = [k for k, g in S.groups.items() if (has_chi(g) if need_chi else hasattr(g, "flat"))]
             if not cands:
@@ -228,6 +220,17 @@ class PubFigPage(Page):
                     opt["rmax"] = W.num(self.state.get("rmax", 6.0), 2, 10, 0.5)
                     opt["re"] = W.check(T("同时画 Re χ(R)（虚线）", "Also Re χ(R) (dashed)"), self.state.get("re", False))
                     items.append((T("R 上限", "R max"), opt["rmax"]))
+                # 叠加拟合：每条谱默认取最近一次拟合，也可在列表中指定
+                fit_ids = [i for i, f_ in enumerate(S.fits) if f_["summ"]["sample"] in cands]
+                latest = {}
+                for i in fit_ids:
+                    latest[S.fits[i]["summ"]["sample"]] = i
+                opt["usefit"] = W.check(T("叠加拟合曲线（虚线）", "Overlay fit (dashed)"), self.state.get("usefit", False) and bool(fit_ids))
+                saved = [i for i in self.state.get("fits", []) if i in fit_ids]
+                opt["fits"] = W.MultiSelect(fit_ids, saved or list(latest.values()),
+                                            T("无拟合：先在“EXAFS 拟合”中拟合", "No fits: fit under “EXAFS fitting” first"),
+                                            fmt=lambda i: fit_label(S.fits[i]))
+                items.append((T("拟合", "Fits"), opt["fits"]))
             ctl.add(W.fields(*items))
             refs0 = self.state.get("refs")
             if refs0 is None:
@@ -235,7 +238,7 @@ class PubFigPage(Page):
             opt["refs"] = W.MultiSelect(cands, [c for c in refs0 if c in cands], T("无（全部按样品配色）", "None (all as samples)"))
             ctl.add(W.fields((T("配色方案", "Palette"), pal),
                              (T("参比 / 标样（用灰色画，线稍细）", "References / standards (grey, thinner)"), opt["refs"])))
-            ctl.add(W.hbox(opt["sub"], *([opt["re"]] if "re" in opt else []), None))
+            ctl.add(W.hbox(opt["sub"], *([opt["re"]] if "re" in opt else []), *([opt["usefit"]] if "usefit" in opt else []), None))
         ctl.add(W.fields((T("尺寸", "Size"), size), (T("格式", "Formats"), fmts), (T("文件名", "File name"), name)))
         self.add(ctl)
         view = Card(T("预览", "Preview"))
@@ -256,11 +259,7 @@ class PubFigPage(Page):
             if cur.get("fig") is not None:
                 plt.close(cur["fig"])
             with plain_rc():
-                if k_ == "fit":
-                    f_ = S.fits[opt["fit"].value()]
-                    fig, c = pf.fit(f_["curves"], f_["summ"], size.value(), kweight=opt["kw"].value(), rmax=opt["rmax"].value(),
-                                    model=f_["model"])
-                else:
+                if True:
                     sel = opt["sel"].value()
                     if not sel:
                         W._clear_layout(holder.layout())
@@ -269,14 +268,20 @@ class PubFigPage(Page):
                     gs = [S.groups[k] for k in sel]
                     sub = opt["sub"].isChecked()
                     cols = pf.series_colors(sel, pal.value(), opt["refs"].value())
+                    fits = None
+                    if "usefit" in opt and opt["usefit"].isChecked():
+                        fits = {}
+                        for i in opt["fits"].value():
+                            fits[S.fits[i]["summ"]["sample"]] = S.fits[i]
+                        fits = {k: v for k, v in fits.items() if k in sel} or None
                     if k_ in ("xanes", "deriv"):
                         fig, c = pf.xanes(gs, size.value(), (opt["lo"].value(), opt["hi"].value()), opt["off"].value(),
                                           deriv=k_ == "deriv", sub=sub, colors=cols)
                     elif k_ == "chik":
-                        fig, c = pf.chik(gs, size.value(), opt["kw"].value(), opt["off"].value(), sub=sub, colors=cols)
+                        fig, c = pf.chik(gs, size.value(), opt["kw"].value(), opt["off"].value(), sub=sub, colors=cols, fits=fits)
                     else:
                         fig, c = pf.chir(gs, size.value(), opt["kw"].value(), opt["rmax"].value(), opt["off"].value(),
-                                         opt["re"].isChecked(), sub=sub, colors=cols)
+                                         opt["re"].isChecked(), sub=sub, colors=cols, fits=fits)
                 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
                 canvas = FigureCanvasQTAgg(fig)
                 fig.set_dpi(150 if size.value() != "汇报 16:9" else 70)
@@ -311,10 +316,10 @@ class PubFigPage(Page):
             W.wait_cursor(render)
 
         obtn = W.button(T("导出 Origin 工程 (.opju)", "Export Origin project (.opju)"), icon_name="download",
-                        tip=T("每条曲线写成工作表中的一对 X/Y 列，并按统一格式作图（图层 25×19 cm、Arial 32 pt、四边框、刻度朝内）。"
+                        tip=T("每条曲线写成工作表中的一对 X/Y 列，并按统一格式作图（图层 25×19 cm、Arial 32 pt、四边框、刻度朝外）。"
                               "本机有 Origin 时直接生成 .opju；否则写出数据与 build_origin.py，在 Origin 脚本窗口运行即可。",
                               "Each curve becomes an X/Y column pair; graphs use one format (25×19 cm layer, Arial 32 pt, boxed axes, "
-                              "inward ticks). With Origin installed the .opju is built directly; otherwise data and build_origin.py "
+                              "outward ticks). With Origin installed the .opju is built directly; otherwise data and build_origin.py "
                               "are written for Origin's script window."))
 
         def origin():

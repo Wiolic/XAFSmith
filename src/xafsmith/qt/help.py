@@ -10,7 +10,7 @@ from pathlib import Path
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (QButtonGroup, QHBoxLayout, QLabel, QMainWindow, QPushButton, QScrollArea, QStackedWidget,
-                               QTextBrowser, QVBoxLayout, QWidget)
+                               QVBoxLayout, QWidget)
 
 from . import widgets as W
 from .theme import C, icon

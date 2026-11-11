@@ -29,6 +29,7 @@ F 检验：hamilton_test(fit_small, fit_large)。
 from xafsmith import logs
 import argparse
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -88,7 +89,7 @@ def build_paths(model, root=None):
     return paths
 
 
-def run_fit(data, model, root=None):
+def run_fit(data, model: dict, root=None) -> tuple:
     """data: 已做 autobk 的 Group（含 k, chi）。返回 (result, dataset, summary dict)"""
     from larch.fitting import param_group
     from larch.xafs import feffit_transform, feffit_dataset, feffit
@@ -159,7 +160,7 @@ def _s02val(res):
     return 1.0
 
 
-def report_text(res):
+def report_text(res) -> str:
     from larch.xafs import feffit_report
     return feffit_report(res)
 
@@ -220,7 +221,8 @@ def robustness_variants(model, dk_lo=0.5, dk_hi=1.0, dr=0.2):
     return out
 
 
-def robustness(data, model, root=None, variants=None, progress=None):
+def robustness(data, model: dict, root=None, variants=None,
+               progress: Callable[[float, str], None] | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
     """改变拟合条件重复拟合，检查参数是否稳定。
 
     返回 (table, verdict)：table 每行一个条件，列为 R 因子与各变量的值；
@@ -273,7 +275,6 @@ def diagnose(curves, model, e0=None, kweight=2):
       spikes            —— 残差尖峰 [(k, 对应能量 eV 或 None, 偏离倍数)]
       hints             —— 建议（中文，界面会翻译）
     """
-    from larch import Group
     from larch.xafs import xftf
     k, chi = np.asarray(curves["k"]), np.asarray(curves["chi"])
     fit = np.interp(k, curves["kfit"], curves["chifit"])

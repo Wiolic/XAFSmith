@@ -18,6 +18,7 @@
 """
 import json
 import re
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -42,7 +43,7 @@ META_COLS = ["file", "sample", "edge_key", "mode", "role", "use", "time", "npts"
 _DATA_SUFFIX = {".xdi", ".xmu", ".dat", ".txt", ".csv", ".chi", ".prj"}
 
 
-def safe(name):
+def safe(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", str(name)).strip("_")
 
 
@@ -142,7 +143,7 @@ def scan_raw(raw_dir=None, meta_path=None):
     return meta, len(rows)
 
 
-def load_meta(path=None):
+def load_meta(path: str | Path | None = None) -> pd.DataFrame:
     path = path or paths.META
     m = pd.read_csv(path, dtype=str, encoding="utf-8-sig").fillna("")
     m["use"] = m["use"].replace("", "1")
@@ -175,7 +176,7 @@ def init_config(meta, path=None):
     return cfg
 
 
-def load_config(path=None):
+def load_config(path: str | Path | None = None) -> dict:
     path = path or paths.CONFIG
     return json.loads(Path(path).read_text(encoding="utf-8-sig"))
 
@@ -230,11 +231,16 @@ def calibrate_ref_file(ref_file, cfg, edge_key=None):
     return r
 
 
-def run_calib(cfg, meta, out=None):
-    """每个参比文件求一个 ΔE，作用于 meta.csv 中 ref_file 指向它的所有谱。"""
+def run_calib(cfg: dict, meta: pd.DataFrame, out: str | Path | None = None,
+              progress: Callable[[float, str], None] | None = None) -> dict:
+    """每个参比文件求一个 ΔE，作用于 meta.csv 中 ref_file 指向它的所有谱。
+    progress(f, 名称)：可选，每个参比开始前调用（同时是取消点）。"""
     out = out or paths.CALIB_JSON
     res = {}
-    for ref in sorted(set(meta.ref_file) - {""}):
+    refs = sorted(set(meta.ref_file) - {""})
+    for i, ref in enumerate(refs):
+        if progress:
+            progress(i / len(refs), ref)
         r = calibrate_ref_file(ref, cfg)
         gaps = {}
         for _, row in meta[meta.ref_file == ref].iterrows():
@@ -246,7 +252,7 @@ def run_calib(cfg, meta, out=None):
     return res
 
 
-def load_calib(path=None):
+def load_calib(path: str | Path | None = None) -> dict:
     """{ref_file: 校准记录}；旧格式（按吸收边索引）自动换成按参比文件索引。"""
     path = path or paths.CALIB_JSON
     p = Path(path)
@@ -255,7 +261,7 @@ def load_calib(path=None):
 
 
 # ------------------------------------------------------------------ processing
-def edge_cfg(cfg, edge_key, sample=None):
+def edge_cfg(cfg: dict, edge_key: str, sample: str | None = None) -> dict:
     """该边的参数；config.json 的 "overrides": {样品名: {"norm": {...}, "bkg": {...}, "ft": {...}}}
     可对个别样品改参数（必须在 "overrides_reason" 中写理由，如干扰边落在边前范围）。"""
     import copy as _copy
@@ -289,7 +295,8 @@ def load_scan(row, cfg, calib):
     return g
 
 
-def build_sample(sample, cfg=None, meta=None, calib=None, do_chi=True):
+def build_sample(sample: str, cfg: dict | None = None, meta: pd.DataFrame | None = None,
+                 calib: dict | None = None, do_chi: bool = True) -> tuple:
     """读入某样品所有可用扫描 → 校准 → 归一化 → 合并 → χ(k) → FT。返回 (group, merge_report)"""
     cfg = cfg or load_config()
     meta = meta if meta is not None else load_meta()
@@ -320,20 +327,25 @@ def build_sample(sample, cfg=None, meta=None, calib=None, do_chi=True):
     return g, rep
 
 
-def process_all(cfg=None, meta=None, edge_keys=None, make_figs=True):
+def process_all(cfg: dict | None = None, meta: pd.DataFrame | None = None, edge_keys: list[str] | None = None,
+                make_figs: bool = True, progress: Callable[[float, str], None] | None = None) -> tuple[pd.DataFrame, dict]:
+    """处理全部样品。progress(f, 名称)：可选，每个样品开始前调用（同时是取消点）；取消时已写出的样品文件保留。"""
     from . import report as xrep
     cfg = cfg or load_config()
     meta = meta if meta is not None else load_meta()
     calib = load_calib()
     paths.PROC.mkdir(parents=True, exist_ok=True)
     summary, groups = [], {}
-    for sample in dict.fromkeys(meta["sample"]):
+    samples = list(dict.fromkeys(meta["sample"]))
+    for i, sample in enumerate(samples):
         rows = meta[meta["sample"] == sample]
         ek = rows.edge_key.iloc[0]
         if edge_keys and ek not in edge_keys:
             continue
         if (rows["use"] == "0").all():
             continue
+        if progress:
+            progress(0.9 * i / len(samples), sample)
         try:
             g, rep = build_sample(sample, cfg, meta, calib)
         except Exception as ex:
@@ -364,6 +376,8 @@ def process_all(cfg=None, meta=None, edge_keys=None, make_figs=True):
     df.to_csv(paths.PROC / "process_summary.csv", index=False, encoding="utf-8-sig")
     write_params(paths.PROC / "process.params.json", cfg, "pipeline.process_all")
     if make_figs:
+        if progress:
+            progress(0.9, "figures")
         figs = paths.FIGS
         figs.mkdir(parents=True, exist_ok=True)
         for ek in sorted(set(df.edge_key)) if len(df) else []:
@@ -381,16 +395,19 @@ def process_all(cfg=None, meta=None, edge_keys=None, make_figs=True):
     return df, groups
 
 
-def run_qc(edge_key=None, cfg=None, meta=None):
-    """逐条扫描质量检查 → output/qc/qc_report.csv；返回 DataFrame"""
+def run_qc(edge_key: str | None = None, cfg: dict | None = None, meta: pd.DataFrame | None = None,
+           progress: Callable[[float, str], None] | None = None) -> pd.DataFrame:
+    """逐条扫描质量检查 → output/qc/qc_report.csv；返回 DataFrame。progress(f, 文件名)：可选，每条谱开始前调用（同时是取消点）"""
     from . import qc
     cfg = cfg or load_config()
     meta = meta if meta is not None else load_meta()
     calib = load_calib()
     rows = []
-    for _, r in meta.iterrows():
+    for i, (_, r) in enumerate(meta.iterrows()):
         if edge_key and r.edge_key != edge_key:
             continue
+        if progress:
+            progress(i / len(meta), r.file)
         try:
             g = load_scan(r, cfg, calib)
             g.label = r.file

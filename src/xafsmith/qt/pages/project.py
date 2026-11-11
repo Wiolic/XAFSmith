@@ -242,11 +242,13 @@ class BatchPage(Page):
             show([W.label(T(f"→ {paths.rel(paths.PROC)}/、{paths.rel(paths.FIGS)}/；之后在“载入谱”中按样品载入查看",
                             f"→ {paths.rel(paths.PROC)}/, {paths.rel(paths.FIGS)}/; then load samples under “Load spectra”"),
                           "faint"), W.Table(df, max_height=520)])
-        b1.clicked.connect(lambda: W.run_task(self, pl.run_qc, qc_done, T("质量检查中…", "Checking…"), b1))
-        b2.clicked.connect(lambda: W.run_task(self, lambda: pl.run_calib(pl.load_config(), pl.load_meta()), cal_done,
-                                              T("校准中…", "Calibrating…"), b2))
-        b3.clicked.connect(lambda: W.run_task(self, pl.process_all, proc_done,
-                                              T("校准 → 归一化 → 合并 → χ(k) → FT …", "Calibrate → normalize → merge → χ(k) → FT …"), b3))
+        b1.clicked.connect(lambda: W.run_task(self, lambda progress: pl.run_qc(progress=progress), qc_done, T("质量检查中…", "Checking…"), b1,
+                                              progress=True))
+        b2.clicked.connect(lambda: W.run_task(self, lambda progress: pl.run_calib(pl.load_config(), pl.load_meta(), progress=progress),
+                                              cal_done, T("校准中…", "Calibrating…"), b2, progress=True))
+        b3.clicked.connect(lambda: W.run_task(self, lambda progress: pl.process_all(progress=progress), proc_done,
+                                              T("校准 → 归一化 → 合并 → χ(k) → FT …", "Calibrate → normalize → merge → χ(k) → FT …"), b3,
+                                              progress=True))
         run.add(W.hbox(b1, b2, b3, None))
         run.add(out)
         self.add(run)

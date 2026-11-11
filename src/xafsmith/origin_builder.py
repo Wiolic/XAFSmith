@@ -4,7 +4,7 @@
     （XAFSmith 找不到 originpro 时，只写出数据与这个脚本）。
 
 图层格式参照作者的 Origin 工程（IrCoOx_Ir_XANES.opju）：图层 25 × 19 cm、Arial 32 pt（坐标轴标题、刻度、图例）、
-坐标轴 2 pt、四边框（上、右框线无刻度、无数字）、开启抗锯齿、刻度朝内、主刻度间一个次刻度、数据线 3.5 pt（其余 3 pt）、图例无边框。
+坐标轴 2 pt、四边框（上、右框线无刻度、无数字）、开启抗锯齿、刻度朝外、主刻度间一个次刻度、数据线 3.5 pt（其余 3 pt）、图例无边框。
 
 spec = {"out": ".../xxx.opju", "style": {...}, "graphs": [{
     "book": "fig_xanes", "csv": ".../fig_xanes.csv",

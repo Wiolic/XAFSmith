@@ -110,7 +110,7 @@ def fit_all_combinations(sample, standards, nmin=1, nmax=3, **kws):
     return pd.DataFrame(rows).sort_values("rfactor").reset_index(drop=True)
 
 
-def result_row(r, note=""):
+def result_row(r: dict, note: str = "") -> dict:
     d = dict(sample=r["sample"], space=r["space"], range=f"{r['xmin']}..{r['xmax']}",
              rfactor=r["rfactor"], chi2_reduced=r["chi2_reduced"], sum_weights=r["sum_weights"],
              de=r["de"], note=note)

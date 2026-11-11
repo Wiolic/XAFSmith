@@ -114,7 +114,7 @@ def ref_candidates():
 
 
 def ref_calib(S, ref, e_table=None, smooth_ev=1.0, force=False):
-    from xafsmith import calib as xcal, io as xio, pipeline as pl
+    from xafsmith import calib as xcal, pipeline as pl
     if ref in S.calib and not force:
         return S.calib[ref]
     cfg = load_cfg()

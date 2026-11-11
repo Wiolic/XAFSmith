@@ -9,7 +9,6 @@
 """
 import argparse
 
-import numpy as np
 import pandas as pd
 
 from .common import e2k, edge_energy

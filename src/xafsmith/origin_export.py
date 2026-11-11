@@ -63,9 +63,16 @@ def _hex(c):
 def _inc(ax, which):
     t = ax.get_xticks() if which == "x" else ax.get_yticks()
     t = np.asarray(t, float)
-    if len(t) >= 2:
-        return float(np.round(np.median(np.diff(t)), 10))
-    return None
+    if len(t) < 2:
+        return None
+    inc = float(np.round(np.median(np.diff(t)), 10))
+    # Origin 图层上刻度数字是 32 pt，横轴最多放约 6 个主刻度（4–5 位数字的能量轴否则会互相重叠）
+    lo, hi = ax.get_xlim() if which == "x" else ax.get_ylim()
+    maxn = 6 if which == "x" else 8
+    for mult in (2, 2.5, 2, 2):
+        if inc > 0 and abs(hi - lo) / inc > maxn:
+            inc = float(np.round(inc * mult, 10))
+    return inc
 
 
 def figure_spec(fig, out_dir, name, kind="", png=False):

@@ -81,7 +81,7 @@ A blue rounded button, always in the same place. Hover over it (or click) for a 
 | Tables | Double-click a cell to edit (path and parameter tables of EXAFS fitting edit with a single click); click check boxes directly; numbers accept any number of decimals |
 | Multi-select boxes | Open to search and tick; “All / None” for bulk changes |
 | Explanation buttons | Some pages have one at the top right (e.g. “Before you fit · what is a good fit”); it opens a separate window that does not block the page |
-| Long calculations | Processing, FEFF, fitting, robustness and reports run in the background; a thin bar at the top and the progress at the bottom left |
+| Long calculations | Processing, QC, calibration, FEFF, fitting, robustness, LCF and reports run in the background; a thin bar at the top (with a percentage when the progress is known) and the progress at the bottom left. Tasks with progress (batch processing, QC, calibration, running saved models, robustness) show a **Cancel** button: it stops **after the current step** (a single fit or FEFF run cannot be interrupted), and a cancelled task writes no result. With several tasks running only their count is shown |
 | Light / dark | Follows the Windows setting |
 
 ### 3　Create a project
@@ -403,7 +403,7 @@ Each curve becomes an X/Y column pair (column name = legend), plotted in one for
 |---|---|
 | Layer | 25 × 19 cm |
 | Font | Arial 32 pt (axis titles, tick labels, legend) |
-| Axes | 2 pt, boxed; no ticks on the top and right; inward ticks |
+| Axes | 2 pt, boxed; no ticks on the top and right; outward ticks |
 | Lines | 3.5 pt for data, 3 pt for standards; anti-aliasing on |
 | Legend | No frame; formula subscripts in Origin syntax (IrO\-(2)) |
 | XANES | Energy E (eV) on the x axis; y ticks hidden when offset |

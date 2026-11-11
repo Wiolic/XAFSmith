@@ -116,8 +116,14 @@ def style(size="单栏 85 mm"):
         "font.family": "sans-serif", "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
         "font.size": s["font"], "axes.labelsize": s["font"], "xtick.labelsize": s["font"] - 1,
         "ytick.labelsize": s["font"] - 1, "legend.fontsize": s["font"], "axes.linewidth": 0.8 * s["lw"],
-        "lines.linewidth": s["lw"], "xtick.direction": "in", "ytick.direction": "in", "xtick.top": True,
-        "ytick.right": True, "xtick.major.width": 0.8 * s["lw"], "ytick.major.width": 0.8 * s["lw"],
+        "lines.linewidth": s["lw"],
+        # 与导出的 Origin 工程一致：四边框线，刻度只在左、下（朝外），上、右框线无刻度，带次刻度
+        "xtick.direction": "out", "ytick.direction": "out", "xtick.top": False, "ytick.right": False,
+        "xtick.bottom": True, "ytick.left": True, "xtick.minor.visible": True, "ytick.minor.visible": True,
+        "xtick.major.size": 0.4 * s["font"], "ytick.major.size": 0.4 * s["font"],
+        "xtick.minor.size": 0.2 * s["font"], "ytick.minor.size": 0.2 * s["font"],
+        "xtick.major.width": 0.8 * s["lw"], "ytick.major.width": 0.8 * s["lw"],
+        "xtick.minor.width": 0.6 * s["lw"], "ytick.minor.width": 0.6 * s["lw"],
         "legend.frameon": False, "axes.prop_cycle": plt.cycler(color=COLORS), "axes.unicode_minus": False,
         "savefig.bbox": "tight", "savefig.pad_inches": 0.03, "mathtext.default": "regular",
     })
@@ -169,20 +175,50 @@ def xanes(groups, size="单栏 85 mm", xlim=(-20, 60), offset=0.0, relative=True
     return fig, cap
 
 
-def chik(groups, size="单栏 85 mm", kweight=2, offset=0.0, kmax=None, sub=True, colors=None):
+def _fit_color(c, single=False):
+    """拟合虚线的颜色逻辑：只有一条谱叠加拟合时用红色（数据黑/蓝，拟合红，最易分辨）；
+    多条谱时每条拟合取"自己数据色加深"，一眼看出哪条拟合属于哪条数据；数据为黑色时用红色。"""
+    import colorsys
+    from matplotlib.colors import to_rgb, to_hex
+    rgb = to_rgb(c)
+    if single or rgb == (0.0, 0.0, 0.0):
+        return COLORS[2]
+    h, l, sat = colorsys.rgb_to_hls(*rgb)
+    return to_hex(colorsys.hls_to_rgb(h, max(0.0, l * 0.6), min(1.0, sat * 1.1)))
+
+
+def _fit_caption(groups, fits):
+    out = ""
+    for g in groups:
+        f = (fits or {}).get(g.label)
+        if f is not None:
+            m = f["summ"]
+            out += (f" Fit of {g.label} (model {m['model']}): k = {m['kmin']}–{m['kmax']} Å⁻¹, R = {m['rmin']}–{m['rmax']} Å,"
+                    f" R-factor = {m['rfactor']:.4f}, N_idp = {m['n_idp']:.1f}, {m['nvarys']} variables.")
+    return out
+
+
+def chik(groups, size="单栏 85 mm", kweight=2, offset=0.0, kmax=None, sub=True, colors=None, fits=None):
+    """fits: {谱名: 拟合 dict(curves, summ, model)}；给出时在对应谱上叠加拟合曲线（虚线）"""
     fig, (ax,), s = _fig(size)
     for i, g in enumerate(groups):
-        ax.plot(g.k, g.chi * g.k ** kweight + i * offset, label=chem(g.label, sub), **_style_of(i, s, colors))
+        line, = ax.plot(g.k, g.chi * g.k ** kweight + i * offset, label=chem(g.label, sub), **_style_of(i, s, colors))
+        f = (fits or {}).get(g.label)
+        if f is not None:
+            c = f["curves"]
+            ax.plot(c["kfit"], c["chifit"] * c["kfit"] ** kweight + i * offset, color=_fit_color(line.get_color(), len(fits) == 1),
+                    ls="--", lw=0.9 * s["lw"], label=chem(g.label, sub) + " fit")
     if kmax:
         ax.set_xlim(0, kmax)
     ax.set_xlabel("k (Å$^{-1}$)")
     ax.set_ylabel(f"k$^{kweight}$χ(k) (Å$^{{-{kweight}}}$)" + (" (offset)" if offset else ""))
     ax.axhline(0, color="0.6", lw=0.5 * s["lw"])
     ax.legend(loc="best")
-    return fig, f"k$^{kweight}$-weighted EXAFS. " + "; ".join(_caption_group(g) for g in groups)
+    return fig, (f"k$^{kweight}$-weighted EXAFS" + ("; dashed: EXAFS fit" if fits else "") + ". "
+                 + "; ".join(_caption_group(g) for g in groups) + _fit_caption(groups, fits))
 
 
-def chir(groups, size="单栏 85 mm", kweight=2, rmax=6.0, offset=0.0, show_re=False, sub=True, colors=None):
+def chir(groups, size="单栏 85 mm", kweight=2, rmax=6.0, offset=0.0, show_re=False, sub=True, colors=None, fits=None):
     from larch import Group
     from larch.xafs import xftf
     fig, (ax,), s = _fig(size)
@@ -193,14 +229,26 @@ def chir(groups, size="单栏 85 mm", kweight=2, rmax=6.0, offset=0.0, show_re=F
              window=fp.get("window", "hanning"), kweight=kweight)
         line, = ax.plot(t.r, t.chir_mag + i * offset, label=chem(g.label, sub), **_style_of(i, s, colors))
         if show_re:
-            ax.plot(t.r, t.chir_re + i * offset, color=line.get_color(), lw=0.6 * s["lw"], ls="--")
+            ax.plot(t.r, t.chir_re + i * offset, color=line.get_color(), lw=0.6 * s["lw"], ls="--" if not fits else "-")
+        f = (fits or {}).get(g.label)
+        if f is not None:
+            c, md, sm = f["curves"], f.get("model") or {}, f["summ"]
+            tf = Group(k=c["kfit"], chi=c["chifit"])
+            xftf(tf, kmin=sm["kmin"], kmax=sm["kmax"], dk=md.get("dk", fp.get("dk", 1)),
+                 window=md.get("window", fp.get("window", "hanning")), kweight=kweight)
+            fc = _fit_color(line.get_color(), len(fits) == 1)
+            ax.plot(tf.r, tf.chir_mag + i * offset, color=fc, ls="--", lw=0.9 * s["lw"], label=chem(g.label, sub) + " fit")
+            if show_re:
+                ax.plot(tf.r, tf.chir_re + i * offset, color=fc, lw=0.6 * s["lw"], ls="--")
+            ax.axvspan(sm["rmin"], sm["rmax"], color="0.93", lw=0, zorder=0)
     ax.set_xlim(0, rmax)
     ax.set_xlabel(RLABEL)
     ax.set_ylabel(f"|χ(R)| (Å$^{{-{kweight + 1}}}$)" + (" (offset)" if offset else ""))
     ax.legend(loc="best")
     return fig, (f"Fourier-transformed EXAFS (k$^{kweight}$-weighted, not phase-corrected"
-                 + ("; dashed: real part" if show_re else "") + "). "
-                 + "; ".join(_caption_group(g) for g in groups))
+                 + ("; thin lines: real part" if show_re else "")
+                 + ("; dashed: EXAFS fit, shaded: fit window" if fits else "") + "). "
+                 + "; ".join(_caption_group(g) for g in groups) + _fit_caption(groups, fits))
 
 
 def fit(curves, summ, size="双栏 178 mm", kweight=2, rmax=6.0, model=None):
@@ -237,7 +285,7 @@ def wavelet(k, r, W, label="", size="单栏 85 mm", rmax=6.0, kweight=2):
     fig, (ax,), s = _fig(size)
     m = ax.contourf(k, r, W, 40, cmap="viridis")
     cb = fig.colorbar(m, ax=ax)
-    cb.ax.tick_params(direction="in")
+    cb.ax.tick_params(direction="out")
     ax.set_ylim(r[0], rmax)
     ax.set_xlabel("k (Å$^{-1}$)"); ax.set_ylabel(RLABEL)
     if label:

@@ -1,9 +1,7 @@
 """阶段 2 代码审查发现的问题的回归测试（.prj 参比组、同一样品多吸收边、BOM、旧样品名、列文本提示、inspect 模板）。"""
-import json
 import shutil
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import pytest
 

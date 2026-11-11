@@ -2,7 +2,6 @@
 
 模板格式见 docs/数据标准.md：{"base": "columns", "energy": 列名或列号, "i0": …, "it": …, "if": 列名/列号或列表, "mu": …, "mode": "trans|fluo"}
 """
-from pathlib import Path
 
 import numpy as np
 

@@ -24,7 +24,7 @@ os.environ["XAFSMITH_PROJECT"] = str(Path(ARGS.project).resolve())
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ["XAFSMITH_NO_RECENT"] = "1"          # 不写入用户的“最近的项目”
 
-from PySide6.QtWidgets import QApplication, QLabel, QPushButton   # noqa: E402
+from PySide6.QtWidgets import QLabel, QPushButton   # noqa: E402
 
 from xafsmith.qt import widgets as W                                 # noqa: E402
 from xafsmith.qt.app import make_window                              # noqa: E402
@@ -184,6 +184,15 @@ def irtaox_suite(app, w, S, P):
     say(after.get("deglitch") == before.get("deglitch") and after.get("deglitch_reason") == before.get("deglitch_reason")
         and getattr(S.groups["IrO2"], "deglitched", None) == before["deglitch"]["IrO2"], "去毛刺区间读回、写入不变")
 
+    # 质量检查（后台任务，作用于副本）
+    S.qc = None
+    P["qc"].refresh()
+    n = len(W.ERRORS)
+    click(P["qc"], "运行检查")
+    wait(app)
+    step("质量检查", n)
+    say(S.qc is not None and len(S.qc) > 0 and "error" not in S.qc, f"质量检查结果：{0 if S.qc is None else len(S.qc)} 条谱")
+
     # FEFF：内置 IrO2，FEFF6L
     w.go("feff")
     fp = P["feff"]
@@ -315,6 +324,16 @@ def irtaox_suite(app, w, S, P):
         rb = S.fits[-1].get("robust")
         say(rb is not None and len(rb[0]) >= 7 and set(rb[1]["参数"]) == {"s02", "e0", "dr1", "ss1"},
             f"稳健性：{0 if rb is None else len(rb[0])} 个条件")
+        # 取消：再跑一次稳健性检查，立即取消 → 不应写入结果、不算错误、按钮恢复、状态栏收起
+        S.fits[-1].pop("robust", None)
+        n = len(W.ERRORS)
+        click(pg, "运行稳健性检查")
+        say(bool(W._RUNNING) and bool(W._ACTIVE), "稳健性检查已在后台运行")
+        W._RUNNING[-1][3].cancel()
+        wait(app)
+        say(S.fits[-1].get("robust") is None and len(W.ERRORS) == n and not W._ACTIVE and not w.bar.isVisible()
+            and not w.cancel_btn.isVisible(),
+            "稳健性检查取消：未写入结果、无错误、状态栏已收起")
 
     # 归一化：导出 .prj
     w.go("norm")
@@ -371,6 +390,7 @@ def irtaox_suite(app, w, S, P):
     P["lcf"].refresh()
     n = len(W.ERRORS)
     click(P["lcf"], "LCF")
+    wait(app)
     step("LCF", n)
     say(S.extra.get("lcf") is not None, "LCF 结果")
 
@@ -399,7 +419,6 @@ def irtaox_suite(app, w, S, P):
 
 def demo_suite(app, w, S, P):
     """公开数据演示项目的通用检查：载入、直接读入、逐页、已保存模型、LCF、出图、.prj、报告。"""
-    import numpy as np
 
     # 载入谱：按样品（参比随样品一起载入）
     w.go("load")
@@ -495,6 +514,7 @@ def demo_suite(app, w, S, P):
     P["lcf"].refresh()
     n = len(W.ERRORS)
     click(P["lcf"], "LCF")
+    wait(app)
     step("LCF", n)
     say(S.extra.get("lcf") is not None, "LCF 结果")
 

@@ -29,7 +29,7 @@ dependencies = [
 # 直接生成 Origin 工程（.opju）：需要本机装有 Origin 2021 及以上；没有时“图片导出”只写数据与 build_origin.py
 origin = ["originpro"]
 # 开发与测试：python -m pytest tests/unit
-dev = ["pytest"]
+dev = ["pytest", "ruff"]
 
 [project.urls]
 Homepage = "https://github.com/Wiolic/XAFSmith"
@@ -42,3 +42,21 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 xafsmith = ["templates/*", "docs/*.md", "docs/images/basics/*/*.png", "assets/*"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py311"
+extend-exclude = ["tests/data", "build", "dist"]
+
+[tool.ruff.lint]
+# 先只开：语法错误、pyflakes（未用导入 / 未定义名）、可变默认参数、默认参数里调用函数。
+# 暂不开 E501 与 ruff format（会改写几乎所有文件）；v1.0 前统一格式化一次。
+select = ["E9", "F", "B006", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# __init__.py 是有意的再导出
+"**/__init__.py" = ["F401"]
+# paths.py 的模块级目录变量由 set_root() 通过 globals() 动态赋值
+"src/xafsmith/paths.py" = ["F821"]
+# Qt 的惯用写法 index=QModelIndex()
+"src/xafsmith/qt/widgets/table.py" = ["B008"]

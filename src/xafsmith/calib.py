@@ -8,13 +8,11 @@ E0_table 比较，ΔE = E0_table − E0_meas，同一吸收边、同一批测量
 用法：
   python -m xafsmith.calib <参比文件> [--element Ir --edge L3 --etable 11215.0]
 """
-from xafsmith import logs
 import argparse
 import datetime
 import json
 from pathlib import Path
 
-import numpy as np
 
 from .common import edge_energy
 from .normalize import find_e0
