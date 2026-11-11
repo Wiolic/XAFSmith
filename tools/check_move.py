@@ -67,7 +67,7 @@ def main():
     new = {}
     files = list((ROOT / a.new_pkg).glob("*.py")) + [ROOT / e for e in a.extra]
     for f in files:
-        for k, v in _top_nodes(f.read_text(encoding="utf-8"), a.dots if f.parent != ROOT / "src/xafsmith/qt/pages" else 0).items():
+        for k, v in _top_nodes(f.read_text(encoding="utf-8"), a.dots if f.parent == ROOT / a.new_pkg else 0).items():
             if k in new and new[k] != v and f.name != "__init__.py":
                 print(f"  [警告] {k} 在多个新文件中定义且不同：{f.name}")
             new.setdefault(k, v)

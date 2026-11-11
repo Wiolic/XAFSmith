@@ -532,6 +532,28 @@ def demo_suite(app, w, S, P):
     if good and d.parent == reports and d.name.startswith("汇总_"):
         shutil.rmtree(d)
 
+    # 后台任务：批量处理立即取消；质量检查运行中页面重建（旧按钮被删除）后仍正常收尾
+    w.go("batch")
+    n = len(W.ERRORS)
+    click(P["batch"], "③ 处理全部样品")
+    say(bool(W._ACTIVE) and w.cancel_btn.isVisible(), "批量处理：状态栏出现取消按钮")
+    W._RUNNING[-1][3].cancel()
+    wait(app)
+    say(len(W.ERRORS) == n and not W._ACTIVE and not W._RUNNING and not w.bar.isVisible()
+        and not w.cancel_btn.isVisible(), "批量处理取消：无错误、线程已回收、状态栏收起")
+    n = len(W.ERRORS)
+    click(P["batch"], "① 质量检查")
+    old_btn = next(x for x in P["batch"].findChildren(QPushButton) if "① 质量检查" in x.text() or x.text() == "质量检查中…")
+    P["batch"].refresh()                        # 任务运行中重建页面：旧按钮的 C++ 对象被删除
+    from PySide6.QtCore import QCoreApplication, QEvent
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)    # processEvents 不处理 deleteLater
+    import shiboken6
+    say(not shiboken6.isValid(old_btn), "旧按钮已被删除（测试前提）")
+    wait(app)
+    b = next((x for x in P["batch"].findChildren(QPushButton) if x.text() == "① 质量检查"), None)
+    say(len(W.ERRORS) == n and not W._ACTIVE and not W._RUNNING and not w.bar.isVisible()
+        and b is not None and b.isEnabled(), "任务期间页面重建：正常收尾、状态栏收起")
+
 
 def wizard_check(app):
     """列映射向导：用临时目录里的合成数据（非标准列名）试读，并截获保存（不写项目的 xafsmith.json）。"""

@@ -187,3 +187,19 @@ def test_two_tasks_status_counts(qapp):
     ev.set()
     _wait(W, qapp)
     assert win.calls[-1][0] is False and len(got) == 2
+
+
+def test_many_short_tasks_cleanup(qapp):
+    """大量短任务：线程在界面线程里回收（finished 不能直接连 lambda，否则在工作线程里销毁 QThread → 崩溃）"""
+    import gc
+    from xafsmith.qt import widgets as W
+    p = _parent(qapp, _Win())
+    got = []
+    for i in range(300):
+        W.run_task(p, lambda i=i: i, got.append)
+        if i % 10 == 0:
+            qapp.processEvents()
+            gc.collect()
+    _wait(W, qapp, timeout=60)
+    gc.collect()
+    assert sorted(got) == list(range(300))

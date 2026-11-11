@@ -2,6 +2,11 @@
 
 线程规则见 xafsmith/tasks.py 的模块说明：任务函数不碰控件、不改 State；结果在 on_done（界面线程）写回。
 取消只在 progress() 调用处（步骤之间）生效；一次 larch feffit / 一次 FEFF 运行不能中途停止。
+
+生命周期（都在界面线程里执行）：
+  工作线程 done/failed/cancelled → _Relay（排队连接）→ finish()：移出 _ACTIVE、刷新状态栏、th.quit()、恢复按钮
+  线程 finished → _Relay.cleanup（排队连接）：th.wait() 后才移出 _RUNNING，释放 QThread 的最后一个引用。
+  不能用 lambda 直接连 finished：lambda 会在工作线程里执行，QThread 在自己的 finished 信号中途被销毁 → 崩溃（CI 退出码 134）。
 """
 
 from __future__ import annotations
@@ -9,7 +14,9 @@ from __future__ import annotations
 from xafsmith import logs
 import traceback
 import atexit
+import time
 
+import shiboken6
 from PySide6.QtCore import QObject, Qt, QThread, Signal, Slot
 from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -33,7 +40,9 @@ class _Worker(QObject):
     def run(self):
         try:
             r = self.fn(self.handle.progress) if self.wp else self.fn()
-            self.done.emit(r)
+            # 装进元组再发：不让 None 直接经过跨线程的 Signal(object)（Python 3.11 的 None 不是永生对象，
+            # CI 在 Ubuntu/3.11 上出现过 “none_dealloc: deallocating None” 崩溃）
+            self.done.emit((r,))
         except Cancelled:
             self.cancelled.emit()
         except Exception as ex:          # noqa: BLE001
@@ -43,13 +52,13 @@ class _Worker(QObject):
 
 class _Relay(QObject):
     """在界面线程中接收后台线程的信号（回调里会新建控件，必须在界面线程执行）"""
-    def __init__(self, ok, bad, prog, cancelled=None):
+    def __init__(self, ok, bad, prog, cancelled=None, cleanup=None):
         super().__init__()
-        self._ok, self._bad, self._prog, self._cancelled = ok, bad, prog, cancelled
+        self._ok, self._bad, self._prog, self._cancelled, self._cleanup = ok, bad, prog, cancelled, cleanup
 
     @Slot(object)
-    def ok(self, r):
-        self._ok(r)
+    def ok(self, boxed):
+        self._ok(boxed[0])
 
     @Slot(str)
     def bad(self, m):
@@ -64,9 +73,19 @@ class _Relay(QObject):
         if self._cancelled:
             self._cancelled()
 
+    @Slot()
+    def cleanup(self):
+        if self._cleanup:
+            self._cleanup()
+
 
 _RUNNING = []     # (线程, worker, relay, handle)：线程真正结束后才移除（测试等待它清空）
 _ACTIVE = []      # 界面线程里尚未收到结果的任务（状态栏据此显示）
+
+
+def _alive(obj):
+    """控件是否仍存在（页面重建后旧按钮、旧页面的 C++ 对象已删除）"""
+    return obj is not None and shiboken6.isValid(obj)
 
 
 def _show_status(status):
@@ -85,7 +104,7 @@ def _show_status(status):
         txt = j["text"]
         if j["frac"] is not None:
             txt = f"{txt} {j['ptext']} {j['frac'] * 100:.0f}%"
-        status(True, txt, j["frac"], h.cancel_and_refresh if j["cancellable"] else None)
+        status(True, txt, j["frac"], j["cancel"] if j["cancellable"] else None)
         return
     live = [j for j in _ACTIVE if j["cancellable"] and not j["handle"].cancelled]
 
@@ -101,54 +120,72 @@ def run_task(parent, fn, on_done, busy_text=None, button_=None, progress=False, 
     """在后台线程运行 fn（耗时计算不卡界面）；完成后在界面线程调用 on_done(result)。
     progress=True 时 fn 接收一个 progress(f, 文字) 回调：它同时是取消点（见 xafsmith/tasks.py）。
     cancellable（默认 True）仅对 progress=True 的任务有意义：状态栏出现“取消”按钮，取消后不调用 on_done，
-    调用 on_cancel()（如有）并提示“已取消”。返回任务句柄 TaskHandle。"""
+    调用 on_cancel()（如有）并提示“已取消”。返回任务句柄 TaskHandle。
+    任务运行期间页面可能重建（按钮、页面被删除）：结束时跳过已删除的控件，不影响状态栏与线程回收。"""
     app = parent.window()
     status = getattr(app, "busy", None)
     th = QThread()
-    handle = TaskHandle()
+    wk = None
+    handle = TaskHandle(lambda f, n: wk.progress.emit(float(f), str(n)))
     job = dict(handle=handle, text=busy_text or T("运行中…", "Running…"), frac=None, ptext="",
                cancellable=bool(cancellable and progress))
-    handle.cancel_and_refresh = lambda: (handle.cancel(), _show_status(status))
+    job["cancel"] = lambda: (handle.cancel(), _show_status(status))
     wk = _Worker(fn, handle, progress)
     wk.moveToThread(th)
+    old_text = None
     if button_ is not None:
+        old_text = button_.text()
         button_.setEnabled(False)
-        button_._old = button_.text()
         button_.setText(busy_text or T("运行中…", "Running…"))
     _ACTIVE.append(job)
     _show_status(status)
     QApplication.setOverrideCursor(Qt.CursorShape.BusyCursor)
+    state = {"finished": False}
 
     def finish():
-        QApplication.restoreOverrideCursor()
-        if button_ is not None:
-            button_.setEnabled(True)
-            button_.setText(button_._old)
+        if state["finished"]:
+            return
+        state["finished"] = True
+        # 先做不会失败的收尾（状态栏、线程），再碰可能已删除的控件
         if job in _ACTIVE:
             _ACTIVE.remove(job)
         _show_status(status)
         th.quit()
+        QApplication.restoreOverrideCursor()
+        if _alive(button_):
+            button_.setEnabled(True)
+            button_.setText(old_text)
+
+    def call(cb, *a):
+        """回调里碰到已删除的控件（页面在任务期间重建）只记日志，不让异常打断收尾"""
+        try:
+            cb(*a)
+        except RuntimeError as ex:
+            if "already deleted" not in str(ex):
+                raise
+            logs.log.warning("后台任务结束时界面已重建，回调中的旧控件已删除：%s", ex)
 
     def cancelled():
         finish()
-        toast(parent, T("已取消", "Cancelled"), "info")
+        if _alive(parent):
+            toast(parent, T("已取消", "Cancelled"), "info")
         if on_cancel:
-            on_cancel()
+            call(on_cancel)
 
     def ok(r):
         if handle.cancelled:             # 已请求取消，但任务恰好跑完：丢弃结果，与“取消”一致
             cancelled()
             return
         finish()
-        on_done(r)
+        call(on_done, r)
 
     def bad(msg):
         finish()
         ERRORS.append(msg)
         if on_error:
-            on_error(msg)
+            call(on_error, msg)
         elif not QUIET["v"]:
-            dlg = QMessageBox(parent)
+            dlg = QMessageBox(parent if _alive(parent) else None)
             dlg.setIcon(QMessageBox.Icon.Warning)
             dlg.setWindowTitle(T("出错了", "Error"))
             dlg.setText(msg.split("\n\n")[0])
@@ -158,32 +195,45 @@ def run_task(parent, fn, on_done, busy_text=None, button_=None, progress=False, 
     def prog(f, n):
         job["frac"], job["ptext"] = f, n
         _show_status(status)
-    relay = _Relay(ok, bad, prog, cancelled)            # 创建于界面线程 → 排队连接，回调在界面线程执行
+
+    def cleanup():
+        th.wait()                         # finished 已发出，线程只剩最后几步；等它真正退出再释放
+        if entry in _RUNNING:
+            _RUNNING.remove(entry)
+        relay.deleteLater()
+
+    relay = _Relay(ok, bad, prog, cancelled, cleanup)    # 创建于界面线程 → 排队连接，回调在界面线程执行
     Q = Qt.ConnectionType.QueuedConnection
     wk.done.connect(relay.ok, Q)
     wk.failed.connect(relay.bad, Q)
     wk.progress.connect(relay.prog, Q)
     wk.cancelled.connect(relay.cancelled, Q)
-    handle._on_progress = lambda f, n: wk.progress.emit(float(f), str(n))
     th.started.connect(wk.run)
+    th.finished.connect(relay.cleanup, Q)
     entry = (th, wk, relay, handle)
-    th.finished.connect(relay.deleteLater)
-    th.finished.connect(lambda: _RUNNING.remove(entry) if entry in _RUNNING else None)
     _RUNNING.append(entry)
     th.start()
     return handle
 
 
 def shutdown_tasks(timeout_ms=10000):
-    """退出前：取消并等待所有后台线程结束。线程对象在线程仍运行时被销毁，Qt 会直接 abort（退出码 134）。"""
-    for th, _wk, _relay, handle in list(_RUNNING):
+    """退出前：取消全部后台任务，在总时限内等待线程结束。
+    仍在运行的线程（如一次 FEFF8L）保留引用：QThread 在线程运行时被销毁，Qt 会直接 abort（退出码 134）。"""
+    entries = list(_RUNNING)
+    for _th, _wk, _relay, handle in entries:
+        handle.cancel()
+    deadline = time.monotonic() + timeout_ms / 1000
+    for entry in entries:
+        th = entry[0]
         try:
-            handle.cancel()
             th.quit()
-            th.wait(timeout_ms)
+            if th.wait(max(0, int((deadline - time.monotonic()) * 1000))) and entry in _RUNNING:
+                _RUNNING.remove(entry)
         except RuntimeError:          # C++ 对象已删除
-            pass
-    _RUNNING.clear()
+            if entry in _RUNNING:
+                _RUNNING.remove(entry)
+    if _RUNNING:
+        logs.log.warning("退出时仍有 %d 个后台线程未结束（不可中断的单步，如 FEFF 运行）", len(_RUNNING))
 
 
 atexit.register(shutdown_tasks)

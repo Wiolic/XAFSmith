@@ -377,7 +377,7 @@ def process_all(cfg: dict | None = None, meta: pd.DataFrame | None = None, edge_
     write_params(paths.PROC / "process.params.json", cfg, "pipeline.process_all")
     if make_figs:
         if progress:
-            progress(0.9, "figures")
+            progress(0.9, "作图 / figures")
         figs = paths.FIGS
         figs.mkdir(parents=True, exist_ok=True)
         for ek in sorted(set(df.edge_key)) if len(df) else []:

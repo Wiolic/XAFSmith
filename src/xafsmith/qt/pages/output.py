@@ -40,8 +40,8 @@ class SummaryPage(Page):
 
         def go():
             def work():
-                with plain_rc():
-                    return str(summary.build())
+                # summary.build 只整理文件、不作图；不要在后台线程里改全局 rcParams（plain_rc）
+                return str(summary.build())
             W.run_task(self, work, lambda d: (S.extra.__setitem__("summary_dir", d), self.refresh()), T("整理中…", "Building…"), btn)
         btn.clicked.connect(go)
         row = [None, btn]

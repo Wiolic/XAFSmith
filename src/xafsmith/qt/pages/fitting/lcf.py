@@ -63,7 +63,9 @@ class LCFPage(Page):
             G = S.groups
             smp_k, lo_v, hi_v, sp_v = smp.value(), lo.value(), hi.value(), space.value()
             sum1, bnd, esh, note_t = s1.isChecked(), bd.isChecked(), es.isChecked(), note.text()
-            sample_g, std_g = G[smp_k], [G[k] for k in st_]      # 后台只读这些谱，不碰控件与 State
+            import copy
+            # 界面线程里复制：后台计算期间用户可能在归一化等页面重算同一批谱
+            sample_g, std_g = copy.deepcopy(G[smp_k]), [copy.deepcopy(G[k]) for k in st_]
 
             def work():
                 r = xlcf.lcf(sample_g, std_g, xmin=lo_v, xmax=hi_v, space=sp_v,

@@ -9,13 +9,14 @@ R 空间图一律标注“未相移校正”。
 import sys
 
 import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.figure import Figure
 
-plt.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "DejaVu Sans"]
-plt.rcParams["axes.unicode_minus"] = False
+# 只用面向对象 API（Figure 自带 Agg 画布），不用 pyplot：这些函数会在界面的后台线程里运行
+# （批量处理、保存拟合），pyplot 的全局状态与后端（界面里是 QtAgg）都不是线程安全的。
+matplotlib.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "DejaVu Sans"]
+matplotlib.rcParams["axes.unicode_minus"] = False
 
 FIGSIZE = (13.333, 7.5)
 DPI = 200
@@ -37,7 +38,8 @@ def caption(g):
 
 
 def _fig(nc=1):
-    fig, axs = plt.subplots(1, nc, figsize=FIGSIZE)
+    fig = Figure(figsize=FIGSIZE)
+    axs = fig.subplots(1, nc)
     return fig, np.atleast_1d(axs)
 
 
@@ -81,7 +83,7 @@ def plot_k_r(groups, kweight=2, rmax=6, out=None, title="", fitwin=None):
 
 
 def plot_fit(curves, summ, kweight=2, rmax=6, out=None, title=""):
-    fig = plt.figure(figsize=FIGSIZE)
+    fig = Figure(figsize=FIGSIZE)
     ax1 = fig.add_subplot(1, 2, 1)
     ax2 = fig.add_subplot(1, 2, 2)
     c = curves
@@ -133,7 +135,6 @@ def _save(fig, out):
     fig.tight_layout(rect=(0, 0.05, 1, 0.97))
     if out:
         fig.savefig(out, dpi=DPI)
-        plt.close(fig)
     return fig
 
 
