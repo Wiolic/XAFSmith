@@ -1,9 +1,11 @@
 """图形界面自动测试（PySide6，无窗口运行）：逐页构建、载入、去毛刺、FEFF6L/8L、拟合、诊断、已保存模型、
 稳健性、.prj 导出、边前峰、图片导出（配色、Origin 说明）、LCF、报告导出、方法导出、制样指导、吸收边查询，最后用英文界面再逐页构建一遍。
 
-运行：python tests/test_qt.py --project <项目目录>
-本测试使用 IrTaOx 项目的样品名（Ir foil、IrO2、IrCoOx_OCP … 与 Ta 批次）；其他项目请改样品名。
-测试不改用户保存的界面语言；测试生成的临时文件会删除。
+运行：
+  python tests/test_qt.py                       # 默认：公开数据的演示项目 tests/data/demo_project（CI 用这个）
+  python tests/test_qt.py --project <项目目录>   # 本机 IrTaOx 项目：额外跑 IrTaOx 专用检查（Ir/Ta 样品、已保存模型、FEFF）
+项目里含 IrO2、Ir foil、IrCoOx_OCP 三个样品时走 IrTaOx 专用检查，否则走演示项目的通用检查。
+测试不改用户保存的界面语言；测试生成的临时文件按名字删除，只删自己创建的。
 """
 import argparse
 import json
@@ -14,7 +16,8 @@ import time
 from pathlib import Path
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--project", default=os.environ.get("XAFSMITH_PROJECT", "."))
+DEMO = Path(__file__).resolve().parent / "data" / "demo_project"
+ap.add_argument("--project", default=str(DEMO), help="项目目录；默认是公开数据的演示项目（不读 XAFSMITH_PROJECT，避免误测真实项目）")
 ap.add_argument("--quick", action="store_true", help="跳过 FEFF8L 与稳健性检查（较慢）")
 ARGS = ap.parse_args()
 os.environ["XAFSMITH_PROJECT"] = str(Path(ARGS.project).resolve())
@@ -28,6 +31,14 @@ from xafsmith.qt.app import make_window                              # noqa: E40
 
 PROJ = Path(os.environ["XAFSMITH_PROJECT"])
 OK = [True]
+
+
+def _project_samples():
+    import pandas as pd
+    return set(pd.read_csv(PROJ / "data" / "meta.csv", dtype=str, encoding="utf-8-sig").fillna("")["sample"])
+
+
+IRTAOX = {"IrO2", "Ir foil", "IrCoOx_OCP"} <= _project_samples()
 
 
 def say(good, what):
@@ -73,7 +84,7 @@ def texts(page):
     return " ".join(l.text() for l in page.findChildren(QLabel))
 
 
-def no_console_check():
+def no_console_check(sample):
     """桌面快捷方式用 pythonw 启动：没有控制台（sys.stdout 为 None）时处理也必须正常"""
     from xafsmith.qt import app as qapp
     from xafsmith import pipeline as pl
@@ -81,7 +92,7 @@ def no_console_check():
     sys.stdout = sys.stderr = None
     try:
         qapp._no_console_output()
-        pl.build_sample("IrO2")
+        pl.build_sample(sample)
         ok = True
         msg = ""
     except Exception as ex:      # noqa: BLE001
@@ -99,8 +110,9 @@ def copy_register_check(app, w):
     import tempfile
     from PySide6.QtWidgets import QFileDialog
     from xafsmith.cli import create_project
-    src = sorted((PROJ / "data" / "raw" / "Ir").glob("Ir*"))
-    src = [str(p) for p in src if p.is_file()][:2]
+    import pandas as pd
+    meta = pd.read_csv(PROJ / "data" / "meta.csv", dtype=str, encoding="utf-8-sig").fillna("")
+    src = [str(PROJ / f) for f in meta.file if (PROJ / f).is_file()][:2]
     with tempfile.TemporaryDirectory() as td:
         create_project(td)
         w.open_project(td)
@@ -120,33 +132,8 @@ def copy_register_check(app, w):
         w.open_project(str(PROJ))
 
 
-def main():
-    W.QUIET["v"] = True
-    app, w = make_window(str(PROJ), lang="zh", dark=False)
-    w.resize(1440, 920)
-    w.show()
-    S = w.S
-    P = w.pages
-    n = len(W.ERRORS)
-    w.go("home")
-    step("启动", n)
-    no_console_check()
-    copy_register_check(app, w)
-    S, P = w.S, w.pages
-
-    # 数据登记：检查
-    w.go("data")
-    n = len(W.ERRORS)
-    click(P["data"], "运行检查")
-    pump(app)
-    step("数据登记：运行检查", n)
-
-    # AI 助手
-    w.go("agent")
-    say("xafsmith" in " ".join(e.toPlainText() for e in P["agent"].findChildren(W.QPlainTextEdit))
-        and any(b.text() == "写入 / 更新 AI 说明文件" for b in P["agent"].findChildren(QPushButton)),
-        "AI 助手：写入按钮与命令路径")
-
+def irtaox_suite(app, w, S, P):
+    """本机 IrTaOx 项目专用检查（样品名与已保存模型写死）。"""
     # 载入谱：按样品
     w.go("load")
     n = len(W.ERRORS)
@@ -408,6 +395,192 @@ def main():
     m = S.extra.get("methods") or {}
     say("AUTOBK" in m.get("en", "") and "XAFSmith" in m.get("zh", ""),
         f"方法段落：中文 {len(m.get('zh', ''))} 字，英文 {len(m.get('en', '').split())} 词")
+
+
+def demo_suite(app, w, S, P):
+    """公开数据演示项目的通用检查：载入、直接读入、逐页、已保存模型、LCF、出图、.prj、报告。"""
+    import numpy as np
+
+    # 载入谱：按样品（参比随样品一起载入）
+    w.go("load")
+    n = len(W.ERRORS)
+    P["load"].state["samples"] = ["cu_metal_rt", "Fe_foil", "feo_rt1", "fe3c_rt"]
+    P["load"].refresh()
+    click(P["load"], "载入")
+    wait(app)
+    step("载入样品", n)
+    G = S.groups
+    say({"cu_metal_rt", "Fe_foil", "feo_rt1", "fe3c_rt"} <= set(G), f"已载入：{list(G)}")
+    say(G["feo_rt1"].calib_ref == "data/raw/public/fe.060" and G["feo_rt1"].format == "xdi",
+        f"feo_rt1：参比 {G['feo_rt1'].calib_ref}，格式 {G['feo_rt1'].format}")
+
+    # 载入谱：直接读文件（自动识别格式，默认同批次参比）
+    f, ref = "data/raw/public/ni_metal_rt.xdi", "data/raw/public/ni_metal_rt.xdi"
+    n = len(W.ERRORS)
+    W.find(P["load"], "imp_files").set_value([f], emit=True)
+    r = W.find(P["load"], "imp_ref").value()
+    say(r == ref, f"默认参比：{r}")
+    click(P["load"], "读入")
+    pump(app)
+    step(f"读入 {f}", n)
+    G = S.groups
+    say(f in G and G[f].format == "xdi" and G[f].element == "Ni" and abs(G[f].e_shift - S.calib[ref]["delta_e"]) < 1e-9,
+        f"{f}：{G[f].element} {G[f].edge}，ΔE={G[f].e_shift:+.3f}")
+
+    # 逐页
+    for key in list(P):
+        n = len(W.ERRORS)
+        t = time.time()
+        w.go(key)
+        pump(app)
+        step(f"页面 {key}（{time.time() - t:.1f} s）", n)
+
+    # 已保存模型：Cu 箔第一壳层（FEFF 路径文件见 tests/data/benchmark），结果与基准测试同一范围
+    model = {"name": "test_cu_demo", "sample": "cu_metal_rt", "kmin": 3, "kmax": 17, "dk": 4, "window": "kaiser",
+             "kweight": 2, "rmin": 1.4, "rmax": 3.0, "fitspace": "r",
+             "params": {"amp": {"value": 1.0, "vary": True}, "del_e0": {"value": 0.0, "vary": True},
+                        "sig2": {"value": 0.0, "vary": True}, "del_r": 0.0},
+             "paths": [{"file": "../benchmark/feffcu01.dat", "label": "Cu-Cu", "s02": "amp", "e0": "del_e0",
+                        "sigma2": "sig2", "deltar": "del_r"}]}
+    mf = PROJ / "models" / "test_cu_demo.json"
+    mf.parent.mkdir(exist_ok=True)
+    mf.write_text(json.dumps(model, ensure_ascii=False, indent=2), encoding="utf-8")
+    try:
+        w.go("fit")
+        pg = P["fit"]
+        pg.state["mf"] = mf.name
+        pg.refresh()
+        n0, n = len(S.fits), len(W.ERRORS)
+        click(pg, "运行")
+        wait(app)
+        step("运行已保存模型（Cu 箔）", n)
+        s = S.fits[-1]["summ"] if len(S.fits) == n0 + 1 else None
+        say(s is not None and 0.88 < s["params"]["amp"]["value"] < 0.96 and abs(s["params"]["del_e0"]["value"]) < 10
+            and s["rfactor"] < 0.02,
+            "Cu 箔拟合：" + ("无结果" if s is None else f"S0²={s['params']['amp']['value']:.3f}，R={s['rfactor']:.4f}"))
+        say("残差 / 噪声" in texts(pg), "拟合诊断显示残差/噪声")
+    finally:
+        mf.unlink(missing_ok=True)
+        (PROJ / "output" / "fits" / "test_cu_demo.params.json").unlink(missing_ok=True)
+
+    # 归一化：导出 .prj
+    w.go("norm")
+    W.find(P["norm"], "prj_name").setText("_test_export.prj")
+    n = len(W.ERRORS)
+    click(P["norm"], "导出 .prj")
+    step("导出 .prj", n)
+    prj = PROJ / "output" / "gui" / "athena" / "_test_export.prj"
+    good = prj.exists()
+    if good:
+        from larch.io import read_athena
+        good = len(read_athena(str(prj), do_preedge=False, do_bkg=False, do_fft=False).groups) >= 1
+        prj.unlink()
+    say(good, ".prj 可被 larch 读回")
+
+    # 期刊出图
+    w.go("pubfig")
+    P["pubfig"].state.update(kind="xanes", name="_test_fig", sel=["feo_rt1", "Fe_foil"])
+    P["pubfig"].refresh()
+    n = len(W.ERRORS)
+    click(P["pubfig"], "保存到 output/figs/journal/")
+    step("期刊出图", n)
+    made = list((PROJ / "output" / "figs" / "journal").glob("_test_fig.*"))
+    say({p.suffix for p in made} >= {".tiff", ".png", ".svg", ".txt"}, f"出图文件：{sorted(p.suffix for p in made)}")
+    for p in made:
+        p.unlink()
+
+    # LCF：Fe3C 用 Fe 箔与 FeO 拟合（只检查流程能出结果，不对比例作结论）
+    w.go("lcf")
+    P["lcf"].state.update(smp="fe3c_rt", stds=["Fe_foil", "feo_rt1"])
+    P["lcf"].refresh()
+    n = len(W.ERRORS)
+    click(P["lcf"], "LCF")
+    step("LCF", n)
+    say(S.extra.get("lcf") is not None, "LCF 结果")
+
+    # 报告导出
+    w.go("summary")
+    n = len(W.ERRORS)
+    click(P["summary"], "生成报告")
+    wait(app)
+    step("报告导出", n)
+    sd = S.extra.get("summary_dir")
+    d = Path(sd).resolve() if sd else None
+    good = d is not None and (d / "汇总.xlsx").exists() and (d / "汇总报告.html").exists()
+    say(good, f"汇总文件：{d.name if d else '—'}")
+    reports = (PROJ / "output" / "reports").resolve()
+    if good and d.parent == reports and d.name.startswith("汇总_"):
+        shutil.rmtree(d)
+
+
+def wizard_check(app):
+    """列映射向导：用临时目录里的合成数据（非标准列名）试读，并截获保存（不写项目的 xafsmith.json）。"""
+    import tempfile
+    import numpy as np
+    from xafsmith.qt import state as st
+    from xafsmith.qt.colwizard import ColumnWizard
+    d = Path(tempfile.mkdtemp(prefix="xafsmith_wizard_"))
+    try:
+        e = np.linspace(8919, 9179, 80)
+        mu = 0.3 + 0.8 / (1 + np.exp(-(e - 8979) / 2))
+        f = d / "bl_scan.dat"
+        lines = ["# beamline X", "# Energy Mon Det"]
+        lines += [f"{a:.4f} 100000 {1e5 * np.exp(-m):.3f}" for a, m in zip(e, mu)]
+        f.write_text(chr(10).join(lines) + chr(10), encoding="utf-8")
+        dlg = ColumnWizard(None, f)
+        say(dlg.info is not None and dlg.cb["energy"].value() == 0, "列映射向导：打开并按列名预选能量列")
+        dlg.cb["i0"].setCurrentIndex(dlg.cb["i0"]._vals.index(1))
+        dlg.cb["it"].setCurrentIndex(dlg.cb["it"]._vals.index(2))
+        say(dlg.test() and "模式 trans" in dlg.result.text(), "列映射向导：试读成功（透射）")
+        saved = {}
+        old_save, old_load = st.save_cfg, st.load_cfg
+        st.save_cfg, st.load_cfg = (lambda c: saved.update(c)), (lambda: {"edges": {}})
+        try:
+            dlg.name.setText("bl_test")
+            dlg.save()
+        finally:
+            st.save_cfg, st.load_cfg = old_save, old_load
+        say(dlg.saved == "bl_test" and saved.get("formats", {}).get("bl_test", {}).get("i0") == "Mon", "列映射向导：保存为模板（列名）")
+        dlg2 = ColumnWizard(None, f)
+        dlg2.cb["energy"].setCurrentIndex(0)
+        dlg2.name.setText("bsrf")
+        dlg2.cb["i0"].setCurrentIndex(dlg2.cb["i0"]._vals.index(1))
+        dlg2.cb["it"].setCurrentIndex(dlg2.cb["it"]._vals.index(2))
+        dlg2.save()
+        say(dlg2.saved is None, "列映射向导：内置格式名不能当模板名")
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def main():
+    W.QUIET["v"] = True
+    app, w = make_window(str(PROJ), lang="zh", dark=False)
+    w.resize(1440, 920)
+    w.show()
+    S = w.S
+    P = w.pages
+    n = len(W.ERRORS)
+    w.go("home")
+    step("启动", n)
+    no_console_check("IrO2" if IRTAOX else "cu_metal_rt")
+    copy_register_check(app, w)
+    wizard_check(app)
+    S, P = w.S, w.pages
+
+    # 数据登记：检查
+    w.go("data")
+    n = len(W.ERRORS)
+    click(P["data"], "运行检查")
+    pump(app)
+    step("数据登记：运行检查", n)
+
+    # AI 助手
+    w.go("agent")
+    say("xafsmith" in " ".join(e.toPlainText() for e in P["agent"].findChildren(W.QPlainTextEdit))
+        and any(b.text() == "写入 / 更新 AI 说明文件" for b in P["agent"].findChildren(QPushButton)),
+        "AI 助手：写入按钮与命令路径")
+
+    (irtaox_suite if IRTAOX else demo_suite)(app, w, S, P)
 
     # 制样指导：元素来自化学式；吸收边查询：滤片
     w.go("planner")

@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+from xafsmith import logs
 import json
 import re
 import shutil
@@ -28,6 +29,7 @@ def originpro_available() -> bool:
         import originpro  # noqa: F401
         return True
     except Exception:       # noqa: BLE001
+        logs.log.debug("origin_export.originpro_available 出错（已忽略或已提示）", exc_info=True)
         return False
 
 
@@ -149,6 +151,7 @@ def export(fig, out_dir, name, kind="", use_originpro=None, png=False):
             try:
                 op.exit()
             except Exception:   # noqa: BLE001
+                logs.log.debug("origin_export.export 出错（已忽略或已提示）", exc_info=True)
                 pass
         return dict(mode="originpro", opju=spec["out"], script=str(script), folder=str(Path(out_dir).resolve()))
     return dict(mode="script", opju=None, script=str(script), folder=str(Path(out_dir).resolve()))

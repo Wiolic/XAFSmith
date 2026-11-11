@@ -1,15 +1,17 @@
-"""io —— 读入束线数据，统一成 larch Group。
+"""io —— 读入束线数据，统一成 larch Group（门面）。
 
-支持：
-  * BSRF 1W1B 格式（# Element: Ir, 11215 eV, Transmission/Fluorescence Mode；
-    列 Energy I0 I1 If ln(I0/I1) If/I0 mu）
-  * Athena .prj（larch.io.read_athena）
-  * 通用列文本（需指定能量列及 I0/I1/If 或 mu 列）
+具体格式由 readers/ 下的 reader 实现（见 docs/dev/io_readers.md）：
+  bsrf · xdi · athena_xmu · xdac · prj（Athena 工程）· columns（通用列文本，按列名映射）
+
+新代码请用 read_scan / read_file / detect_format；下面的 read_bsrf、read_columns、read_prj、read_any
+是为兼容旧调用保留的薄封装。
 
 统一后的 Group 属性：
-  energy, mu, i0, i1, ifl, mode('trans'|'fluo'|'mu'), element, edge, e_nominal,
-  filename, label, timestamp, source
-透射 μ = ln(I0/I1)；荧光 μ = If/I0。
+  energy, mu, i0, i1, ifl, mode('trans'|'fluo'|None), element, edge, e_nominal,
+  filename, label, timestamp, source,
+  format（reader 名）, mu_from('channels'|'file'), columns（实际使用的列映射）,
+  meta_guessed（哪些字段是猜的）, read_warnings（读入时的警告）
+透射 μ = ln(I0/It)；荧光 μ = If/I0；文件里同时有通道与 μ 列时一律由通道计算。
 
 用法（单独运行）：
   python -m xafsmith.io <文件> [<文件> ...]      # 打印识别结果
@@ -19,142 +21,68 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from larch import Group
 
-from .common import guess_edge
-
-_BSRF_ELEM = re.compile(r"Element:\s*([A-Z][a-z]?)\s*,\s*([\d.]+)\s*eV\s*,\s*(.*)$")
-
-
-def _make_group(energy, i0=None, i1=None, ifl=None, mu=None, mode="trans",
-                element=None, edge=None, e_nominal=None, filename="", label=None,
-                timestamp="", source=""):
-    order = np.argsort(energy)
-    energy = np.asarray(energy, float)[order]
-
-    def _o(a):
-        return None if a is None else np.asarray(a, float)[order]
-
-    i0, i1, ifl, mu = _o(i0), _o(i1), _o(ifl), _o(mu)
-    # 去掉重复能量点
-    keep = np.concatenate([[True], np.diff(energy) > 1e-6])
-    energy = energy[keep]
-    i0, i1, ifl, mu = [None if a is None else a[keep] for a in (i0, i1, ifl, mu)]
-    if mu is None:
-        mu = compute_mu(i0, i1, ifl, mode)
-    if element and not edge and e_nominal:
-        edge = guess_edge(element, e_nominal)
-    g = Group(energy=energy, mu=mu, i0=i0, i1=i1, ifl=ifl, mode=mode, element=element,
-              edge=edge, e_nominal=e_nominal, filename=str(filename),
-              label=label or Path(filename).name, timestamp=timestamp, source=source,
-              e_shift=0.0)
-    return g
+from .readers import (BY_NAME, ReadError, detect_format, list_formats, read_file,   # noqa: F401
+                      read_scan)
+from .readers.base import compute_mu, make_group as _make_group_new                  # noqa: F401
 
 
-def compute_mu(i0, i1=None, ifl=None, mode="trans"):
-    if mode == "trans":
-        return np.log(np.abs(i0) / np.abs(i1))
-    if mode == "fluo":
-        return ifl / i0
-    raise ValueError(f"未知模式 {mode}")
+def _make_group(energy, i0=None, i1=None, ifl=None, mu=None, mode="trans", element=None, edge=None,
+                e_nominal=None, filename="", label=None, timestamp="", source=""):
+    """旧接口（mode="mu" 表示直接给了 μ）；新代码请用 readers.base.make_group。"""
+    if mode == "mu":
+        mode = None
+    return _make_group_new(energy, i0=i0, i1=i1, ifl=ifl, mu=mu, mode=mode, element=element,
+                           edge=edge, e_nominal=e_nominal, filename=filename, label=label,
+                           timestamp=timestamp, source=source)
 
 
 def is_bsrf(path):
     try:
-        with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            head = "".join(f.readline() for _ in range(5))
-        return "BSRF" in head or "Element:" in head
-    except Exception:
+        return detect_format(path)[0] == "bsrf"
+    except ReadError:
         return False
 
 
 def read_bsrf(path, mode=None, label=None):
-    """读入 BSRF（1W1B 等）文本。mode=None 时按文件头自动判断。"""
-    path = Path(path)
-    header, rows = [], []
-    with open(path, "r", encoding="utf-8", errors="ignore") as f:
-        for line in f:
-            s = line.strip()
-            if not s:
-                continue
-            if s.startswith("#"):
-                header.append(s.lstrip("#").strip())
-                continue
-            try:
-                rows.append([float(x) for x in s.split()])
-            except ValueError:
-                continue
-    data = np.array([r for r in rows if len(r) == len(rows[0])])
-    element, e_nom, mode_hdr, timestamp = None, None, None, ""
-    for h in header:
-        m = _BSRF_ELEM.search(h)
-        if m:
-            element, e_nom = m.group(1), float(m.group(2))
-            txt = m.group(3).lower()
-            mode_hdr = "fluo" if "fluor" in txt else ("trans" if "trans" in txt else None)
-        elif re.match(r"\d{4}/\d+/\d+", h):
-            timestamp = h
-    mode = mode or mode_hdr or "trans"
-    g = _make_group(data[:, 0], i0=data[:, 1], i1=data[:, 2], ifl=data[:, 3], mode=mode,
-                    element=element, e_nominal=e_nom, filename=path, label=label,
-                    timestamp=timestamp, source="BSRF")
-    g.header = header
+    """兼容旧调用：按 BSRF 格式读入。"""
+    g = read_scan(path, fmt="bsrf", mode=mode)
+    if label:
+        g.label = label
     return g
 
 
 def read_columns(path, ecol=0, i0col=None, i1col=None, ifcol=None, mucol=None, mode="trans",
                  element=None, edge=None, label=None, skiprows=None):
-    """通用列文本。列号从 0 开始。给 mucol 则直接用该列作为 μ。"""
-    path = Path(path)
-    rows = []
-    with open(path, "r", encoding="utf-8", errors="ignore") as f:
-        for i, line in enumerate(f):
-            if skiprows and i < skiprows:
-                continue
-            s = line.strip()
-            if not s or s[0] in "#;!%":
-                continue
-            try:
-                rows.append([float(x) for x in re.split(r"[\s,]+", s)])
-            except ValueError:
-                continue
-    n = max(set(len(r) for r in rows), key=[len(r) for r in rows].count)
-    d = np.array([r for r in rows if len(r) == n])
-    col = lambda c: None if c is None else d[:, c]
-    if mucol is not None:
-        mode_ = "mu"
-        g = _make_group(d[:, ecol], i0=col(i0col), i1=col(i1col), ifl=col(ifcol), mu=d[:, mucol],
-                        mode=mode_, element=element, edge=edge, filename=path, label=label,
-                        source="columns")
-    else:
-        g = _make_group(d[:, ecol], i0=col(i0col), i1=col(i1col), ifl=col(ifcol), mode=mode,
-                        element=element, edge=edge, filename=path, label=label, source="columns")
-    if element and not edge:
-        g.edge = guess_edge(element, float(np.median(g.energy)))
+    """兼容旧调用：按列号读通用列文本（列号从 0 开始）。新代码请用 read_scan(columns={...})。"""
+    cols = {"energy": ecol}
+    for k, v in (("i0", i0col), ("it", i1col), ("if", ifcol), ("mu", mucol)):
+        if v is not None:
+            cols[k] = v
+    from .readers.base import split_table, read_text, table_to_group
+    text = read_text(path)
+    if skiprows:
+        text = "\n".join(text.splitlines()[skiprows:])
+    pre, data = split_table(text)
+    g = table_to_group(Path(path), "columns", pre, data, None, None, columns=cols,
+                       mode=None if mucol is not None else mode, element=element, edge=edge,
+                       label=label)
+    if mucol is not None and mode in ("trans", "fluo"):
+        g.mode = mode
     return g
 
 
 def read_prj(path):
-    """读 Athena 工程，返回 {label: Group}（只取 energy、mu，以及 Athena 的参数备查）。"""
-    from larch.io import read_athena
-    prj = read_athena(str(path), do_preedge=False, do_bkg=False, do_fft=False)
-    out = {}
-    for name, grp in prj.groups.items() if hasattr(prj, "groups") else prj._athena_groups.items():
-        g = _make_group(grp.energy, mu=grp.mu, mode="mu", filename=path, label=name,
-                        source="athena_prj")
-        g.athena_params = getattr(grp, "athena_params", None)
-        el = getattr(getattr(grp, "athena_params", None), "bkg", None)
-        out[name] = g
-    return out
+    """读 Athena 工程，返回 {组名: Group}。"""
+    return {getattr(g, "group_name", g.label): g for g in read_file(path, fmt="prj")}
 
 
 def read_any(path, **kws):
+    """兼容旧调用：自动识别格式并读入；.prj 返回 {组名: Group}，其他返回 Group。"""
     path = Path(path)
     if path.suffix.lower() == ".prj":
         return read_prj(path)
-    if is_bsrf(path):
-        return read_bsrf(path, **kws)
-    return read_columns(path, **kws)
+    return read_scan(path, **kws)
 
 
 def write_prj(groups, path, norm=None, bkg=None, ft=None):

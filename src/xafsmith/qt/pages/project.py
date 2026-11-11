@@ -1,6 +1,7 @@
 """项目：首页（打开 / 新建、流程进度、输出）、数据登记、一键处理（含处理参数）"""
 from __future__ import annotations
 
+from xafsmith import logs
 import shutil
 from pathlib import Path
 
@@ -113,6 +114,7 @@ class DataPage(Page):
                     shutil.copy2(f, dst)
                     copied.append(dst.name)
                 except Exception as ex:      # noqa: BLE001
+                    logs.log.warning("qt.pages.project.add_files 出错（已忽略或已提示）", exc_info=True)
                     failed.append(f"{Path(f).name}: {ex}")
             meta, nreg = pl.scan_raw()           # 复制后直接登记
             pl.init_config(meta)

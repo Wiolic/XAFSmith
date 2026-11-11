@@ -26,6 +26,7 @@ F 检验：hamilton_test(fit_small, fit_large)。
 用法：
   python -m xafsmith.fit_exafs <数据文件> <model.json> [--out output/fits/]
 """
+from xafsmith import logs
 import argparse
 import json
 from pathlib import Path
@@ -240,6 +241,7 @@ def robustness(data, model, root=None, variants=None, progress=None):
                     row[k] = v["value"]
                     row[k + "_err"] = v["stderr"]
         except Exception as ex:
+            logs.log.warning("fit_exafs.robustness 出错（已忽略或已提示）", exc_info=True)
             row = dict(条件=name, 错误=str(ex))
         rows.append(row)
         if progress:
@@ -368,7 +370,7 @@ def main():
     ap.add_argument("model")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
-    model = json.loads(Path(a.model).read_text(encoding="utf-8"))
+    model = json.loads(Path(a.model).read_text(encoding="utf-8-sig"))
     g = read_any(a.data)
     normalize(g, **model.get("norm", {}))
     autobk(g, **model.get("bkg", {}))

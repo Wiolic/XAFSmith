@@ -1,6 +1,7 @@
 """数据处理：载入谱、质量检查与去毛刺、能量校准、归一化、χ(k) 与 FT、小波变换"""
 from __future__ import annotations
 
+from xafsmith import logs
 import re
 from pathlib import Path
 
@@ -73,6 +74,7 @@ class LoadPage(Page):
                         try:
                             out[s], _ = pl.build_sample(s, cfg, meta)
                         except Exception as ex:      # noqa: BLE001
+                            logs.log.warning("qt.pages.process.work 出错（已忽略或已提示）", exc_info=True)
                             errs.append(f"{s}: {ex}")
                     return out, errs, cfg
 
@@ -94,7 +96,7 @@ class LoadPage(Page):
             card.lay.itemAt(card.lay.count() - 1).widget().layout().setStretch(0, 4)
             card.add(refl)
             self.add(card)
-        self.add(W.collapsible(T("直接读入文件（BSRF 文本 / Athena .prj / 列文本）", "Read files directly (BSRF / Athena .prj / columns)"),
+        self.add(W.collapsible(T("直接读入文件（自动识别格式）", "Read files directly (format auto-detected)"),
                                self._direct(), expanded=not (pl.META.exists() and pl.CONFIG.exists())))
         if S.groups:
             self.add(self._loaded())
@@ -109,15 +111,46 @@ class LoadPage(Page):
         cands = ref_candidates()
         ref = W.tag(W.combo([""] + cands, "", fmt=lambda r: r or T("— 请选择参比 —", "— choose a reference —")), "imp_ref")
 
+        edge_cache = {}            # 文件 → 吸收边；本卡片内只读一次 meta.csv、每个文件最多解析一次
+
+        def edge_of(rel):
+            """文件的吸收边（meta.csv 里有就用登记值，否则读文件头）；读不出返回 None。"""
+            if not edge_cache:
+                try:
+                    m = pd.read_csv(paths.META, dtype=str, encoding="utf-8-sig").fillna("") if paths.META.exists() else None
+                    edge_cache["__meta__"] = {} if m is None else dict(zip(m.file, m.edge_key))
+                except (OSError, ValueError):
+                    edge_cache["__meta__"] = {}
+            if rel in edge_cache:
+                return edge_cache[rel]
+            ek = edge_cache["__meta__"].get(rel) or None
+            if ek is None:
+                try:
+                    g_ = xio.read_scan(paths.ROOT / rel)
+                    ek = f"{g_.element}_{g_.edge}"
+                except Exception:      # noqa: BLE001  多组文件、未知格式等：不参与按吸收边筛选
+                    logs.log.debug("qt.pages.process.edge_of 无法读出吸收边：%s", rel, exc_info=True)
+            edge_cache[rel] = ek
+            return ek
+
         def default_ref(sel):
             same = [c for c in cands if sel and batch_of(c) == batch_of(sel[0])]
+            if same and len(same) > 1:           # 同一批次里有多个元素的参比：只取同一吸收边的
+                ek = edge_of(sel[0])
+                same = [c for c in same if edge_of(c) == ek] or same
             if same:
                 ref.setCurrentIndex(cands.index(same[0]) + 1)
         files.changed.connect(default_ref)
         mode = W.combo(["auto", "trans", "fluo"], "auto",
                        fmt=lambda m: {"auto": T("自动（按文件头）", "Auto (from header)"), "trans": "trans", "fluo": "fluo"}[m])
+        fcfg = load_cfg().get("formats", {}) or {}
+        fmts = ["auto"] + [n for n, _z, _e in xio.list_formats()] + ["columns_by_index"] + list(fcfg)
+        zh_en = {n: T(z, e) for n, z, e in xio.list_formats()}
+        fmt = W.combo(fmts, "auto", fmt=lambda f: {"auto": T("自动识别", "Auto-detect"),
+                                                   "columns_by_index": T("通用列文本（按下方列号）", "Column text (by number, below)")}
+                      .get(f, zh_en.get(f, T(f"模板：{f}", f"Template: {f}"))))
         card.add(W.fields((T("文件", "Files"), files), (T("参比（必选，同批次单质箔 / 粉）", "Reference (required, same batch)"), ref),
-                          (T("模式", "Mode"), mode)))
+                          (T("格式", "Format"), fmt), (T("模式", "Mode"), mode)))
         ecol, i0c, i1c, ifc, muc = W.inum(0, 0, 50), W.inum(1, -1, 50), W.inum(2, -1, 50), W.inum(3, -1, 50), W.inum(-1, -1, 50)
         elem = W.text("")
         card.add(W.collapsible(T("通用列文本设置", "Generic column text"),
@@ -142,22 +175,31 @@ class LoadPage(Page):
                     fpaths = [paths.ROOT / r] + [p for p in fpaths if p != paths.ROOT / r]
                     W.toast(self, T(f"参比 {Path(r).name}：ΔE = {rc['delta_e']:+.3f} eV", f"Reference {Path(r).name}: ΔE = {rc['delta_e']:+.3f} eV"))
                 except Exception as ex:      # noqa: BLE001
+                    logs.log.warning("qt.pages.process.read 出错（已忽略或已提示）", exc_info=True)
                     W.toast(self, f"{r}: {ex}", "err")
                     return
             for p in fpaths:
                 try:
                     kws = {} if mode.value() == "auto" else {"mode": mode.value()}
-                    if p.suffix.lower() == ".prj":
+                    fm = fmt.value()
+                    cols = None
+                    if fm == "columns_by_index":
+                        nz = lambda v: None if v < 0 else int(v)      # noqa: E731
+                        cols = {k: v for k, v in (("energy", ecol.value()), ("i0", nz(i0c.value())), ("it", nz(i1c.value())),
+                                                  ("if", nz(ifc.value())), ("mu", nz(muc.value()))) if v is not None}
+                        fm = "columns"
+                    fm = None if fm == "auto" else fm
+                    if p.suffix.lower() == ".prj" and fm in (None, "prj"):
                         for lab, g in xio.read_prj(p).items():
                             S.groups[f"{p.stem}:{lab}"] = g
                         continue
-                    if xio.is_bsrf(p):
-                        g = xio.read_bsrf(p, **kws)
-                    else:
-                        nz = lambda v: None if v < 0 else int(v)      # noqa: E731
-                        g = xio.read_columns(p, ecol=ecol.value(), i0col=nz(i0c.value()), i1col=nz(i1c.value()),
-                                             ifcol=nz(ifc.value()), mucol=nz(muc.value()), mode=kws.get("mode", "trans"),
-                                             element=elem.text() or None)
+                    g = xio.read_scan(p, fmt=fm, columns=cols, templates=fcfg, **kws)
+                    if elem.text().strip():
+                        from xafsmith.common import guess_edge
+                        g.element = elem.text().strip()
+                        g.edge = guess_edge(g.element, float(np.median(g.energy)))
+                    for w_ in g.read_warnings:
+                        W.toast(self, f"{p.name}: {w_.split(' / ')[0] if T('中', 'en') == '中' else w_.split(' / ')[-1]}", "warn")
                     lab = p.relative_to(paths.ROOT).as_posix()
                     g.label = lab
                     S.groups[lab] = g
@@ -166,12 +208,28 @@ class LoadPage(Page):
                         S.groups.pop(lab)
                         errs.append(T(f"{p.name}：吸收边 {edge_key(g)} 与参比不同，未读入", f"{p.name}: edge {edge_key(g)} differs from the reference; skipped"))
                 except Exception as ex:      # noqa: BLE001
+                    logs.log.warning("qt.pages.process.read 出错（已忽略或已提示）", exc_info=True)
                     errs.append(f"{p.name}: {ex}")
             for e in errs:
                 W.toast(self, e, "err")
             S.emit("groups")
             self.refresh()
-        card.add(W.hbox(None, W.button(T("读入", "Read"), primary=True, icon_name="upload", slot=lambda: W.wait_cursor(read))))
+        def wizard():
+            sel = files.value()
+            if not sel:
+                W.toast(self, T("先在“文件”里选一个数据文件", "Choose a data file under “Files” first"), "warn")
+                return
+            from ..colwizard import ColumnWizard
+            dlg = ColumnWizard(self.window(), paths.ROOT / sel[0])
+            dlg.exec()
+            if dlg.saved:
+                W.toast(self, T(f"已保存格式模板“{dlg.saved}”，可在“格式”中选用，也可写进 meta.csv 的 format 列",
+                                f"Template “{dlg.saved}” saved; pick it under “Format” or put it in the format column of meta.csv"))
+                self.refresh()
+        card.add(W.hbox(W.button(T("列映射向导…", "Column mapping wizard…"), slot=wizard,
+                                 tip=T("文件格式不被自动识别、或列名不规范时：预览各列 → 指定能量 / I0 / It / If → 试读 → 保存为模板",
+                                       "When a file is not recognised or its column names are non-standard: preview, map columns, test, save as a template")),
+                        None, W.button(T("读入", "Read"), primary=True, icon_name="upload", slot=lambda: W.wait_cursor(read))))
         return card
 
     def _loaded(self):
@@ -242,6 +300,7 @@ class QCPage(Page):
                         xnorm.normalize(g, **S.norm_par)
                     rows.append(xqc.check(g))
                 except Exception as ex:      # noqa: BLE001
+                    logs.log.warning("qt.pages.process.run 出错（已忽略或已提示）", exc_info=True)
                     rows.append(dict(label=k, error=str(ex)))
             df = pd.DataFrame(rows)
             paths.QC.mkdir(parents=True, exist_ok=True)
@@ -420,8 +479,9 @@ class CalibPage(Page):
 
             def load_ref():
                 self.state["cal_ref"] = ref.value()
-                g = xio.read_bsrf(paths.ROOT / ref.value())
+                from xafsmith import pipeline as pl_
                 cfg = load_cfg()
+                g = pl_.read_meta_row(pl_.meta_row(ref.value()) or {"file": ref.value()}, cfg)
                 ek = f"{g.element}_{g.edge}"
                 etab.blockSignals(True)
                 etab.setValue(float(cfg["edges"].get(ek, {}).get("e_table") or edge_energy(g.element, g.edge)))
@@ -537,6 +597,7 @@ class NormPage(Page):
                 try:
                     xnorm.normalize(S.groups[k], **{**S.norm_par, "e0": S.norm_par.get("e0") if len(v) == 1 else None})
                 except Exception as ex:      # noqa: BLE001
+                    logs.log.warning("qt.pages.process.update 出错（已忽略或已提示）", exc_info=True)
                     W.toast(self, f"{k}: {ex}", "err")
             if not v:
                 for p in (p1, p2, p3):
@@ -599,6 +660,7 @@ class NormPage(Page):
                               bkg=S.bkg_par, ft=S.ft_par)
                 W.toast(self, T(f"已导出 {paths.rel(fn)}（{len(sel.value())} 条谱）", f"Exported {paths.rel(fn)} ({len(sel.value())} spectra)"))
             except Exception as ex:      # noqa: BLE001
+                logs.log.warning("qt.pages.process.export_prj 出错（已忽略或已提示）", exc_info=True)
                 W.toast(self, str(ex), "err")
         exp.add(W.hbox(W.button(T("导出所选归一化数据到 output/gui/norm/", "Export selected to output/gui/norm/"), icon_name="download",
                                 slot=export_nor), None))
@@ -699,6 +761,7 @@ class ChiPage(Page):
                     xbkg.autobk(g, **b)
                     xft.forward(g, **f)
                 except Exception as ex:      # noqa: BLE001
+                    logs.log.warning("qt.pages.process.update 出错（已忽略或已提示）", exc_info=True)
                     W.toast(self, f"{k}: {ex}", "err")
             v = [k for k in v if has_chi(S.groups[k])]
             if not v:
@@ -739,6 +802,7 @@ class ChiPage(Page):
                                                   f"Data end k = {g0.k[-1]:.2f} Å⁻¹; usable k limit with interfering edges ≈ <b>{kl_:.2f} Å⁻¹</b>"), rich=True))
                 kres.layout().addWidget(W.Table(df))
             except Exception as ex:      # noqa: BLE001
+                logs.log.warning("qt.pages.process.update 出错（已忽略或已提示）", exc_info=True)
                 kres.layout().addWidget(Banner("err", str(ex)))
             kres.layout().addWidget(W.label(
                 T(f"ΔR 分辨率 = π/(2Δk) = <b>{r_resolution(f['kmin'], f['kmax']):.3f} Å</b>；N_idp = 2ΔkΔR/π = "
@@ -969,6 +1033,7 @@ class WaveletPage(Page):
                 try:
                     cb.remove()
                 except Exception:
+                    logs.log.warning("qt.pages.process.update 出错（已忽略或已提示）", exc_info=True)
                     pass
             cur["cbs"] = []
             for ax, d in zip(plot.axes, data):

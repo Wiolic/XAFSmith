@@ -8,6 +8,7 @@ E0_table 比较，ΔE = E0_table − E0_meas，同一吸收边、同一批测量
 用法：
   python -m xafsmith.calib <参比文件> [--element Ir --edge L3 --etable 11215.0]
 """
+from xafsmith import logs
 import argparse
 import datetime
 import json
@@ -44,12 +45,20 @@ def apply_shift(groups, delta_e):
     return groups
 
 
+TIME_FORMATS = ("%Y/%m/%d %H:%M:%S",        # BSRF 1W1B 文件头
+                "%Y-%m-%dT%H:%M:%S",         # XDI / ISO 8601（meta.csv 的 time 列）
+                "%Y-%m-%d %H:%M:%S",
+                "%a %b %d %H:%M:%S %Y")      # Athena .xmu 文件头，如 “Tue Jun 26 22:27:31 2001”
+
+
 def _parse_time(s):
-    for fmt in ("%Y/%m/%d %H:%M:%S",):
+    """逐个尝试已知时间格式；都不匹配返回 None（调用方据此退化为不按时间选参比）。"""
+    s = (s or "").strip()
+    for fmt in TIME_FORMATS:
         try:
-            return datetime.datetime.strptime(s.strip(), fmt)
-        except Exception:
-            pass
+            return datetime.datetime.strptime(s, fmt)
+        except ValueError:
+            continue
     return None
 
 

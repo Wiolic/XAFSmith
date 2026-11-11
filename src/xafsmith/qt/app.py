@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+from xafsmith import logs
 import os
 import sys
 import threading
@@ -372,6 +373,7 @@ class MainWindow(QMainWindow):
         try:
             xup.save_settings(lang=lang)
         except Exception:
+            logs.log.debug("qt.app.set_lang 出错（已忽略或已提示）", exc_info=True)
             pass
         self.rebuild()
 
@@ -444,12 +446,14 @@ class MainWindow(QMainWindow):
                     if u:
                         self.update_found.emit(u)
             except Exception:
+                logs.log.debug("qt.app.work 出错（已忽略或已提示）", exc_info=True)
                 pass
             try:
                 import larch.xafs  # noqa: F401
                 import larch.fitting  # noqa: F401
                 import lmfit  # noqa: F401
             except Exception:
+                logs.log.debug("qt.app.work 出错（已忽略或已提示）", exc_info=True)
                 pass
         threading.Thread(target=work, daemon=True).start()
 
@@ -545,6 +549,7 @@ class FlowPopup(QFrame):
         try:
             nfit = len(pd.read_csv(paths.FITS_CSV, encoding="utf-8-sig")) if paths.FITS_CSV.exists() else 0
         except Exception:
+            logs.log.debug("qt.app.__init__ 出错（已忽略或已提示）", exc_info=True)
             nfit = 0
         nrep = len(list(paths.REPORTS.glob("*"))) if paths.REPORTS.exists() else 0
         steps = [
@@ -621,6 +626,7 @@ def make_window(project=None, lang=None, dark=None):
             import ctypes
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("XAFSmith.App")
         except Exception:
+            logs.log.debug("qt.app.make_window 出错（已忽略或已提示）", exc_info=True)
             pass
     if project:
         paths.set_root(project)
@@ -634,6 +640,7 @@ def make_window(project=None, lang=None, dark=None):
         try:
             dark = app.styleHints().colorScheme() == Qt.ColorScheme.Dark
         except Exception:
+            logs.log.debug("qt.app.make_window 出错（已忽略或已提示）", exc_info=True)
             pass
     theme.use_dark(dark)
     theme.install_resources()
@@ -659,8 +666,9 @@ def _no_console_output():
     try:
         d = Path.home() / ".xafsmith"
         d.mkdir(parents=True, exist_ok=True)
-        f = open(d / "xafsmith.log", "w", encoding="utf-8", buffering=1)
+        f = open(d / "console.log", "w", encoding="utf-8", buffering=1)
     except Exception:
+        logs.log.debug("qt.app._no_console_output 出错（已忽略或已提示）", exc_info=True)
         f = open(os.devnull, "w", encoding="utf-8")
     if sys.stdout is None:
         sys.stdout = f
@@ -668,8 +676,21 @@ def _no_console_output():
         sys.stderr = f
 
 
+def _error_dialog(text):
+    """未捕获异常：弹出可复制的错误框（日志已由 logs.install_excepthook 写入）。"""
+    from PySide6.QtWidgets import QApplication, QMessageBox
+    if QApplication.instance() is None:
+        return
+    box = QMessageBox(QMessageBox.Critical, "XAFSmith", T("出错了。详情已写入日志，可在“免责声明与引用”里导出诊断包发给开发者。",
+                      "Something went wrong. Details are in the log; export a diagnostics bundle from the About dialog."))
+    box.setDetailedText(text)
+    box.exec()
+
+
 def run(project=None):
     _no_console_output()
+    from xafsmith import logs
+    logs.install_excepthook(_error_dialog)
     app, w = make_window(project)
     w.show()
     QTimer.singleShot(400, w.start_background)

@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+from xafsmith import logs
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
@@ -57,6 +58,7 @@ def render_math(md, size=14):
                 fig.text(0, 0, f"${_tex(tex)}$", fontsize=size * (1.3 if display else 1.0), color=col)
                 fig.savefig(str(f), dpi=96 * 1.05, transparent=True, bbox_inches="tight", pad_inches=0.02, format="png")
             except Exception:     # noqa: BLE001  无法渲染时保留原文
+                logs.log.debug("qt.help.img 出错（已忽略或已提示）", exc_info=True)
                 return None
         return f.name
 
@@ -141,8 +143,23 @@ class HelpWindow(QMainWindow):
         tb = W.prose_browser(markdown=md, size=14, search_paths=[DOCS, mdir])
         return tb
 
+    def _export_diag(self):
+        from datetime import datetime
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+        from xafsmith import logs
+        f, _ = QFileDialog.getSaveFileName(self, T("保存诊断包", "Save diagnostics"),
+                                           str(Path.home() / f"xafsmith_diag_{datetime.now():%Y%m%d_%H%M%S}.zip"), "ZIP (*.zip)")
+        if not f:
+            return
+        try:
+            logs.diagnostics_zip(f)
+            QMessageBox.information(self, "XAFSmith", T("已保存：", "Saved: ") + f)
+        except Exception as ex:
+            logs.log.exception("导出诊断包失败")
+            QMessageBox.warning(self, "XAFSmith", str(ex))
+
     def _about(self):
-        from xafsmith import __version__, about, update as xup
+        from xafsmith import __version__, about, logs, update as xup
         sa = QScrollArea()
         sa.setWidgetResizable(True)
         inner = QWidget()
@@ -173,6 +190,12 @@ class HelpWindow(QMainWindow):
         lc.add(W.label(f"<a href='{about.REPO}/blob/main/LICENSE'>LICENSE</a> · <a href='{about.REPO}/blob/main/NOTICE'>NOTICE</a>",
                        "muted", rich=True))
         lay.addWidget(lc)
+        dg = Card(T("诊断", "Diagnostics"))
+        dg.add(W.label(T("出错时导出诊断包（日志 + 版本环境 + 项目配置 + 登记表，不含原始数据与谱图数值）发给开发者。日志位置：",
+                         "On errors, export a diagnostics bundle (log + environment + project config + meta.csv; no raw data or spectra) "
+                         "for the developer. Log file: ") + str(logs.LOG_FILE), "muted"))
+        dg.add(W.button(T("导出诊断包", "Export diagnostics"), slot=self._export_diag))
+        lay.addWidget(dg)
         up = Card(T("检查更新", "Updates"))
         s = xup.load_settings()
         auto = W.check(T("启动时自动检查新版本（只访问 github.com，不发送任何数据）",

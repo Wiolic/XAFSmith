@@ -1,6 +1,7 @@
 """结果与导出：报告导出、图片导出（含 Origin 工程）、方法导出；工具：制样指导、吸收边查询、AI 助手、使用指南"""
 from __future__ import annotations
 
+from xafsmith import logs
 import datetime
 import re
 from pathlib import Path
@@ -339,6 +340,7 @@ class PubFigPage(Page):
             try:
                 r = W.wait_cursor(lambda: oe.export(fig, od, base_name(), kind=k_))
             except Exception as ex:      # noqa: BLE001
+                logs.log.warning("qt.pages.output.done 出错（已忽略或已提示）", exc_info=True)
                 W.ERRORS.append(f"origin: {ex}")
                 W.toast(self, T(f"Origin 导出失败：{ex}", f"Origin export failed: {ex}"), "err")
                 return
@@ -372,6 +374,7 @@ class PlannerPage(Page):
             fel = list(xraydb.chemparse(formula.text()))
             parse_err = None
         except Exception as ex:      # noqa: BLE001
+            logs.log.warning("qt.pages.output.build 出错（已忽略或已提示）", exc_info=True)
             fel, parse_err = [], str(ex)
         from pymatgen.core import Element as _El
         heavy = max(fel, key=lambda e: _El(e).Z) if fel else "Ir"
@@ -387,6 +390,7 @@ class PlannerPage(Page):
             info.add(W.label(T(f"体系中的元素：{', '.join(fel) or '—'}；{el.value()} {ed.value()} 边 = {e0:.0f} eV",
                                f"Elements: {', '.join(fel) or '—'}; {el.value()} {ed.value()} edge = {e0:.0f} eV"), "muted"))
         except Exception:
+            logs.log.warning("qt.pages.output.build 出错（已忽略或已提示）", exc_info=True)
             pass
 
         def re_formula():
@@ -438,6 +442,7 @@ class PlannerPage(Page):
                     m = xmut.mut_for_mass(f, st["mass"], st["area"], e_, edg, st["dil"] or None, st["mdil"])
                     res.layout().addWidget(W.Table(pd.DataFrame([{"key": k, "value": v} for k, v in m.items()])))
             except Exception as ex:      # noqa: BLE001
+                logs.log.warning("qt.pages.output.upd 出错（已忽略或已提示）", exc_info=True)
                 res.layout().addWidget(Banner("err", str(ex)))
             W._clear_layout(ires.layout())
             try:
@@ -456,6 +461,7 @@ class PlannerPage(Page):
                 else:
                     ires.layout().addWidget(Banner("ok", T("扫描范围内没有其他吸收边。", "No other edge within the scan.")))
             except Exception as ex:      # noqa: BLE001
+                logs.log.warning("qt.pages.output.upd 出错（已忽略或已提示）", exc_info=True)
                 ires.layout().addWidget(Banner("err", str(ex)))
         for x in w.values():
             if hasattr(x, "editingFinished"):
@@ -519,6 +525,7 @@ class ElementsPage(Page):
             et = xmut.edge_table(cur)
             lt = xmut.line_table(cur)
         except Exception as ex:      # noqa: BLE001
+            logs.log.warning("qt.pages.output.build 出错（已忽略或已提示）", exc_info=True)
             self.add(Banner("err", str(ex)))
             return
         self.add(W.label(f"<span style='font-size:18pt;font-weight:600'>{cur}</span>&nbsp;&nbsp;"
@@ -563,6 +570,7 @@ class ElementsPage(Page):
             try:
                 r = xmut.fluor_filter(cur, fe.value(), nab.value())
             except Exception as ex:      # noqa: BLE001
+                logs.log.warning("qt.pages.output.upd 出错（已忽略或已提示）", exc_info=True)
                 out.layout().addWidget(Banner("err", str(ex)))
                 return
             out.layout().addWidget(W.label(T(f"{cur} {fe.value()} 边 {r['edge_energy']:.0f} eV；主荧光线 {r['line']} {r['line_energy']:.0f} eV。"

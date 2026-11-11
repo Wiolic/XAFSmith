@@ -1,6 +1,7 @@
 """结构与拟合：FEFF 路径、EXAFS 拟合（诊断、稳健性）、拟合历史与 F 检验、LCF、XANES 定量"""
 from __future__ import annotations
 
+from xafsmith import logs
 import json
 from pathlib import Path
 
@@ -70,6 +71,7 @@ class FeffPage(Page):
                 fn.currentIndexChanged.connect(lambda *_: (self.state.__setitem__("file", fn.value()), self.refresh()))
                 pick = W.field(T("结构文件", "Structure file"), fn)
         except Exception as ex:      # noqa: BLE001
+            logs.log.warning("qt.pages.fitting.export_builtin 出错（已忽略或已提示）", exc_info=True)
             card.add(Banner("err", str(ex)))
             self.add(card)
             return
@@ -293,6 +295,7 @@ def quality_checks(fit, dg=None):
         out.append((not hi, (T("强相关（|r| &gt; 0.9），结论中要说明：", "Strong correlations (|r| &gt; 0.9) to report: ") + "; ".join(hi))
                     if hi else T("没有 |r| &gt; 0.9 的强相关参数对", "No parameter pair with |r| &gt; 0.9")))
     except Exception:
+        logs.log.warning("qt.pages.fitting.quality_checks 出错（已忽略或已提示）", exc_info=True)
         pass
     kws = md.get("kweight")
     if not (isinstance(kws, list) and len(kws) > 1):
@@ -393,6 +396,7 @@ class FitView(QWidget):
                                                e0=getattr(g, "e0", None) if g is not None else None,
                                                kweight=getattr(self, "_kw", 2))
             except Exception as ex:      # noqa: BLE001
+                logs.log.warning("qt.pages.fitting._dg 出错（已忽略或已提示）", exc_info=True)
                 self._dg_cache = ex
         return self._dg_cache
 
@@ -643,8 +647,9 @@ class FitPage(Page):
         def upd():
             self.state["mf"] = mf.value()
             try:
-                msmp = json.loads((paths.MODELS / mf.value()).read_text(encoding="utf-8")).get("sample", "")
+                msmp = json.loads((paths.MODELS / mf.value()).read_text(encoding="utf-8-sig")).get("sample", "")
             except Exception:
+                logs.log.warning("qt.pages.fitting.upd 出错（已忽略或已提示）", exc_info=True)
                 msmp = ""
             meta_s = list(pl.load_meta().query("use != '0'")["sample"]) if pl.META.exists() else []
             opts = [o for o in dict.fromkeys([msmp] + meta_s + list(S.groups)) if o]
@@ -906,6 +911,7 @@ class LCFPage(Page):
             try:
                 ensure_norm(S, g)
             except Exception:
+                logs.log.warning("qt.pages.fitting.build 出错（已忽略或已提示）", exc_info=True)
                 pass
         card = Card()
         keys = list(S.groups)
@@ -992,6 +998,7 @@ class XanesPage(Page):
             try:
                 ensure_norm(S, g)
             except Exception:
+                logs.log.warning("qt.pages.fitting.build 出错（已忽略或已提示）", exc_info=True)
                 pass
         cands = [k for k, g in S.groups.items() if hasattr(g, "flat")]
         if not cands:
@@ -1099,6 +1106,7 @@ class XanesPage(Page):
                 try:
                     cal = xx.valence_calibration(pos, val)
                 except Exception as ex:      # noqa: BLE001
+                    logs.log.warning("qt.pages.fitting.calc 出错（已忽略或已提示）", exc_info=True)
                     out.layout().addWidget(Banner("info", str(ex)))
                     return
                 out.layout().addWidget(W.label(T(f"E = <b>{cal['a']:.3f}</b>·价态 + <b>{cal['b']:.2f}</b> eV；R² = {cal['r2']:.4f}；斜率误差 {cal['a_err']:.3f} eV/价（{cal['n']} 个标样）",

@@ -34,7 +34,7 @@ def collect():
             使用=("use", lambda s: int((s != "0").sum())), 参比=("ref_file", "first"),
             备注=("note", lambda s: "；".join(x for x in s if x))).reset_index()
     if paths.CALIB_JSON.exists():
-        cal = json.loads(paths.CALIB_JSON.read_text(encoding="utf-8"))
+        cal = json.loads(paths.CALIB_JSON.read_text(encoding="utf-8-sig"))
         sheets["校准"] = pd.DataFrame([dict(参比=k, 吸收边=v.get("edge_key", ""), 批次=v.get("batch", ""),
                                             参比测量时间=v.get("ref_time", ""), E0_meas=round(v["e0_meas"], 3),
                                             E_table=v["e_table"], 表值来源=v.get("table_source", ""),
@@ -59,7 +59,7 @@ def collect():
     if len(lcf):
         sheets["LCF"] = lcf
     if paths.CONFIG.exists():
-        cfg = json.loads(paths.CONFIG.read_text(encoding="utf-8"))
+        cfg = json.loads(paths.CONFIG.read_text(encoding="utf-8-sig"))
         rows = []
         for ek, c in cfg.get("edges", {}).items():
             row = dict(吸收边=ek, E_table=c.get("e_table"), 样品元素=",".join(c.get("elements_in_sample", [])))

@@ -19,7 +19,7 @@ import os
 from pathlib import Path
 
 MARKER = "xafsmith.json"
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 
 
 def find_root(start=None):

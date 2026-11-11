@@ -5,6 +5,8 @@
   xafsmith init                          扫描 data/raw → data/meta.csv、xafsmith.json（不覆盖已有修改）
   xafsmith validate                      按数据标准检查项目
   xafsmith paths                         显示项目各目录
+  xafsmith formats                       列出支持的数据格式与项目里保存的列映射模板
+  xafsmith inspect <文件> [--format 名 --mode trans|fluo]   显示识别出的格式、列映射、元素与吸收边（哪些是猜的）
 
 数据处理：
   xafsmith list                          样品汇总
@@ -41,6 +43,7 @@ AI 助手：
 
 所有命令都可加 --project <目录>；不加时从当前目录向上查找 xafsmith.json。原始数据只读。
 """
+from xafsmith import logs
 import argparse
 import json
 import os
@@ -96,7 +99,58 @@ def cmd_init(a):
     cfg = pl.init_config(meta)
     print(f"meta.csv：新增 {n} 行，共 {len(meta)} 行 → {paths.rel(paths.META)}")
     print(f"{paths.MARKER}：吸收边 {list(cfg['edges'])}")
+    for f_, why in getattr(pl.scan_raw, "skipped", []):
+        print(f"未登记 {f_}：{why}")
     print("请检查 meta.csv 的 sample / role / use / ref_file 列，以及 elements_in_sample；然后 xafsmith validate")
+
+
+def cmd_formats(a):
+    from . import io as xio, paths
+    print("支持的数据格式（meta.csv 的 format 列；留空 = 自动识别）：")
+    for n, zh, en in xio.list_formats():
+        print(f"  {n:11s} {zh}  /  {en}")
+    try:
+        from . import pipeline as pl
+        tpl = (pl.load_config().get("formats") or {}) if paths.CONFIG.exists() else {}
+    except Exception:                      # noqa: BLE001
+        logs.log.debug("cli.cmd_formats 出错（已忽略或已提示）", exc_info=True)
+        tpl = {}
+    if tpl:
+        print(f"{paths.MARKER} 中保存的列映射模板：")
+        for k, v in tpl.items():
+            print(f"  {k}: {v}")
+
+
+def cmd_inspect(a):
+    from . import io as xio, paths
+    tpl = {}
+    if paths.CONFIG.exists():                 # 项目里保存的列映射模板也能用作 --format
+        try:
+            from . import pipeline as pl
+            tpl = pl.load_config().get("formats") or {}
+        except Exception:                      # noqa: BLE001
+            logs.log.warning("cli.cmd_inspect 读取 formats 模板失败", exc_info=True)
+    for f in a.files:
+        try:
+            fmt, score = xio.detect_format(f)
+            if a.format is None:
+                print(f"{f}")
+                print(f"  识别格式：{fmt}（置信度 {score}）")
+            else:
+                print(f"{f}")
+                print(f"  指定格式：{a.format}")
+            gs = xio.read_file(f, fmt=a.format, mode=a.mode, templates=tpl)
+        except xio.ReadError as ex:
+            print(f"  读入失败：{ex}")
+            continue
+        for g in gs:
+            print(f"  [{getattr(g, 'group_name', g.label)}] 元素/边：{g.element} {g.edge}  模式：{g.mode}  μ 来源：{g.mu_from}"
+                  f"  点数：{len(g.energy)}  能量：{g.energy[0]:.1f}–{g.energy[-1]:.1f} eV")
+            print(f"    列映射：{g.columns}")
+            if g.meta_guessed:
+                print(f"    猜测的字段（请核对）：{', '.join(g.meta_guessed)}")
+            for w in g.read_warnings:
+                print(f"    警告：{w}")
 
 
 def cmd_validate(a):
@@ -219,7 +273,7 @@ def cmd_feff(a):
 def _run_model(name):
     from . import paths, pipeline as pl, fit_exafs as fx
     f = paths.model_file(name)
-    model = json.loads(f.read_text(encoding="utf-8"))
+    model = json.loads(f.read_text(encoding="utf-8-sig"))
     model.setdefault("name", f.stem)
     g, _ = pl.build_sample(model["sample"])
     res, dset, summ = fx.run_fit(g, model)
@@ -445,6 +499,10 @@ def build_parser():
     p = sp.add_parser("validate", help="按数据标准检查"); p.add_argument("--quick", action="store_true", help="不读结构文件")
     p.set_defaults(f=cmd_validate)
     sp.add_parser("paths", help="显示项目目录").set_defaults(f=cmd_paths)
+    sp.add_parser("formats", help="支持的数据格式").set_defaults(f=cmd_formats)
+    p = sp.add_parser("inspect", help="显示文件的识别结果（格式、列映射、元素与吸收边）")
+    p.add_argument("files", nargs="+"); p.add_argument("--format"); p.add_argument("--mode", choices=["trans", "fluo"])
+    p.set_defaults(f=cmd_inspect)
     sp.add_parser("docs", help="文档位置").set_defaults(f=cmd_docs)
     sp.add_parser("cite", help="引用方式与免责声明").set_defaults(f=cmd_cite)
     sp.add_parser("list", help="样品汇总").set_defaults(f=cmd_list)

@@ -6,6 +6,7 @@
       （不需要安装 git）。开发安装（pip install -e）不自动更新，提示用 git pull。
 设置保存在 ~/.xafsmith/settings.json（check_updates: true/false）。
 """
+from xafsmith import logs
 import json
 import re
 import subprocess
@@ -25,6 +26,7 @@ def load_settings():
     try:
         return json.loads(SETTINGS.read_text(encoding="utf-8"))
     except Exception:
+        logs.log.debug("update.load_settings 出错（已忽略或已提示）", exc_info=True)
         return {}
 
 
@@ -49,6 +51,7 @@ def latest_version(timeout=4.0):
         m = re.search(r'^version\s*=\s*"([^"]+)"', txt, re.M)
         return m.group(1) if m else None
     except Exception:
+        logs.log.debug("update.latest_version 出错（已忽略或已提示）", exc_info=True)
         return None
 
 
@@ -60,6 +63,7 @@ def is_editable():
         info = json.loads(d.read_text("direct_url.json") or "{}")
         return bool(info.get("dir_info", {}).get("editable"))
     except Exception:
+        logs.log.debug("update.is_editable 出错（已忽略或已提示）", exc_info=True)
         return False
 
 

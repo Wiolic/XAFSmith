@@ -1,6 +1,7 @@
 """会话状态与公共处理函数（原始数据只读，处理都在副本上）。"""
 from __future__ import annotations
 
+from xafsmith import logs
 import datetime
 import json
 import re
@@ -49,8 +50,9 @@ def is_project():
 
 def recent_projects():
     try:
-        return [p for p in json.loads(RECENT.read_text(encoding="utf-8")) if paths.is_project(p)]
+        return [p for p in json.loads(RECENT.read_text(encoding="utf-8-sig")) if paths.is_project(p)]
     except Exception:
+        logs.log.debug("qt.state.recent_projects 出错（已忽略或已提示）", exc_info=True)
         return []
 
 
@@ -63,6 +65,7 @@ def remember(root):
         RECENT.parent.mkdir(parents=True, exist_ok=True)
         RECENT.write_text(json.dumps(lst[:10], ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception:
+        logs.log.warning("qt.state.remember 出错（已忽略或已提示）", exc_info=True)
         pass
 
 
@@ -84,10 +87,19 @@ def has_chi(g):
     return hasattr(g, "chi") and hasattr(g, "k")
 
 
+def _known_format(xio, p):
+    """能被某个 reader 自动识别的数据文件（读不了的文件当作不是数据）。"""
+    try:
+        return xio.detect_format(p)[0] is not None
+    except Exception:                      # noqa: BLE001
+        logs.log.warning("qt.state._known_format 出错（已忽略或已提示）", exc_info=True)
+        return False
+
+
 def raw_files():
     from xafsmith import io as xio
     out = [p for p in paths.RAW.rglob("*") if p.is_file()
-           and (xio.is_bsrf(p) or p.suffix.lower() in (".dat", ".xmu", ".nor", ".txt", ".prj"))]
+           and (p.suffix.lower() in (".dat", ".xmu", ".nor", ".txt", ".prj", ".xdi") or _known_format(xio, p))]
     out += [p for p in paths.ROOT.rglob("*.prj") if ".venv" not in p.parts]
     return sorted(set(out))
 
@@ -96,7 +108,7 @@ def ref_candidates():
     from xafsmith import io as xio, pipeline as pl
     out = list(pl.load_meta().query("role == 'reference'").file) if pl.META.exists() else []
     for p in paths.RAW.rglob("*"):
-        if p.is_file() and re.search(r"foil|powder|metal", p.name, re.I) and xio.is_bsrf(p):
+        if p.is_file() and re.search(r"foil|powder|metal", p.name, re.I) and _known_format(xio, p):
             out.append(p.relative_to(paths.ROOT).as_posix())
     return list(dict.fromkeys(out))
 
@@ -108,7 +120,7 @@ def ref_calib(S, ref, e_table=None, smooth_ev=1.0, force=False):
     cfg = load_cfg()
     if e_table is not None:
         cfg = json.loads(json.dumps(cfg))
-        g0 = xio.read_bsrf(paths.ROOT / ref)
+        g0 = pl.read_meta_row(pl.meta_row(ref) or {"file": ref}, cfg)
         e = cfg["edges"].setdefault(f"{g0.element}_{g0.edge}", {})
         e["e_table"] = e_table
         e.setdefault("norm", {})["smooth_ev"] = smooth_ev
@@ -213,7 +225,7 @@ def run_model(S, model, group=None):
 
 
 def load_model(mf, sample=None):
-    m = json.loads((paths.MODELS / mf).read_text(encoding="utf-8"))
+    m = json.loads((paths.MODELS / mf).read_text(encoding="utf-8-sig"))
     m.setdefault("name", Path(mf).stem)
     old = m.get("sample")
     if sample and sample != old:

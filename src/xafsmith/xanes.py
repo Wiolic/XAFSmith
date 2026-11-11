@@ -13,6 +13,7 @@
 
 结论提醒：边位置同时受价态、配位数与配体影响；只有同类配体、相近结构的标样才能做价态标定。
 """
+from xafsmith import logs
 import math
 
 import numpy as np
@@ -119,6 +120,7 @@ def preedge_fit(g, emin=-20.0, emax=0.0, npeaks=1, step="erf", centers=None):
             pk = sorted(pk, key=lambda i: -resid[i])[:npeaks]
             centers = sorted(float(x[i]) for i in pk)
         except Exception:
+            logs.log.warning("xanes.preedge_fit 出错（已忽略或已提示）", exc_info=True)
             centers = []
         while len(centers) < npeaks:
             centers.append(emin + span * (len(centers) + 1) / (npeaks + 2))

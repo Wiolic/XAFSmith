@@ -179,7 +179,8 @@ The table below lists the loaded spectra and their calibration status. You can a
 
 - view **Raw μ(E) and channels** (I0 / I1 / If);
 - **Remove from session (files kept)**;
-- **Read files directly** (BSRF / Athena .prj / column text) for files not in meta.csv — a reference from the same batch is required.
+- **Read files directly** (auto-detects BSRF / XDI / .xmu / XDAC / Athena .prj; you can also choose the format by hand, or pick “Column text (by number)” and fill in the column numbers below) for files not in meta.csv — a reference from the same batch is required. If any field was guessed (element, edge, energy unit …) or the column mapping raised a warning, a notice is shown — please check it.
+- **Column mapping wizard** (button next to “Read”; choose one file first): use it when a file is not recognised or its column names are non-standard. It previews the columns and first rows; choose which column is energy, I0, It, If (several channels are summed) and μ (recognisable names are pre-selected); choose transmission or fluorescence, or let the software decide from the mapped columns; **Test read** shows the number of points, energy range, mode, edge and μ range — check them, then enter a template name and **Save as template**. The template is written to the project's `xafsmith.json` (`formats`), appears in the “Format” list and can be used in the `format` column of meta.csv. Columns are saved by name when the name is unique (still valid if the order changes), otherwise by number. The name must not equal a built-in format name.
 
 **Tab 2: Quality check**
 
@@ -494,7 +495,7 @@ After an update (the command path may change), click **Write / update AI instruc
 
 ### 22　Help, language and updates
 
-- **Help**: opens a separate window (the main window stays on its page). On its left: GUI guide, Fitting for beginners, Improving fit quality, XAFS basics; at the bottom a separate page **About & disclaimer** (version and credit, full disclaimer, citation with **Copy citation**, license, update check).
+- **Help**: opens a separate window (the main window stays on its page). On its left: GUI guide, Fitting for beginners, Improving fit quality, XAFS basics; at the bottom a separate page **About & disclaimer** (version and credit, full disclaimer, citation with **Copy citation**, license, **Export diagnostics**, update check). The bundle holds the log (`~/.xafsmith/xafsmith.log`), versions, project config and meta.csv — no raw data; send it to the developer on errors.
 - **Language**: choose **English** at the bottom of the sidebar; interface and documents switch, and the choice is remembered.
 - **Updates** (About & disclaimer page):
   - tick “Check for updates at start-up” (contacts github.com only, sends nothing), or click **Check now**;

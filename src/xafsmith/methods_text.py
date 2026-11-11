@@ -6,6 +6,7 @@
 从 xafsmith.json 的 "instrument" 读取；没有填写时用【方括号占位】，提醒使用者补全。
 生成的段落是草稿：投稿前务必逐句核对。
 """
+from xafsmith import logs
 import json
 
 import numpy as np
@@ -27,6 +28,7 @@ def _versions():
         try:
             out[mod] = __import__(mod).__version__
         except Exception:
+            logs.log.debug("methods_text._versions 出错（已忽略或已提示）", exc_info=True)
             out[mod] = "?"
     from . import __version__
     out["xafsmith"] = __version__
@@ -55,12 +57,12 @@ def _rng(vals, nd=1):
 def collect(samples=None):
     """收集生成段落所需的事实；samples=None 表示 meta.csv 中 use≠0 的全部样品"""
     from .pipeline import load_meta
-    cfg = json.loads(paths.CONFIG.read_text(encoding="utf-8")) if paths.CONFIG.exists() else {}
+    cfg = json.loads(paths.CONFIG.read_text(encoding="utf-8-sig")) if paths.CONFIG.exists() else {}
     meta = load_meta() if paths.META.exists() else pd.DataFrame(columns=["sample", "edge_key", "mode", "use"])
     meta = meta[meta["use"].astype(str) != "0"]
     if samples:
         meta = meta[meta["sample"].isin(samples)]
-    cal = json.loads(paths.CALIB_JSON.read_text(encoding="utf-8")) if paths.CALIB_JSON.exists() else {}
+    cal = json.loads(paths.CALIB_JSON.read_text(encoding="utf-8-sig")) if paths.CALIB_JSON.exists() else {}
     fits = pd.read_csv(paths.FITS_CSV, encoding="utf-8-sig") if paths.FITS_CSV.exists() else pd.DataFrame()
     if len(fits) and samples:
         fits = fits[fits["sample"].isin(samples)]
@@ -113,10 +115,11 @@ def _feff_code(model_name):
     name = str(model_name).split("@")[0].split("[")[0]
     f = paths.MODELS / f"{name}.json"
     try:
-        m = json.loads(f.read_text(encoding="utf-8"))
+        m = json.loads(f.read_text(encoding="utf-8-sig"))
         d = (paths.ROOT / m["paths"][0]["file"]).parent
         return feff_info(d)["code"]
     except Exception:
+        logs.log.debug("methods_text._feff_code 出错（已忽略或已提示）", exc_info=True)
         return "feff6"
 
 

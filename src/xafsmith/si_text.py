@@ -3,6 +3,7 @@ EXAFS 拟合方法文本与参数表（中文 / English）。只写项目中有�
 
 命令行：xafsmith si [--fits "样品|模型" ...] [--lang en|zh]
 """
+from xafsmith import logs
 import json
 import math
 import re
@@ -44,14 +45,16 @@ def _model_json(name, sample=None):
         f = paths.MODELS / f"{c}.json"
         if f.exists():
             try:
-                return json.loads(f.read_text(encoding="utf-8"))
+                return json.loads(f.read_text(encoding="utf-8-sig"))
             except Exception:
+                logs.log.debug("si_text._model_json 出错（已忽略或已提示）", exc_info=True)
                 pass
     if sample and paths.MODELS.exists():          # 模型名中的样品名被换掉了：找 name 中把 sample 换回模板样品的模型
         for f in paths.MODELS.glob("*.json"):
             try:
-                m = json.loads(f.read_text(encoding="utf-8"))
+                m = json.loads(f.read_text(encoding="utf-8-sig"))
             except Exception:
+                logs.log.debug("si_text._model_json 出错（已忽略或已提示）", exc_info=True)
                 continue
             old = m.get("sample")
             if old and sample in name and name.replace(sample, old) in (f.stem, m.get("name")):
@@ -68,6 +71,7 @@ def _eval(expr, values):
     try:
         return float(eval(str(expr), {"__builtins__": {}}, {**_MATH, **values}))
     except Exception:
+        logs.log.debug("si_text._eval 出错（已忽略或已提示）", exc_info=True)
         return None
 
 
@@ -111,6 +115,7 @@ def _feff_desc(model):
     try:
         code = feff_info(d)["code"]
     except Exception:
+        logs.log.debug("si_text._feff_desc 出错（已忽略或已提示）", exc_info=True)
         pass
     m = re.match(r"(.+?)_([A-Z][a-z]?)(K|L1|L2|L3|M\d)(_feff8)?$", d.parent.name)
     struct = m.group(1) if m else d.parent.name
@@ -127,6 +132,7 @@ def _sample_info(sample):
         el, edge = str(r.iloc[0]["edge_key"]).split("_")
         return dict(edge=f"{el} {edge}", mode=str(r.iloc[0]["mode"]), scans=int((r["use"].astype(str) != "0").sum()))
     except Exception:
+        logs.log.debug("si_text._sample_info 出错（已忽略或已提示）", exc_info=True)
         return {}
 
 
@@ -226,11 +232,12 @@ def build(keys=None):
     tab = table(keys)
     if not keys or not len(tab):
         return dict(zh="", en="", table=tab)
-    cfg = pl.load_config() if hasattr(pl, "load_config") else json.loads(paths.CONFIG.read_text(encoding="utf-8"))
+    cfg = pl.load_config() if hasattr(pl, "load_config") else json.loads(paths.CONFIG.read_text(encoding="utf-8-sig"))
     try:
         import larch
         lv = larch.__version__
     except Exception:
+        logs.log.debug("si_text.build 出错（已忽略或已提示）", exc_info=True)
         lv = "?"
     zh, en = [], []
     for base, g in _group_models(keys, fits).items():

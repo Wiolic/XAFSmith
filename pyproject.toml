@@ -28,6 +28,8 @@ dependencies = [
 [project.optional-dependencies]
 # 直接生成 Origin 工程（.opju）：需要本机装有 Origin 2021 及以上；没有时“图片导出”只写数据与 build_origin.py
 origin = ["originpro"]
+# 开发与测试：python -m pytest tests/unit
+dev = ["pytest"]
 
 [project.urls]
 Homepage = "https://github.com/Wiolic/XAFSmith"

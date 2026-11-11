@@ -1,6 +1,7 @@
 """通用控件：页面骨架、卡片、表单字段、多选框、表格（可编辑）、图表、提示条、后台任务。"""
 from __future__ import annotations
 
+from xafsmith import logs
 import traceback
 
 import numpy as np
@@ -444,6 +445,7 @@ class Page(QScrollArea):
         try:
             self.build()
         except Exception as ex:          # 页面出错时显示错误，不让整个程序退出
+            logs.log.warning("qt.widgets.refresh 出错（已忽略或已提示）", exc_info=True)
             ERRORS.append(f"{type(self).__name__}: {ex}\n{traceback.format_exc()}")
             self.add(Banner("err", f"{type(ex).__name__}: {ex}"))
             self.add(code_block(traceback.format_exc()))
@@ -988,6 +990,7 @@ class _Worker(QObject):
                 if self.wp else self.fn()
             self.done.emit(r)
         except Exception as ex:          # noqa: BLE001
+            logs.log.warning("qt.widgets.run 出错（已忽略或已提示）", exc_info=True)
             self.failed.emit(f"{type(ex).__name__}: {ex}\n\n{traceback.format_exc()}")
 
 
@@ -1076,6 +1079,7 @@ def wait_cursor(fn):
     try:
         return fn()
     except Exception as ex:        # noqa: BLE001
+        logs.log.warning("qt.widgets.wait_cursor 出错（已忽略或已提示）", exc_info=True)
         QApplication.restoreOverrideCursor()
         ERRORS.append(f"{type(ex).__name__}: {ex}\n{traceback.format_exc()}")
         if QUIET["v"]:

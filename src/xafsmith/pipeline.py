@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 from .common import edge_energy, write_params
-from . import paths
+from . import paths, logs
 from . import io as xio
 from . import normalize as xnorm
 from . import autobk as xbkg
@@ -38,7 +38,8 @@ def __getattr__(name):            # pipeline.META / CONFIG / PROC 始终指向�
         return getattr(paths, name)
     raise AttributeError(name)
 META_COLS = ["file", "sample", "edge_key", "mode", "role", "use", "time", "npts", "emax", "note",
-             "batch", "ref_file"]
+             "batch", "ref_file", "format", "group"]
+_DATA_SUFFIX = {".xdi", ".xmu", ".dat", ".txt", ".csv", ".chi", ".prj"}
 
 
 def safe(name):
@@ -83,30 +84,54 @@ def scan_raw(raw_dir=None, meta_path=None):
         if c not in old:
             old[c] = ""
     old["batch"] = [b or batch_of(f) for b, f in zip(old.batch, old.file)]
-    known = set(old.file)
+    known = set(zip(old.file, old.group))
     taken = dict(zip(old["sample"], old.batch))      # 样品名 → 批次
-    rows = []
+    rows, skipped = [], []
     for p in sorted(raw_dir.rglob("*")):
         if not p.is_file():
             continue
         rel = p.relative_to(paths.ROOT).as_posix()
-        if rel in known or not xio.is_bsrf(p):
+        if (rel, "") in known or any(k[0] == rel for k in known):
             continue
         try:
-            g = xio.read_bsrf(p)
-        except Exception:
+            fmt, _score = xio.detect_format(p)
+        except xio.ReadError as ex:
+            logs.log.warning("读取失败 %s: %s", rel, ex, exc_info=True)
+            skipped.append((rel, str(ex)))
             continue
-        name = p.name
-        role = "reference" if re.search(r"foil|powder|metal", name, re.I) else \
-            ("sample" if re.search(r"insitu|_\d|ocp|v$|V$", rel, re.I) else "standard")
-        sample = re.sub(r"_(\d)$", "", name)          # 去掉 _2/_3 等重复扫描后缀
-        batch = batch_of(rel)
-        if taken.get(sample, batch) != batch:         # 与其他批次重名 → 加批次名，避免误合并
-            sample = f"{sample}_{batch}"
-        taken.setdefault(sample, batch)
-        rows.append(dict(file=rel, sample=sample, edge_key=f"{g.element}_{g.edge}", mode=g.mode,
-                         role=role, use="1", time=g.timestamp, npts=str(len(g.energy)),
-                         emax=f"{g.energy[-1]:.1f}", note="", batch=batch, ref_file=""))
+        if fmt is None:                              # 不是已知的数据格式（说明文件、图片等），不登记
+            if _score >= 10:                         # 像数值表格（通用列文本）但不自动登记：列含义需人工确认
+                skipped.append((rel, "像列文本但未自动识别：请用“载入谱 → 列映射向导”保存模板，再在 meta.csv 手工登记"
+                                     "（format 列填模板名） / looks like column text: save a template with the column wizard"))
+            continue
+        try:
+            gs = xio.read_file(p, fmt=fmt)
+        except Exception as ex:                      # noqa: BLE001
+            logs.log.warning("pipeline.scan_raw 出错（已忽略或已提示）", exc_info=True)
+            skipped.append((rel, str(ex)))
+            continue
+        for g in gs:
+            if not g.element or not g.edge:
+                skipped.append((rel, "无法确定元素与吸收边：请在 meta.csv 手工登记 / cannot determine element and edge"))
+                continue
+            name = getattr(g, "group_name", None) or (Path(p.name).stem if p.suffix.lower() in _DATA_SUFFIX else p.name)
+            role = "reference" if re.search(r"foil|powder|metal", name, re.I) else (
+                "sample" if re.search(r"insitu|_\d|ocp|v$|V$", rel, re.I) else "standard")
+            sample = re.sub(r"_(\d)$", "", name)          # 去掉 _2/_3 等重复扫描后缀
+            if sample not in taken and f"{sample}{p.suffix}" in taken:   # 旧版本按带扩展名的文件名命名过同一样品
+                sample = f"{sample}{p.suffix}"
+            batch = batch_of(rel)
+            if taken.get(sample, batch) != batch:         # 与其他批次重名 → 加批次名，避免误合并
+                sample = f"{sample}_{batch}"
+            taken.setdefault(sample, batch)
+            notes = [w.split(" / ")[0] for w in g.read_warnings]
+            if g.meta_guessed:
+                notes.append("以下字段为猜测，请核对：" + "、".join(g.meta_guessed))
+            rows.append(dict(file=rel, sample=sample, edge_key=f"{g.element}_{g.edge}", mode=g.mode or "",
+                             role=role, use="1", time=g.timestamp, npts=str(len(g.energy)),
+                             emax=f"{g.energy[-1]:.1f}", note="；".join(notes), batch=batch, ref_file="",
+                             format=fmt, group=getattr(g, "group_name", "") if len(gs) > 1 else ""))
+    scan_raw.skipped = skipped                       # 读不了的文件（文件名, 原因），由命令行/界面显示
     meta = pd.concat([old, pd.DataFrame(rows, columns=META_COLS)], ignore_index=True)
     meta = assign_refs(meta)
     for i, r in meta.iterrows():
@@ -135,7 +160,7 @@ def default_edge_config(element, edge, elements_in_sample=None):
 
 def init_config(meta, path=None):
     path = path or paths.CONFIG
-    cfg = json.loads(Path(path).read_text(encoding="utf-8")) if Path(path).exists() else \
+    cfg = json.loads(Path(path).read_text(encoding="utf-8-sig")) if Path(path).exists() else \
         {"xafsmith": {"schema": paths.SCHEMA_VERSION}, "edges": {}}
     for ek in sorted(set(meta.edge_key)):
         if ek in cfg["edges"]:
@@ -152,13 +177,49 @@ def init_config(meta, path=None):
 
 def load_config(path=None):
     path = path or paths.CONFIG
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
 
 
 # ------------------------------------------------------------------ calibration
+def meta_row(rel):
+    """meta.csv 中某个文件的登记行（找不到返回空字典）；用来取该文件的 format / group / mode。"""
+    try:
+        m = pd.read_csv(paths.META, dtype=str, encoding="utf-8-sig").fillna("")
+        hit = m[m.file == rel]
+        return hit.iloc[0].to_dict() if len(hit) else {}
+    except Exception:                                # noqa: BLE001
+        logs.log.warning("pipeline.meta_row 出错（已忽略或已提示）", exc_info=True)
+        return {}
+
+
+def read_meta_row(row, cfg=None, mode=None):
+    """按 meta.csv 的一行（或 meta_row 的结果）读入一条谱；format / group 列缺省 = 自动识别。"""
+    row = dict(row)
+    m = mode if mode in ("trans", "fluo") else (row.get("mode") if row.get("mode") in ("trans", "fluo") else None)
+    return xio.read_scan(paths.ROOT / row["file"], fmt=row.get("format") or None, mode=m,
+                         group=row.get("group") or None, templates=(cfg or {}).get("formats"))
+
+
+def ref_row(ref_file):
+    """参比文件在 meta.csv 中的登记行：多组文件（.prj）取 role=reference 的那一组。
+    同一文件有多个参比组时无法区分（ref_file 只记文件名）→ 报错，而不是悄悄取第一组。"""
+    try:
+        m = pd.read_csv(paths.META, dtype=str, encoding="utf-8-sig").fillna("")
+    except (OSError, ValueError):
+        return {"file": ref_file}
+    hit = m[m.file == ref_file]
+    if len(hit) <= 1:
+        return hit.iloc[0].to_dict() if len(hit) else {"file": ref_file}
+    refs = hit[hit.role == "reference"]
+    if len(refs) == 1:
+        return refs.iloc[0].to_dict()
+    raise ValueError(f"{ref_file} 含 {len(hit)} 组谱，其中 role=reference 的有 {len(refs)} 组：无法确定用哪一组校准。"
+                     "请在 meta.csv 中只把一组设为 reference")
+
+
 def calibrate_ref_file(ref_file, cfg, edge_key=None):
     """用一个参比文件（相对项目根目录）求 ΔE；E_table 取 config.json 中该边的值。"""
-    g = xio.read_bsrf(paths.ROOT / ref_file)
+    g = read_meta_row(ref_row(ref_file), cfg)
     ek = edge_key or f"{g.element}_{g.edge}"
     c = cfg["edges"].get(ek, {})
     g.element, g.edge = c.get("element", g.element), c.get("edge", g.edge)
@@ -189,7 +250,7 @@ def load_calib(path=None):
     """{ref_file: 校准记录}；旧格式（按吸收边索引）自动换成按参比文件索引。"""
     path = path or paths.CALIB_JSON
     p = Path(path)
-    d = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+    d = json.loads(p.read_text(encoding="utf-8-sig")) if p.exists() else {}
     return {v.get("reference_file", k): v for k, v in d.items() if isinstance(v, dict) and "delta_e" in v}
 
 
@@ -208,7 +269,7 @@ def edge_cfg(cfg, edge_key, sample=None):
 def load_scan(row, cfg, calib):
     c = edge_cfg(cfg, row.edge_key, row["sample"])
     mode = row["mode"] if row["mode"] in ("trans", "fluo") else None
-    g = xio.read_bsrf(paths.ROOT / row.file, mode=mode)
+    g = read_meta_row(row.to_dict() if hasattr(row, "to_dict") else row, cfg, mode=mode)
     g.label = row["sample"] if not row.get("scan_label") else row.scan_label
     g.scan_file = row.file
     g.element, g.edge = c["element"], c["edge"]
@@ -276,6 +337,7 @@ def process_all(cfg=None, meta=None, edge_keys=None, make_figs=True):
         try:
             g, rep = build_sample(sample, cfg, meta, calib)
         except Exception as ex:
+            logs.log.exception("处理样品失败: %s", sample)
             summary.append(dict(sample=sample, edge_key=ek, error=str(ex)))
             continue
         groups[sample] = g
@@ -334,6 +396,7 @@ def run_qc(edge_key=None, cfg=None, meta=None):
             g.label = r.file
             row = qc.check(g)
         except Exception as ex:
+            logs.log.exception("QC 失败: %s", r.file)
             row = dict(label=r.file, error=str(ex))
         row["sample"] = r["sample"]
         rows.append(row)

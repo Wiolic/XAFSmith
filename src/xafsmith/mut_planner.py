@@ -84,6 +84,18 @@ def interfering_edges(elements, element, edge, emax=None, kmax_report=20.0):
     return df.sort_values("energy").reset_index(drop=True)
 
 
+def pre_edge_edges(elements, element, edge, pre1, pre2=0.0):
+    """落在边前拟合范围 [E0+pre1, E0+pre2] 内的其他吸收边（如 Ir L3 前 79 eV 的 Ta L2）。
+    这类边会使边前直线拟合偏斜，影响归一化与边跳；应缩小边前范围使其避开，或在 overrides 中为该样品单独设置。"""
+    e0 = edge_energy(element, edge)
+    rows = []
+    for el in elements:
+        for name, ed in xraydb.xray_edges(el).items():
+            if e0 + pre1 <= ed.energy <= e0 + pre2 and not (el == element and name == edge):
+                rows.append(dict(element=el, edge=name, energy=ed.energy, dE=ed.energy - e0))
+    return pd.DataFrame(rows, columns=["element", "edge", "energy", "dE"]).sort_values("energy").reset_index(drop=True)
+
+
 def k_limit(elements, element, edge, emax_data, margin_k=0.3):
     """可用 k 上限 = min(数据末端 k, 第一个干扰边 k − margin)"""
     e0 = edge_energy(element, edge)

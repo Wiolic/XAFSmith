@@ -211,9 +211,10 @@ All guides are also available in the app under **Help** (Chinese and English).
 
 ## Supported data
 
-- Text files from beamlines such as the Beijing Synchrotron Radiation Facility (BSRF) (transmission / fluorescence detected automatically);
-- generic column text (energy + I0 + I1 / If, or μ directly);
-- Athena project files (`.prj`).
+- Auto-detected formats: Beijing SR Facility (BSRF) text, **XDI**, Athena text (`.xmu`), XDAC, Athena projects (`.prj`);
+- generic column text: energy / I0 / It / If / μ are matched **by column name** (not position); if a name is not recognised you are asked to map it — the software does not guess;
+- transmission / fluorescence is detected automatically; when a file has both raw channels and a μ column, μ is always computed from the channels and cross-checked against the file's μ column;
+- other facilities' formats: send a sample file to the developer to have it added (`xafsmith inspect <file>` shows how a file is recognised).
 
 Always measure the **elemental reference** (metal foil or powder) in the same session; it is used for energy calibration.
 

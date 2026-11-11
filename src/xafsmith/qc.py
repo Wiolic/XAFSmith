@@ -14,6 +14,7 @@
 用法：
   python -m xafsmith.qc <文件> [<文件> ...] --out output/qc/qc_report.csv
 """
+from xafsmith import logs
 import argparse
 
 import numpy as np
@@ -62,6 +63,7 @@ def _step(energy, y, element=None, edge=None, e_nominal=None):
         normalize(t)
         return float(t.edge_step), float(t.e0)
     except Exception:
+        logs.log.warning("qc._step 出错（已忽略或已提示）", exc_info=True)
         return np.nan, np.nan
 
 
@@ -109,6 +111,7 @@ def check(g, kmin=2.0):
         ok = np.where((g.k > 3) & (env > 3 * noise))[0]
         row["k_snr3"] = float(g.k[ok[-1]]) if len(ok) else np.nan   # 包络最后一次高于 3×噪声的 k
     except Exception as ex:
+        logs.log.warning("qc.check 出错（已忽略或已提示）", exc_info=True)
         row["autobk_error"] = str(ex)
     row["harmonics"] = "不可评估"
     return row
