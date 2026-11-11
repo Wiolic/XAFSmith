@@ -647,6 +647,7 @@ def make_window(project=None, lang=None, dark=None):
     elif os.environ.get("XAFSMITH_PROJECT"):
         paths.set_root(os.environ["XAFSMITH_PROJECT"])
     app = QApplication.instance() or QApplication(sys.argv)
+    app.aboutToQuit.connect(W.shutdown_tasks)       # 退出前等后台线程结束（否则 Qt 会 abort）
     app.setApplicationName("XAFSmith")
     app.setStyle("Fusion")
     if dark is None:

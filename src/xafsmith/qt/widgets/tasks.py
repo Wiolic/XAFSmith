@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from xafsmith import logs
 import traceback
+import atexit
+
 from PySide6.QtCore import QObject, Qt, QThread, Signal, Slot
 from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -170,6 +172,21 @@ def run_task(parent, fn, on_done, busy_text=None, button_=None, progress=False, 
     _RUNNING.append(entry)
     th.start()
     return handle
+
+
+def shutdown_tasks(timeout_ms=10000):
+    """退出前：取消并等待所有后台线程结束。线程对象在线程仍运行时被销毁，Qt 会直接 abort（退出码 134）。"""
+    for th, _wk, _relay, handle in list(_RUNNING):
+        try:
+            handle.cancel()
+            th.quit()
+            th.wait(timeout_ms)
+        except RuntimeError:          # C++ 对象已删除
+            pass
+    _RUNNING.clear()
+
+
+atexit.register(shutdown_tasks)
 
 
 def wait_cursor(fn):

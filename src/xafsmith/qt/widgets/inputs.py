@@ -115,6 +115,17 @@ class MultiSelect(QPushButton):
         self.clicked.connect(lambda *_: self._popup())
         self._update_text()
 
+    def minimumSizeHint(self):
+        sz = super().minimumSizeHint()
+        sz.setWidth(min(sz.width(), 120))
+        return sz
+
+    def sizeHint(self):
+        # 文字很长时（多个选中项）不按文字长度撑宽布局；显示时按实际宽度省略
+        sz = super().sizeHint()
+        sz.setWidth(min(sz.width(), 240))
+        return sz
+
     def set_options(self, options, selected=None):
         self.opts = list(options)
         self.sel = [o for o in (self.sel if selected is None else selected) if o in self.opts]

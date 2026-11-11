@@ -169,6 +169,15 @@ class MethodsPage(Page):
         return card
 
 
+def _fit_key(S, fit, keys):
+    """拟合属于哪条谱（会话中的键）：拟合记录的样品名可能是键名，也可能是谱的显示名 g.label"""
+    names = {fit["summ"].get("sample"), (fit.get("model") or {}).get("sample")}
+    for k in keys:
+        if k in names or getattr(S.groups.get(k), "label", None) in names:
+            return k
+    return None
+
+
 # ============================================================================= 图片导出
 class PubFigPage(Page):
     title_zh, title_en, icon_name = "图片导出", "Figure export", "chart"
@@ -221,16 +230,15 @@ class PubFigPage(Page):
                     opt["re"] = W.check(T("同时画 Re χ(R)（虚线）", "Also Re χ(R) (dashed)"), self.state.get("re", False))
                     items.append((T("R 上限", "R max"), opt["rmax"]))
                 # 叠加拟合：每条谱默认取最近一次拟合，也可在列表中指定
-                fit_ids = [i for i, f_ in enumerate(S.fits) if f_["summ"]["sample"] in cands]
+                fit_ids = [i for i, f_ in enumerate(S.fits) if _fit_key(S, f_, cands)]
                 latest = {}
                 for i in fit_ids:
-                    latest[S.fits[i]["summ"]["sample"]] = i
+                    latest[_fit_key(S, S.fits[i], cands)] = i
                 opt["usefit"] = W.check(T("叠加拟合曲线（虚线）", "Overlay fit (dashed)"), self.state.get("usefit", False) and bool(fit_ids))
                 saved = [i for i in self.state.get("fits", []) if i in fit_ids]
                 opt["fits"] = W.MultiSelect(fit_ids, saved or list(latest.values()),
                                             T("无拟合：先在“EXAFS 拟合”中拟合", "No fits: fit under “EXAFS fitting” first"),
                                             fmt=lambda i: fit_label(S.fits[i]))
-                items.append((T("拟合", "Fits"), opt["fits"]))
             ctl.add(W.fields(*items))
             refs0 = self.state.get("refs")
             if refs0 is None:
@@ -238,6 +246,8 @@ class PubFigPage(Page):
             opt["refs"] = W.MultiSelect(cands, [c for c in refs0 if c in cands], T("无（全部按样品配色）", "None (all as samples)"))
             ctl.add(W.fields((T("配色方案", "Palette"), pal),
                              (T("参比 / 标样（用灰色画，线稍细）", "References / standards (grey, thinner)"), opt["refs"])))
+            if "fits" in opt:       # 单独一行：放在上面一行会把页面撑宽，预览被裁掉
+                ctl.add(W.fields((T("叠加的拟合（每条谱默认取最近一次）", "Fits to overlay (latest per spectrum by default)"), opt["fits"])))
             ctl.add(W.hbox(opt["sub"], *([opt["re"]] if "re" in opt else []), *([opt["usefit"]] if "usefit" in opt else []), None))
         ctl.add(W.fields((T("尺寸", "Size"), size), (T("格式", "Formats"), fmts), (T("文件名", "File name"), name)))
         self.add(ctl)
@@ -270,10 +280,13 @@ class PubFigPage(Page):
                     cols = pf.series_colors(sel, pal.value(), opt["refs"].value())
                     fits = None
                     if "usefit" in opt and opt["usefit"].isChecked():
+                        # 按谱的显示名（g.label）对应：会话里的键名与 g.label 不一定相同
                         fits = {}
                         for i in opt["fits"].value():
-                            fits[S.fits[i]["summ"]["sample"]] = S.fits[i]
-                        fits = {k: v for k, v in fits.items() if k in sel} or None
+                            smp = _fit_key(S, S.fits[i], sel)
+                            if smp:
+                                fits[S.groups[smp].label] = S.fits[i]
+                        fits = fits or None
                     if k_ in ("xanes", "deriv"):
                         fig, c = pf.xanes(gs, size.value(), (opt["lo"].value(), opt["hi"].value()), opt["off"].value(),
                                           deriv=k_ == "deriv", sub=sub, colors=cols)

@@ -69,6 +69,7 @@ from .tasks import (  # noqa: F401
     _Worker,
     _show_status,
     run_task,
+    shutdown_tasks,
     wait_cursor,
 )
 from .system import (  # noqa: F401

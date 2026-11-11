@@ -75,6 +75,23 @@ def _inc(ax, which):
     return inc
 
 
+def _legend_side(ax, lines):
+    """图例放在左上还是右上：取两侧（各占横轴 35%）中曲线最高点较低的一侧，避免压住白线 / 主峰"""
+    x0, x1 = ax.get_xlim()
+    w = 0.35 * (x1 - x0)
+    tops = []
+    for lo, hi in ((x0, x0 + w), (x1 - w, x1)):
+        m = -np.inf
+        for ln in lines:
+            x = np.asarray(ln.get_xdata(), float)
+            y = np.asarray(ln.get_ydata(), float)
+            sel = (x >= lo) & (x <= hi) & np.isfinite(y)
+            if sel.any():
+                m = max(m, float(y[sel].max()))
+        tops.append(m)
+    return "tl" if tops[0] < tops[1] else "tr"
+
+
 def figure_spec(fig, out_dir, name, kind="", png=False):
     """从 matplotlib 图取曲线与坐标轴，写 CSV，返回 builder 用的说明（每个坐标轴一张 Origin 图）"""
     out_dir = Path(out_dir)
@@ -121,7 +138,7 @@ def figure_spec(fig, out_dir, name, kind="", png=False):
                            xlabel=xlab, ylabel=origin_text(ax.get_ylabel().replace(" (offset)", "")),
                            xlim=xlim, ylim=[float(v) for v in ax.get_ylim()],
                            xinc=xinc, yinc=_inc(ax, "y"), hide_y=hide_y,
-                           legend_pos="tl" if kind in ("xanes", "deriv") else "tr",
+                           legend_pos=_legend_side(ax, lines),
                            png=str((out_dir / f"{book}_origin.png").resolve()) if png else None))
     return dict(out=str((out_dir / f"{name}.opju").resolve()), style=STYLE, graphs=graphs)
 

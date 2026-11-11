@@ -648,6 +648,9 @@ def main():
     lbls = " ".join(l.text() for l in w.findChildren(QLabel))
     say("Claude Opus 5.5" in lbls and "no warranty" in lbls, "English：署名与免责声明")
     print("全部通过" if OK[0] else "存在失败")
+    W.shutdown_tasks()          # 后台线程全部结束后再退出（线程对象在运行中被销毁会 abort）
+    w.close()
+    app.processEvents()
     return 0 if OK[0] else 1
 
 
