@@ -4,6 +4,7 @@ __pycache__/
 build/
 dist/
 .venv/
+.venv-build/
 
 # 演示项目的处理结果（可重新生成）
 tests/data/demo_project/output/

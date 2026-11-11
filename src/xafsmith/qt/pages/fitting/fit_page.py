@@ -69,6 +69,7 @@ class FitPage(Page):
         sp.splitterMoved.connect(lambda *_: self.state.__setitem__("split", sp.sizes()))
         self.body.addWidget(sp, 1)
         add = lcol.addWidget
+        add(self._drafts())
         add(self._saved())
         cands = [k for k, g in S.groups.items() if has_chi(g)]
         dirs = feff_dirs()
@@ -145,6 +146,65 @@ class FitPage(Page):
                                          ignore_index=True)
         W.toast(self, T(f"已把 {n} 个变量的拟合值写入参数表（作为下次拟合的初值）",
                         f"{n} fitted values copied into the parameter table (start values for the next fit)"))
+
+    def _drafts(self):
+        """拟合草稿：把当前的数据、拟合范围、路径表、参数表存成命名草稿，以后随时接着做。
+        草稿不含拟合结果本身；完成的拟合请用“保存结果”。"""
+        from ... import session
+        app = self.window()
+        drafts = session.list_drafts()
+        body = Card(flat=True)
+        body.add(W.label(T("草稿保存数据选择、FEFF 目录、拟合范围、路径表与参数表（含你改过的初值与约束），存在 output/gui/drafts/。"
+                           "关闭软件时这些设置也会自动保存，下次打开自动恢复。",
+                           "A draft stores the data choice, FEFF folders, fit range, path table and parameter table (including your edited "
+                           "start values and constraints) in output/gui/drafts/. These settings are also saved automatically when you "
+                           "close the app and restored next time."), "faint"))
+        name = W.text(self.state.get("mname_" + str(self.state.get("data", "")), "") or T("草稿", "draft"))
+
+        def save():
+            n = name.text().strip()
+            if not n:
+                return
+            f = session.drafts_dir() / (session.safe_name(n) + ".json")
+            if f.exists() and not W.ask(self, T("覆盖草稿", "Overwrite draft"),
+                                        T(f"已有同名草稿（文件 {f.name}），覆盖吗？", f"A draft with this name exists ({f.name}). Overwrite it?")):
+                return
+            try:
+                session.save_draft(n, self.S, app.pages)
+            except Exception:                                  # noqa: BLE001
+                logs.log.warning("保存草稿失败", exc_info=True)
+                W.toast(self, T("保存草稿失败（详情见日志）", "Could not save the draft (see the log)"), "err")
+                return
+            W.toast(self, T(f"草稿“{n}”已保存", f"Draft “{n}” saved"))
+            self.refresh()
+        body.add(W.hbox(W.field(T("草稿名", "Draft name"), name), W.vbox(None, W.button(T("保存草稿", "Save draft"), slot=save)),
+                        spacing=10))
+        if drafts:
+            sel = W.combo(drafts, drafts[0], fmt=lambda d: f"{d['name']}    ({d['saved'].replace('T', ' ')})")
+
+            def open_():
+                d = sel.value()
+                snap = session.load_draft(d["file"])
+                if snap is None:
+                    W.toast(self, T("草稿文件无法读取", "Cannot read the draft file"), "err")
+                    return
+                app.restore_session(snap, only=tuple(snap.get("only") or ("fit",)), quiet=True)
+                W.toast(self, T(f"已打开草稿“{d['name']}”", f"Draft “{d['name']}” opened"))
+
+            def delete():
+                d = sel.value()
+                if not W.ask(self, T("删除草稿", "Delete draft"), T(f"删除草稿“{d['name']}”？此操作不能撤销。",
+                                                                    f"Delete draft “{d['name']}”? This cannot be undone.")):
+                    return
+                session.delete_draft(d["file"])
+                self.refresh()
+            body.add(W.hbox(W.field(T("已有草稿", "Saved drafts"), sel),
+                            W.vbox(None, W.hbox(W.button(T("打开", "Open"), primary=True, slot=open_),
+                                                W.button(T("删除", "Delete"), slot=delete), spacing=6)), spacing=10))
+        cl = W.collapsible(T(f"拟合草稿（{len(drafts)} 个）", f"Fit drafts ({len(drafts)})"), body,
+                           expanded=self.state.get("drafts_open", False))
+        cl.findChild(W.QToolButton).toggled.connect(lambda on: self.state.__setitem__("drafts_open", on))
+        return cl
 
     def _saved(self):
         S = self.S

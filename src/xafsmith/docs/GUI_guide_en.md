@@ -26,7 +26,15 @@ Help opens in its own window; keep it next to the main window while you work.
 
 ### 1　Install and start
 
-**Install (once, about 15 min, internet needed)**
+**Option 1 (recommended): installer** (Windows 10 / 11 64-bit; offline, no administrator rights)
+
+1. Download `XAFSmith-<version>-Setup.exe` from https://github.com/Wiolic/XAFSmith/releases/latest, run it and follow the wizard.
+   The installer is not code-signed: if “Windows protected your PC” appears, click **More info → Run anyway**.
+2. `examples\demo_project` in the install folder is a demo project built from public data — **copy it to your own folder before opening it**.
+3. Upgrade: run the new installer (it replaces the old version). Uninstall: Windows Settings → Apps → XAFSmith → Uninstall.
+   Neither removes your projects or the settings and logs in `%USERPROFILE%\.xafsmith\`.
+
+**Option 2: install from source (once, about 15 min, internet needed)**
 
 1. Install Python 3.11 or 3.12 from https://www.python.org/downloads/windows/ and **tick “Add python.exe to PATH”** during installation.
 2. Open https://github.com/Wiolic/XAFSmith, click the green **Code → Download ZIP** and unzip it anywhere.
@@ -38,7 +46,7 @@ Help opens in its own window; keep it next to the main window while you work.
 
 > If double-clicking installer.py does nothing or opens Notepad: right-click → Open with → Python. If that fails, reinstall Python with “Add python.exe to PATH” and “py launcher” ticked.
 
-**Start and uninstall**
+**Start and uninstall (source install)**
 
 - Start: double-click **XAFSmith** on the desktop or in the Start menu; the window opens in a few seconds. Closing the window quits.
 - Uninstall: Start menu → XAFSmith → **Uninstall XAFSmith**. Only the software is removed, never your projects or data.
@@ -338,6 +346,9 @@ Drag the divider between the columns to resize them. A fit updates only the righ
 - **S0² from a standard**: let S0² vary on a standard of known structure and enter the result under “Calibrate & process → Processing parameters → S0²”. For samples, untick vary for `s02` and set its value.
 - **One model for a series** (time, potential): expand **Run a saved model** at the top of the left column → choose the model → select several samples → **Run**. The model is applied to each sample and the results go to Fit history. Validate the model on a standard first.
 
+- **A fit you are in the middle of**: at the top of the left column, **Fit drafts** → name it → **Save draft**. A draft stores the data choice, FEFF folders, fit range, path table and parameter table (including edited start values and constraints). Later pick it in the same place → **Open** to continue from those settings (the spectra it needs are reloaded automatically). A draft does not contain fit results; click “Save result” for finished fits.
+- **Automatic restore**: when you close the app, the current page, processing parameters, loaded spectra and page settings are saved to `output/gui/session.json` in the project and restored the next time you open it (can be switched off on the home page). Only spectra registered in `meta.csv` can be restored; files read directly must be read again. Normalization / background / FT parameters come back as you had set them in the GUI.
+
 ### 12　Fit history
 
 - All open fits are listed; **Save all to output/fits/** saves them at once.
@@ -531,12 +542,11 @@ After an update (the command path may change), click **Write / update AI instruc
 
 | Symptom | What to do |
 |---|---|
-| Double-clicking the icon opens no window | Double-click installer.py again to repair (projects and data unaffected) |
-| “Not installed yet” | Double-click installer.py again |
+| Double-clicking the icon opens no window | Installer: run the installer again; source install: double-click installer.py again (projects and data unaffected) |
+| “Not installed yet” (source install) | Double-click installer.py again |
 | ref_file empty in the register | The batch has no reference: add the foil measured in that beamtime and scan again |
 | Register still empty after copying files | Click **Scan data/raw and register new files** |
 | A spectrum has glitches | Load & check → Quality check → Deglitch; or set use = 0 for that scan (with a reason) |
-| Loading from the desktop shortcut says 'NoneType' object has no attribute 'write' | Fixed in 0.5.0 (output goes to `~/.xafsmith/xafsmith.log`); update |
 | Origin export gives only data and a script | Origin (originpro) was not found; run build_origin.py in Origin as in section 16 |
-| A red error box on a page | Send its text to the maintainers; other pages keep working |
+| A red error box on a page | Other pages keep working. Help → About → **Export diagnostics** (log, versions, environment, project configuration; no raw data) and post it with the message on [GitHub Issues](https://github.com/Wiolic/XAFSmith/issues) |
 | Start over | Delete the project's `output` folder and run ① ② ③ under “Calibrate & process” again; raw data are never changed |

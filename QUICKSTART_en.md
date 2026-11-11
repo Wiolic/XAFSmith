@@ -3,7 +3,8 @@
 # Quickstart: your first XAFS processing, fit and export in 30 minutes
 
 > For readers who understand XAFS but do not program or use the command line.
-> Not installed yet? See [Installation in the README](README_en.md#installation) (about 15 minutes, once: install Python → double-click `installer.py`).
+> Not installed yet? See [Installation in the README](README_en.md#installation): the Windows installer is recommended (a few minutes, no internet or Python needed); installing from source takes about 15 minutes.
+> To try it first: `examples\demo_project` in the install folder is a demo project built from public data — copy it to your own folder and open it.
 
 XAFSmith offers two routes with identical results; switch at any time:
 
@@ -211,12 +212,14 @@ After updating XAFSmith, click “Write / update” on **AI assistant** again.
 
 | Symptom | Cause and fix |
 |---|---|
-| Double-clicking `installer.py` does nothing or opens a text editor | Right-click → Open with → Python, or reinstall Python with “Add python.exe to PATH” ticked |
+| “Windows protected your PC” when running the installer | The installer is not code-signed: click **More info → Run anyway** |
+| Double-clicking `installer.py` (source install) does nothing or opens a text editor | Right-click → Open with → Python, or reinstall Python with “Add python.exe to PATH” ticked |
 | “No reference ref_file, cannot calibrate” | The batch has no reference: add it and **Scan and register** again, or choose ref_file in the table |
 | Sharp spikes in χ(k) or in the fit residual | Glitches: step 5 “Deglitch” and the hints in the Fit diagnosis on EXAFS fitting |
 | Poor fit, large R-factor | Read [Improving fit quality](src/xafsmith/docs/fit_quality_guide_en.md): diagnose first, then check data → processing → theory → model |
 | FEFF produces no paths | Does the structure contain the absorber? Keep RMAX ≤ 8 Å |
 | The AI cannot find the xafsmith command | AI assistant → “Write / update AI instruction files” again, then ask the AI to reread AGENTS.md |
+| An error and you need help | Help → About → **Export diagnostics** (no raw data) and post it with a description on [GitHub Issues](https://github.com/Wiolic/XAFSmith/issues) |
 
 ## What to read next
 

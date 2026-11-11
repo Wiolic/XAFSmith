@@ -23,7 +23,7 @@ BEGIN, END = "<!-- XAFSmith:BEGIN -->", "<!-- XAFSmith:END -->"
 def exe_path():
     """本机 xafsmith 命令的绝对路径（与当前运行的 Python 同一环境）。"""
     d = Path(sys.executable).resolve().parent
-    for name in ("xafsmith.exe", "xafsmith"):
+    for name in ("xafsmith-cli.exe", "xafsmith-cli", "xafsmith.exe", "xafsmith"):
         if (d / name).exists():
             return d / name
         if (d / "Scripts" / name).exists():

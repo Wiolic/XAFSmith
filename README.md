@@ -7,7 +7,7 @@
 XAFSmith 处理同步辐射 X 射线吸收谱（XANES + EXAFS）：能量校准、归一化、χ(k)、傅里叶变换、小波变换、FEFF 计算、EXAFS 拟合、线性组合拟合、价态估算、图片导出（可直接导出 Origin 文件）、报告导出。你可以用两种方式使用它，也可以混用：
 
 - **🖱 鼠标**：图形界面覆盖全部功能，不需要写代码、不需要命令行；
-- **🤖 AI 助手**：在项目文件夹里打开 Claude Code、Codex、Cursor 等 AI 助手，**用中文说出要做的事**，它会调用 XAFSmith 完成处理、拟合、出图和报告，结果写回项目，你在图形界面里逐项检查。
+- **🤖 AI 助手**：在项目文件夹里打开 Claude Code、Codex、Cursor 等 AI 助手，**用自然语言（中文、英文均可）说出要做的事**，它会调用 XAFSmith 完成处理、拟合、出图和报告，结果写回项目，你在图形界面里逐项检查。
 
 计算核心是同步辐射领域广泛使用的 [Larch](https://xraypy.github.io/xraylarch/)（xraylarch）与 FEFF。本软件面向懂 XAFS 原理、但不写程序的化学与材料研究者。
 
@@ -90,6 +90,29 @@ XAFSmith 处理同步辐射 X 射线吸收谱（XANES + EXAFS）：能量校准�
 
 ## 安装
 
+### 系统要求
+
+| | |
+|---|---|
+| 操作系统 | **Windows 10 / 11（64 位）**。macOS / Linux 目前只能从源码安装（见下） |
+| 磁盘 | 约 0.5 GB |
+| 权限 | 不需要管理员权限（装到当前用户） |
+| 网络 | 安装包**不需要联网**；只有“检查更新”会访问 github.com（可关闭） |
+
+### 方式一（推荐）：安装包
+
+1. 到 [Releases](https://github.com/Wiolic/XAFSmith/releases/latest) 下载 `XAFSmith-<版本>-Setup.exe`（约 130 MB），双击运行。
+   安装包自带 Python、Larch、FEFF6L/FEFF8L 与界面库，**不需要另装 Python，不需要 pip**。
+2. 安装包**未做代码签名**：Windows 若提示“Windows 已保护你的电脑”，点 **更多信息 → 仍要运行**。个别杀毒软件可能误报 PyInstaller 打包的程序，可在 Release 页用 `SHA256SUMS.txt` 核对文件后加入信任。
+3. 装好后从开始菜单或桌面图标打开 **XAFSmith**。命令行 / AI 助手使用同目录下的 `xafsmith-cli.exe`。
+4. 安装目录里的 `examples\demo_project` 是用公开数据做的演示项目：**先复制到自己的文件夹再打开**。
+
+也可以下载免安装的 `XAFSmith-<版本>-win64-portable.zip`，解压后直接运行 `XAFSmith.exe`。
+
+**升级**：直接运行新版本的安装包（覆盖旧版）。**卸载**：Windows 设置 → 应用 → XAFSmith → 卸载。升级和卸载都**不会删除你的项目文件**，也不会删除 `%USERPROFILE%\.xafsmith\` 里的设置与日志。
+
+### 方式二：从源码安装（开发者，或 macOS / Linux）
+
 Windows，约 15 分钟，只需一次：
 
 1. **安装 Python**：打开 <https://www.python.org/downloads/windows/>，下载 Python 3.11 或 3.12。
@@ -100,7 +123,7 @@ Windows，约 15 分钟，只需一次：
 4. 装好后**双击桌面上的 XAFSmith 图标**，软件以原生桌面窗口打开（几秒，不需要浏览器）。解压的文件夹可以删除。
 
 卸载：开始菜单 → XAFSmith → 卸载 XAFSmith（只删软件，不删你的数据）。
-macOS / Linux 目前没有安装向导，用命令行安装，见 [命令行速查](src/xafsmith/docs/命令行速查.md)。
+macOS / Linux：`pip install "xafsmith @ https://github.com/Wiolic/XAFSmith/archive/refs/heads/main.zip"`，详见 [命令行速查](src/xafsmith/docs/命令行速查.md)。
 
 ---
 
@@ -142,9 +165,9 @@ XAFSmith 的每个功能都有对应的命令（例如 `xafsmith fit 模型名`�
 | **Codex**（[github.com/openai/codex](https://github.com/openai/codex)） | 在项目文件夹中打开终端，输入 `codex`；或在 Codex 应用中打开该文件夹 |
 | **Cursor / VS Code + AI 插件** | 文件 → 打开文件夹 → 你的项目文件夹，打开 AI 对话面板 |
 
-AI 助手的安装和账号按各自官方说明完成。第一次可以先说一句：“读 AGENTS.md，告诉我这个项目现在的状态。”
+AI 助手的安装和账号按各自官方说明完成。用什么语言提问都可以，AI 会用你的语言回答。第一次可以先说一句：“读 AGENTS.md，告诉我这个项目现在的状态。”
 
-### 第 4 步：用中文告诉它要做什么
+### 第 4 步：用自然语言告诉它要做什么
 
 **数据处理**
 > 检查这批数据的质量，告诉我哪些扫描有毛刺或异常，需要的话去毛刺并写明理由，然后处理全部样品。
@@ -222,13 +245,25 @@ AI 仍可能出错，**关键结论请在图形界面中核对**，必要时与 
 
 - 与 Artemis 对照（IrO2，相同 k/R 范围与 k 权重）：S0² 0.80 ± 0.11 vs 0.86 ± 0.09，ΔE0 9.2 vs 10.2 eV，ΔR −0.012 vs −0.010 Å，误差范围内一致。
 - 标样多壳层拟合（金红石 IrO2、立方钙钛矿 KTaO3）给出与晶体学一致的配位数与键长。
-- 每次发布前运行图形界面逐页自动测试（中文与英文界面）。
+- 数值基准（自动测试）：Cu 箔第一壳层拟合与 Larch 官方示例结果一致（S0² 0.92、ΔE0 4.4 eV、σ² 0.0087 Å²），并与直接调用 Larch 逐位一致；构建安装包时对打包后的程序再做一次同样的比对。
+- 每次发布前运行单元测试、数值基准与图形界面逐页自动测试（中文与英文界面）；公开数据的演示项目随仓库提供（`tests/data/demo_project`）。
+
+## 问题反馈
+
+- 在 [GitHub Issues](https://github.com/Wiolic/XAFSmith/issues) 提交问题，写明版本号（“关于”页）、操作步骤和现象。
+- 附上**诊断包**：“关于 → 导出诊断包”，内含日志、版本、环境和项目配置，**不含原始数据和谱**。日志也在 `%USERPROFILE%\.xafsmith\xafsmith.log`。
+- 其他光源的数据格式不能识别时，请附一个样例文件（`xafsmith inspect <文件>` 可先看识别结果）。
+
+## 版本与开发
+
+- 更新记录：[CHANGELOG.md](CHANGELOG.md)；版本号遵循语义化版本。
+- 软件结构：[ARCHITECTURE.md](ARCHITECTURE.md)；参与开发：[CONTRIBUTING.md](CONTRIBUTING.md)；发布流程：[docs/dev/RELEASING.md](docs/dev/RELEASING.md)。
 
 ## 引用
 
 论文中使用本软件，请引用本仓库（GitHub 页面右侧 **Cite this repository**）：
 
-*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 0.5.1. https://github.com/Wiolic/XAFSmith*
+*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 1.0.0. https://github.com/Wiolic/XAFSmith*
 
 并引用所依赖的程序：
 - Larch：M. Newville, *J. Phys.: Conf. Ser.* **430**, 012007 (2013).

@@ -91,6 +91,29 @@ A native desktop window (PySide6) that opens in seconds. Pages are grouped by wo
 
 ## Installation
 
+### System requirements
+
+| | |
+|---|---|
+| Operating system | **Windows 10 / 11 (64-bit)**. macOS / Linux: install from source for now (see below) |
+| Disk | about 0.5 GB |
+| Permissions | no administrator rights needed (per-user install) |
+| Network | the installer works **offline**; only “Check for updates” contacts github.com (can be switched off) |
+
+### Option 1 (recommended): installer
+
+1. Download `XAFSmith-<version>-Setup.exe` (about 130 MB) from [Releases](https://github.com/Wiolic/XAFSmith/releases/latest) and run it.
+   It bundles Python, Larch, FEFF6L/FEFF8L and the GUI libraries — **no separate Python, no pip**.
+2. The installer is **not code-signed**: if Windows shows “Windows protected your PC”, click **More info → Run anyway**. Some antivirus programs flag PyInstaller-built programs by mistake; verify the file against `SHA256SUMS.txt` on the Release page and allow it.
+3. Start **XAFSmith** from the Start menu or the desktop icon. For the command line / AI assistants use `xafsmith-cli.exe` in the same folder.
+4. `examples\demo_project` in the install folder is a demo project built from public data: **copy it to your own folder before opening it**.
+
+A no-install `XAFSmith-<version>-win64-portable.zip` is also provided: unzip and run `XAFSmith.exe`.
+
+**Upgrade**: run the new installer (it replaces the old version). **Uninstall**: Windows Settings → Apps → XAFSmith → Uninstall. Neither touches your project files or the settings and logs in `%USERPROFILE%\.xafsmith\`.
+
+### Option 2: from source (developers, macOS / Linux)
+
 Windows, about 15 minutes, once:
 
 1. **Install Python**: go to <https://www.python.org/downloads/windows/> and download Python 3.11 or 3.12.
@@ -101,7 +124,7 @@ Windows, about 15 minutes, once:
 4. **Double-click the XAFSmith icon on the desktop**; it opens as a native desktop window (seconds, no web browser). The unzipped folder can be deleted.
 
 Uninstall: Start menu → XAFSmith → Uninstall XAFSmith (your data are kept).
-There is no installer for macOS / Linux yet; install from the command line, see the [command-line reference](src/xafsmith/docs/命令行速查.md) (Chinese; commands are self-explanatory).
+macOS / Linux: `pip install "xafsmith @ https://github.com/Wiolic/XAFSmith/archive/refs/heads/main.zip"`; see the [command-line reference](src/xafsmith/docs/命令行速查.md) (Chinese; commands are self-explanatory).
 
 ---
 
@@ -143,7 +166,7 @@ Click again after updating XAFSmith. From a terminal: `xafsmith agent --write` i
 | **Codex** ([github.com/openai/codex](https://github.com/openai/codex)) | Open a terminal in the project folder and type `codex`, or open the folder in the Codex app |
 | **Cursor / VS Code with an AI extension** | File → Open Folder → your project folder, then open the AI chat panel |
 
-Install and sign in to the assistant following its own instructions. A good first message: “Read AGENTS.md and tell me the current state of this project.”
+Install and sign in to the assistant following its own instructions. You can write in any language; the assistant replies in yours. A good first message: “Read AGENTS.md and tell me the current state of this project.”
 
 ### Step 4: tell it what to do
 
@@ -222,13 +245,25 @@ Always measure the **elemental reference** (metal foil or powder) in the same se
 
 - Against Artemis (IrO2, same k/R ranges and k-weights): S0² 0.80 ± 0.11 vs 0.86 ± 0.09, ΔE0 9.2 vs 10.2 eV, ΔR −0.012 vs −0.010 Å — consistent within errors.
 - Multi-shell fits of standards (rutile IrO2, cubic perovskite KTaO3) give coordination numbers and distances consistent with crystallography.
-- Every release runs a page-by-page automatic GUI test (Chinese and English interface).
+- Numerical benchmark (automated): the Cu-foil first-shell fit reproduces Larch's official example (S0² 0.92, ΔE0 4.4 eV, σ² 0.0087 Å²) and is bit-identical to a direct Larch call; the installer build repeats the same check on the packaged program.
+- Every release runs unit tests, the numerical benchmarks and a page-by-page automatic GUI test (Chinese and English interface); a demo project built from public data ships with the repository (`tests/data/demo_project`).
+
+## Reporting problems
+
+- Open an issue on [GitHub Issues](https://github.com/Wiolic/XAFSmith/issues) with the version (About page), the steps and what happened.
+- Attach a **diagnostics bundle**: About → Export diagnostics. It contains the log, version, environment and project configuration — **no raw data or spectra**. The log is also at `%USERPROFILE%\.xafsmith\xafsmith.log`.
+- If a file from another facility is not recognised, attach one sample file (`xafsmith inspect <file>` shows how it is read).
+
+## Releases and development
+
+- Change log: [CHANGELOG.md](CHANGELOG.md); versions follow semantic versioning.
+- Architecture: [ARCHITECTURE.md](ARCHITECTURE.md); contributing: [CONTRIBUTING.md](CONTRIBUTING.md); release procedure: [docs/dev/RELEASING.md](docs/dev/RELEASING.md).
 
 ## Citation
 
 If you use XAFSmith in a publication, please cite this repository (**Cite this repository** on the right of the GitHub page):
 
-*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 0.5.1. https://github.com/Wiolic/XAFSmith*
+*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 1.0.0. https://github.com/Wiolic/XAFSmith*
 
 and the programs it builds on:
 - Larch: M. Newville, *J. Phys.: Conf. Ser.* **430**, 012007 (2013).

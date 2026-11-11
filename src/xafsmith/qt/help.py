@@ -213,6 +213,10 @@ class HelpWindow(QMainWindow):
                 if u.get("editable"):
                     res.layout().addWidget(W.label(T("开发安装：请在源码目录用 git pull 更新。",
                                                      "Development install: update with git pull in the source folder."), "faint"))
+                elif xup.is_frozen():
+                    res.layout().addWidget(W.label(T(f"请到 <a href='{xup.RELEASES_PAGE}'>GitHub Releases</a> 下载新的安装程序并运行（覆盖旧版，项目文件不受影响）。",
+                                                     f"Download the new installer from <a href='{xup.RELEASES_PAGE}'>GitHub Releases</a> and run it "
+                                                     "(it replaces the old version; project files are untouched)."), rich=True))
                 else:
                     b = W.button(T("更新到最新版", "Update now"), primary=True)
                     b.clicked.connect(lambda: W.run_task(self, xup.upgrade, lambda r: res.layout().addWidget(

@@ -1,4 +1,4 @@
-# io 格式插件化设计（v0.6）
+# io 格式插件化设计（0.5.1 起实现）
 
 > 状态：已实现（`src/xafsmith/readers/`，测试 `tests/unit/test_readers.py`）。凡标 ⚠ 的数值/物理判断点，改动前须先讨论。
 >

@@ -3,12 +3,13 @@
 # 快速上手：30 分钟完成第一次 XAFS 处理、拟合与导出
 
 > 面向懂 XAFS 原理、但不写程序、不用命令行的读者。
-> 还没安装？先看 [README 的“安装”](README.md#安装)（约 15 分钟，只需一次：装 Python → 双击 `installer.py`）。
+> 还没安装？先看 [README 的“安装”](README.md#安装)：推荐下载 Windows 安装包（几分钟、不需要联网和 Python）；也可以从源码安装（约 15 分钟）。
+> 想先试一试：安装目录里的 `examples\demo_project` 是公开数据的演示项目，复制到自己的文件夹后用“打开”即可。
 
 XAFSmith 有两条路线，结果完全相同，可以随时切换：
 
 - **路线 A：鼠标**——自己在图形界面里点完每一步（第 1–9 步）；
-- **路线 B：AI 助手**——在项目文件夹里打开 Claude Code / Codex / Cursor，用中文说要做什么，AI 调用 XAFSmith 完成，你在界面里检查（见[路线 B](#路线-bai-助手)）。
+- **路线 B：AI 助手**——在项目文件夹里打开 Claude Code / Codex / Cursor，用自然语言（中文、英文均可）说要做什么，AI 调用 XAFSmith 完成，你在界面里检查（见[路线 B](#路线-bai-助手)）。
 
 建议第一次先走一遍路线 A，了解每一步在做什么；之后的日常分析可以交给路线 B。
 
@@ -211,13 +212,15 @@ AI 会运行 `xafsmith qc`、`process`、`feff`、`fit`、`diagnose`、`robust`�
 
 | 现象 | 原因与处理 |
 |---|---|
-| 双击 `installer.py` 没反应或被记事本打开 | 右键 → 打开方式 → Python；或重装 Python 并勾选 “Add python.exe to PATH” |
+| 运行安装包时出现“Windows 已保护你的电脑” | 安装包未做代码签名：点 **更多信息 → 仍要运行** |
+| 双击 `installer.py`（源码安装）没反应或被记事本打开 | 右键 → 打开方式 → Python；或重装 Python 并勾选 “Add python.exe to PATH” |
 | “未指定参比 ref_file，不能校准” | 这批数据缺参比：把同批参比放进来再点 **扫描登记**，或在登记表里选 ref_file |
 | χ(k) 或拟合残差里有尖锐小峰 | 毛刺：第 5 步“去毛刺”，以及 EXAFS 拟合页“拟合诊断”的提示 |
 | 拟合对不严、R 因子大 | 读 [拟合质量提升教程](src/xafsmith/docs/拟合质量提升教程.md)：先诊断，再按数据 → 处理 → 理论 → 模型排查 |
 | FEFF 没有生成路径 | 结构里是否有吸收原子；RMAX 不要超过 8 Å |
 | AI 说找不到 xafsmith 命令 | AI 助手 → 再点一次“写入 / 更新 AI 说明文件”，然后让 AI 重新读 AGENTS.md |
 | 想换英文界面 | 侧栏底部 **中文 / English** |
+| 出错、需要求助 | 帮助 → 关于 → **导出诊断包**（不含原始数据），连同现象发到 [GitHub Issues](https://github.com/Wiolic/XAFSmith/issues) |
 
 ## 下一步读什么
 

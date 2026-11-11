@@ -82,6 +82,12 @@ class HomePage(Page):
         card.add(W.hbox(W.button(T("打开", "Open"), slot=open_),
                         W.button(T("新建项目", "Create project"), primary=True, icon_name="plus", slot=create),
                         W.label(T("已有文件不会被覆盖", "Existing files are never overwritten"), "faint"), None))
+        from xafsmith import update as xup
+        rs = W.check(T("打开项目时恢复上次关闭时的状态（载入的谱、各页设置、做到一半的拟合设置）",
+                       "Restore the last session when opening a project (loaded spectra, page settings, half-done fit setup)"),
+                     xup.load_settings().get("restore_session", True))
+        rs.toggled.connect(lambda on: xup.save_settings(restore_session=bool(on)))
+        card.add(rs)
         return card
 
 

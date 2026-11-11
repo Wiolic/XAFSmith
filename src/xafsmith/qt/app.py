@@ -109,6 +109,11 @@ class MainWindow(QMainWindow):
         self.pages = {}
         self.nav = {}
         self._update = {}
+        self._session_ready = False        # 恢复流程（含后台重新载入谱）结束前不保存，否则不完整的状态会覆盖上次的快照
+        self._session_timer = QTimer(self)  # 切页等频繁事件只在空闲 2 秒后保存一次，不在每次点击时写文件
+        self._session_timer.setSingleShot(True)
+        self._session_timer.setInterval(2000)
+        self._session_timer.timeout.connect(self.save_session)
         self._build()
         self.S.changed.connect(self._state_changed)
         self.update_found.connect(self._show_update)
@@ -322,6 +327,7 @@ class MainWindow(QMainWindow):
         else:
             self.stack.setCurrentWidget(p)
         p.on_show()
+        self.save_session_later()
 
     def refresh_current(self):
         self.stack.currentWidget().refresh()
@@ -329,6 +335,8 @@ class MainWindow(QMainWindow):
     def _state_changed(self, what):
         if what == "project":
             self.rebuild()
+        elif what == "fits":
+            self.save_session_later()
 
     def _update_project_label(self):
         if is_project():
@@ -356,6 +364,7 @@ class MainWindow(QMainWindow):
         hw.activateWindow()
 
     def closeEvent(self, e):
+        self.save_session()
         hw = getattr(self, "_help", None)
         if hw is not None:
             hw.close()
@@ -384,12 +393,110 @@ class MainWindow(QMainWindow):
         self.rebuild()
 
     def open_project(self, root):
+        self.save_session()                    # 先保存正在用的项目
+        self._session_ready = False
         paths.set_root(root)
         paths.ensure()
         remember(paths.ROOT)
         self.S.reset()
         self.S.extra["page"] = "data"
         self.rebuild()
+        QTimer.singleShot(0, self.start_session)
+
+    # ------------------------------------------------------------------ 会话快照（关闭时保存，打开时恢复）
+    def save_session_later(self):
+        if self._session_ready:
+            self._session_timer.start()
+
+    def save_session(self):
+        self._session_timer.stop()
+        if not self._session_ready or not is_project():
+            return
+        from . import session
+        session.save_session(self.S, self.pages)
+
+    def start_session(self):
+        """打开项目后调用：有上次的快照就恢复，然后才允许保存。"""
+        from . import session
+        try:
+            if is_project() and session.enabled():
+                snap = session.load_session()
+                if snap:
+                    self.restore_session(snap, on_finished=self._session_restored)
+                    return                     # 后台载入结束（done）后才允许保存
+        except Exception:                      # noqa: BLE001
+            logs.log.warning("恢复上次状态失败（已忽略）", exc_info=True)
+        self._session_ready = True
+
+    def _session_restored(self):
+        self._session_ready = True
+
+    def restore_session(self, snap, only=None, quiet=False, on_finished=None):
+        """把快照应用到界面：处理参数、各页设置，并在后台重新载入当时的谱。
+        only：只应用这些页面的设置（草稿用）；此时回到 only[0] 页，且**不改**全局处理参数。
+        重新载入的谱按快照里的处理参数（归一化 / 背景 / FT）重算，使界面显示的参数与谱实际所用的一致。"""
+        from . import session
+        from xafsmith import pipeline as pl
+        from types import SimpleNamespace
+        S = self.S
+        if only is None:
+            session.apply_params(S, snap)
+        session.apply_pages(snap, self.pages, only)
+        names = [n for n in snap.get("groups", []) if n not in S.groups]
+        page = snap.get("page") if only is None else (only[0] if only else None)
+        root = paths.ROOT                      # 恢复期间若切换了项目，结果作废
+        # 只携带参数的轻量对象，供 state.process 使用（在启动前复制，线程规则）
+        par = SimpleNamespace(norm_par=dict(S.norm_par), bkg_par=dict(S.bkg_par), ft_par=dict(S.ft_par))
+        session.apply_params(par, snap)
+
+        def work():
+            from .state import process
+            cfg, meta, calib = pl.load_config(), pl.load_meta(), pl.load_calib()
+            known = set(meta["sample"]) if len(meta) else set()
+            out, lost = {}, []
+            for n in names:
+                if n not in known:
+                    lost.append(n)
+                    continue
+                try:
+                    g, _ = pl.build_sample(n, cfg, meta, calib)
+                    out[n] = process(par, g)
+                except Exception:              # noqa: BLE001
+                    logs.log.warning("恢复谱 %s 失败", n, exc_info=True)
+                    lost.append(n)
+            return out, lost
+
+        def done(r):
+            if paths.ROOT != root:
+                logs.log.info("恢复上次状态期间切换了项目，丢弃结果")
+                return
+            out, lost = r
+            S.groups.update(out)
+            if out:
+                S.emit("groups")
+            self.go(page if page in self.pages else self.S.extra.get("page", "data"))
+            if page in self.pages:
+                self.pages[page].refresh()
+            if not quiet:
+                msg = T(f"已恢复上次状态（{len(out)} 条谱）", f"Restored the last session ({len(out)} spectra)")
+                if lost:
+                    msg += T(f"；{len(lost)} 条未能恢复（不在 meta.csv 登记表中，需重新读入）：" + ", ".join(lost[:3]),
+                             f"; {len(lost)} could not be restored (not in meta.csv — load again): " + ", ".join(lost[:3]))
+                self.toast(msg, "warn" if lost else "info")
+            if on_finished:
+                on_finished()
+
+        def failed(msg=""):
+            logs.log.warning("恢复上次状态失败：%s", msg)
+            if paths.ROOT != root:
+                return
+            self.toast(T("恢复上次状态失败（详情见日志）", "Could not restore the last session (see the log)"), "warn")
+            if on_finished:
+                on_finished()                  # 出错也要放开保存，否则本次会话再也不会写快照
+        if names:
+            W.run_task(self, work, done, T("恢复上次状态…", "Restoring the last session…"), on_error=failed)
+        else:
+            done(({}, []))
 
     def busy(self, on, text="", frac=None, cancel=None):
         """状态栏：on=忙碌；frac（0–1）有值时显示确定进度，否则为不确定动画；cancel 有值时显示“取消”按钮"""
@@ -709,6 +816,7 @@ def run(project=None):
     app, w = make_window(project)
     w.show()
     QTimer.singleShot(400, w.start_background)
+    QTimer.singleShot(0, w.start_session)
     return app.exec()
 
 
