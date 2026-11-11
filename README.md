@@ -263,7 +263,7 @@ AI 仍可能出错，**关键结论请在图形界面中核对**，必要时与 
 
 论文中使用本软件，请引用本仓库（GitHub 页面右侧 **Cite this repository**）：
 
-*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 1.0.0. https://github.com/Wiolic/XAFSmith*
+*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 1.0.1. https://github.com/Wiolic/XAFSmith*
 
 并引用所依赖的程序：
 - Larch：M. Newville, *J. Phys.: Conf. Ser.* **430**, 012007 (2013).

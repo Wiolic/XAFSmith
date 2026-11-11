@@ -4,7 +4,7 @@
 [语义化版本](https://semver.org/lang/zh-CN/)。
 All notable changes are recorded here (format: Keep a Changelog; versioning: SemVer).
 
-## [未发布 / Unreleased]
+## [1.0.1] — 2026-11-11
 
 ### 修复 / Fixed
 - 新建项目不再生成“打开图形界面.bat”：它只认源码安装的 `.venv` / `location.txt`，用安装包安装时双击只会报错。

@@ -1,5 +1,5 @@
 ﻿; Inno Setup 6 脚本：把 PyInstaller 的 dist\XAFSmith 打成 Windows 安装程序（无需管理员权限，装到当前用户）
-; 构建：iscc /DAppVersion=1.0.0 packaging\xafsmith.iss        输出：dist\XAFSmith-<版本>-Setup.exe
+; 构建：iscc /DAppVersion=1.0.1 packaging\xafsmith.iss        输出：dist\XAFSmith-<版本>-Setup.exe
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
