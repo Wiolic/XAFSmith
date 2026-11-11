@@ -82,7 +82,7 @@ A native desktop window (PySide6) that opens in seconds. Pages are grouped by wo
 <td><b>Figure export</b>: exports Origin files directly; 24 palettes, 600 dpi, English captions<br/><img src="docs/images/en/journal_figure.png"/></td>
 </tr>
 <tr>
-<td><b>Exported Origin project</b>: 25×19 cm layer, Arial 32 pt, boxed frame, blue samples / grey standards<br/><img src="docs/images/en/origin_export.png"/></td>
+<td><b>Exported Origin project</b>: 25×19 cm layer, Arial 32 pt, boxed frame, outward ticks; XANES, k²χ(k) and |χ(R)| of Ir foil 1W1B and IrO2 Batch 1 with EXAFS fits (dashed)<br/><img src="docs/images/en/origin_export.png"/></td>
 <td><b>Edge lookup</b>: click an element for edges, fluorescence lines and a filter<br/><img src="docs/images/en/edge_lookup.png"/></td>
 </tr>
 </table>

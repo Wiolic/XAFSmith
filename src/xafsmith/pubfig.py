@@ -177,14 +177,21 @@ def xanes(groups, size="单栏 85 mm", xlim=(-20, 60), offset=0.0, relative=True
 
 def _fit_color(c, single=False):
     """拟合虚线的颜色逻辑：只有一条谱叠加拟合时用红色（数据黑/蓝，拟合红，最易分辨）；
-    多条谱时每条拟合取"自己数据色加深"，一眼看出哪条拟合属于哪条数据；数据为黑色时用红色。"""
+    多条谱时每条拟合取"自己数据色加深"，一眼看出哪条拟合属于哪条数据；数据为黑 / 灰色时用红色。"""
     import colorsys
     from matplotlib.colors import to_rgb, to_hex
     rgb = to_rgb(c)
-    if single or rgb == (0.0, 0.0, 0.0):
-        return COLORS[2]
     h, l, sat = colorsys.rgb_to_hls(*rgb)
+    if single or sat < 0.1:           # 单谱，或数据是黑 / 灰（参比）：拟合用红色
+        return COLORS[2]
     return to_hex(colorsys.hls_to_rgb(h, max(0.0, l * 0.6), min(1.0, sat * 1.1)))
+
+
+def _headroom(ax, fits, n):
+    """叠加拟合后图例条目翻倍：上方留出空白，避免图例压住曲线"""
+    if fits:
+        lo, hi = ax.get_ylim()
+        ax.set_ylim(lo, hi + (hi - lo) * 0.11 * (n + len(fits)))
 
 
 def _fit_caption(groups, fits):
@@ -205,14 +212,16 @@ def chik(groups, size="单栏 85 mm", kweight=2, offset=0.0, kmax=None, sub=True
         line, = ax.plot(g.k, g.chi * g.k ** kweight + i * offset, label=chem(g.label, sub), **_style_of(i, s, colors))
         f = (fits or {}).get(g.label)
         if f is not None:
-            c = f["curves"]
-            ax.plot(c["kfit"], c["chifit"] * c["kfit"] ** kweight + i * offset, color=_fit_color(line.get_color(), len(fits) == 1),
+            c, sm = f["curves"], f["summ"]
+            sel = (c["kfit"] >= sm["kmin"] - 0.5) & (c["kfit"] <= sm["kmax"] + 0.5)      # 只画拟合窗口附近
+            ax.plot(c["kfit"][sel], (c["chifit"] * c["kfit"] ** kweight)[sel] + i * offset, color=_fit_color(line.get_color(), len(fits) == 1),
                     ls="--", lw=0.9 * s["lw"], label=chem(g.label, sub) + " fit")
     if kmax:
         ax.set_xlim(0, kmax)
     ax.set_xlabel("k (Å$^{-1}$)")
     ax.set_ylabel(f"k$^{kweight}$χ(k) (Å$^{{-{kweight}}}$)" + (" (offset)" if offset else ""))
     ax.axhline(0, color="0.6", lw=0.5 * s["lw"])
+    _headroom(ax, fits, len(groups))
     ax.legend(loc="best")
     return fig, (f"k$^{kweight}$-weighted EXAFS" + ("; dashed: EXAFS fit" if fits else "") + ". "
                  + "; ".join(_caption_group(g) for g in groups) + _fit_caption(groups, fits))
@@ -224,13 +233,16 @@ def chir(groups, size="单栏 85 mm", kweight=2, rmax=6.0, offset=0.0, show_re=F
     fig, (ax,), s = _fig(size)
     for i, g in enumerate(groups):
         fp = dict(getattr(g, "ft_params", {}) or {})
+        f = (fits or {}).get(g.label)
+        if f is not None:        # 叠加拟合时，数据与拟合用同一套 FT 参数（拟合的 k 范围、窗口），否则两条曲线振幅不可比
+            fp.update(kmin=f["summ"]["kmin"], kmax=f["summ"]["kmax"], dk=(f.get("model") or {}).get("dk", fp.get("dk", 1)),
+                      window=(f.get("model") or {}).get("window", fp.get("window", "hanning")))
         t = Group(k=g.k, chi=g.chi)
         xftf(t, kmin=fp.get("kmin", 3), kmax=fp.get("kmax", 12), dk=fp.get("dk", 1),
              window=fp.get("window", "hanning"), kweight=kweight)
         line, = ax.plot(t.r, t.chir_mag + i * offset, label=chem(g.label, sub), **_style_of(i, s, colors))
         if show_re:
             ax.plot(t.r, t.chir_re + i * offset, color=line.get_color(), lw=0.6 * s["lw"], ls="--" if not fits else "-")
-        f = (fits or {}).get(g.label)
         if f is not None:
             c, md, sm = f["curves"], f.get("model") or {}, f["summ"]
             tf = Group(k=c["kfit"], chi=c["chifit"])
@@ -242,6 +254,7 @@ def chir(groups, size="单栏 85 mm", kweight=2, rmax=6.0, offset=0.0, show_re=F
                 ax.plot(tf.r, tf.chir_re + i * offset, color=fc, lw=0.6 * s["lw"], ls="--")
             ax.axvspan(sm["rmin"], sm["rmax"], color="0.93", lw=0, zorder=0)
     ax.set_xlim(0, rmax)
+    _headroom(ax, fits, len(groups))
     ax.set_xlabel(RLABEL)
     ax.set_ylabel(f"|χ(R)| (Å$^{{-{kweight + 1}}}$)" + (" (offset)" if offset else ""))
     ax.legend(loc="best")

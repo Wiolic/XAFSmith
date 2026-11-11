@@ -81,7 +81,7 @@ XAFSmith 处理同步辐射 X 射线吸收谱（XANES + EXAFS）：能量校准�
 <td><b>图片导出</b>：可直接导出 Origin 文件；24 种配色、600 dpi、英文图注<br/><img src="docs/images/zh/journal_figure.png"/></td>
 </tr>
 <tr>
-<td><b>导出的 Origin 工程</b>：图层 25×19 cm、Arial 32 pt、四边框、样品蓝 / 标样灰<br/><img src="docs/images/zh/origin_export.png"/></td>
+<td><b>导出的 Origin 工程</b>：图层 25×19 cm、Arial 32 pt、四边框、刻度朝外；Ir foil 1W1B 与 IrO2 Batch 1 的 XANES、k²χ(k)、|χ(R)|（含 EXAFS 拟合，虚线）<br/><img src="docs/images/zh/origin_export.png"/></td>
 <td><b>吸收边查询</b>：点元素看吸收边、荧光线与荧光滤片<br/><img src="docs/images/zh/edge_lookup.png"/></td>
 </tr>
 </table>

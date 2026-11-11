@@ -95,7 +95,7 @@ class DataPage(Page):
                       "foil / powder / metal). Raw files are read-only."))
         # 添加文件
         up = Card(T("添加原始数据", "Add raw data"))
-        batch = W.text(self.state.get("batch", "batch1" if W.en() else "批次1"))
+        batch = W.text(self.state.get("batch", "Batch1"))
         batch.textChanged.connect(lambda s: self.state.__setitem__("batch", s))
 
         def add_files():
