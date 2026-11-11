@@ -358,9 +358,9 @@ def process_all(cfg: dict | None = None, meta: pd.DataFrame | None = None, edge_
                                 cols=("energy", "mu", "norm", "flat", "dmude"))
         kw = edge_cfg(cfg, ek, sample)["ft"]["kweight"]
         np.savetxt(base.with_suffix(".chik"), np.column_stack([g.k, g.chi, g.chi * g.k ** kw]),
-                   header=f"k chi chi*k^{kw}", fmt="%.6g")
+                   header=f"k chi chi*k^{kw}", fmt="%.6g", encoding="utf-8")
         np.savetxt(base.with_suffix(".chir"), np.column_stack([g.r, g.chir_mag, g.chir_re, g.chir_im]),
-                   header="R(未相移校正) mag re im", fmt="%.6g")
+                   header="R(未相移校正) mag re im", fmt="%.6g", encoding="utf-8")
         ipk = int(np.argmax(g.chir_mag * (g.r > 1.0)))
         summary.append(dict(sample=sample, edge_key=ek, role=g.role, mode=g.mode,
                             nscans=getattr(g, "nscans", 1),

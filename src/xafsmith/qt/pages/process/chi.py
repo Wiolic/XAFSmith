@@ -137,9 +137,9 @@ class ChiPage(Page):
                 g = S.groups[k]
                 base = safe(k)
                 np.savetxt(od / f"{base}.chik", np.column_stack([g.k, g.chi, g.chi * g.k ** kw, g.kwin]),
-                           header=f"k chi chi*k^{kw} win", fmt="%.6g")
+                           header=f"k chi chi*k^{kw} win", fmt="%.6g", encoding="utf-8")
                 np.savetxt(od / f"{base}.chir", np.column_stack([g.r, g.chir_mag, g.chir_re, g.chir_im]),
-                           header="r(no phase corr) mag re im", fmt="%.6g")
+                           header="r(no phase corr) mag re im", fmt="%.6g", encoding="utf-8")
             write_params(od / "chi.params.json", dict(norm=S.norm_par, bkg=b, ft=f), "gui:chi")
             W.toast(self, T(f"已导出到 {paths.rel(od)}", f"Exported to {paths.rel(od)}"))
         self.add(W.hbox(None, W.button(T("导出 χ(k) 与 χ(R) 到 output/gui/chi/", "Export χ(k) and χ(R) to output/gui/chi/"),

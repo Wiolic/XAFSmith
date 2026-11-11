@@ -265,7 +265,7 @@ class WaveletPage(Page):
                 # 矩阵：第一行为 k，第一列为 R
                 mat = np.vstack([np.concatenate([[np.nan], kk]), np.column_stack([rr, Wt])])
                 np.savetxt(base.with_suffix(".csv"), mat, delimiter=",", fmt="%.6g",
-                           header="first row: k (1/A); first column: R (A, not phase-corrected); values: |W|", comments="# ")
+                           header="first row: k (1/A); first column: R (A, not phase-corrected); values: |W|", comments="# ", encoding="utf-8")
                 if isinstance(d.get("tab"), pd.DataFrame):
                     d["tab"].to_csv(str(base) + "_maxima.csv", index=False, encoding="utf-8-sig")
                 par = dict(sample=d["name"], wavelet=kind, kweight=w["kw"].value(), kmax=S.ft_par["kmax"],

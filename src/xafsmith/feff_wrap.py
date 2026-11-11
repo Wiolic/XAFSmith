@@ -75,11 +75,11 @@ def run_feff(folder, feffinp_text=None, verbose=False, code=None):
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
     if feffinp_text is not None:
-        (folder / "feff.inp").write_text(feffinp_text)
+        (folder / "feff.inp").write_text(feffinp_text, encoding="utf-8")
     for old in folder.glob("feff*.dat"):
         old.unlink()
     if code is None:                       # 由 feff.inp 判断
-        code = "feff8" if re.search(r"^\s*(EDGE|SCF)\b", (folder / "feff.inp").read_text(),
+        code = "feff8" if re.search(r"^\s*(EDGE|SCF)\b", (folder / "feff.inp").read_text(encoding="utf-8", errors="ignore"),
                                     re.M | re.I) else "feff6"
     (feff8l if code == "feff8" else feff6l)(folder=str(folder), feffinp="feff.inp", verbose=verbose)
     return list_paths(folder)
@@ -88,14 +88,14 @@ def run_feff(folder, feffinp_text=None, verbose=False, code=None):
 def feff_info(folder):
     """FEFF 版本与自洽信息：{'code','scf','exchange','fermi_ev'}"""
     folder = Path(folder)
-    inp = (folder / "feff.inp").read_text(errors="ignore") if (folder / "feff.inp").exists() else ""
+    inp = (folder / "feff.inp").read_text(errors="ignore", encoding="utf-8") if (folder / "feff.inp").exists() else ""
     info = dict(code="feff8" if re.search(r"^\s*(EDGE|SCF)\b", inp, re.M | re.I) else "feff6")
     m = re.search(r"^\s*SCF\s+([\d.]+)", inp, re.M | re.I)
     info["scf"] = float(m.group(1)) if m else None
     m = re.search(r"^\s*EXCHANGE\s+(\d+)", inp, re.M | re.I)
     info["exchange"] = int(m.group(1)) if m else 0
     log1 = folder / "log1.dat"
-    mu = re.findall(r"mu_new=\s*([-\d.]+)", log1.read_text(errors="ignore")) if log1.exists() else []
+    mu = re.findall(r"mu_new=\s*([-\d.]+)", log1.read_text(errors="ignore", encoding="utf-8")) if log1.exists() else []
     info["fermi_ev"] = float(mu[-1]) if mu else None
     return info
 
@@ -107,14 +107,14 @@ def list_paths(folder):
     amp = {}
     fd = folder / "files.dat"
     if fd.exists():
-        for line in fd.read_text(errors="ignore").splitlines():
+        for line in fd.read_text(errors="ignore", encoding="utf-8").splitlines():
             m = re.match(r"\s*(feff\d+\.dat)\s+([\d.Ee+-]+)\s+([\d.Ee+-]+)\s+([\d.]+)\s+(\d+)\s+([\d.]+)",
                          line)
             if m:
                 amp[m.group(1)] = float(m.group(3))
     ld = folder / "list.dat"               # FEFF8L
     if not amp and ld.exists():
-        for line in ld.read_text(errors="ignore").splitlines():
+        for line in ld.read_text(errors="ignore", encoding="utf-8").splitlines():
             m = re.match(r"\s*(\d+)\s+[\d.]+\s+([\d.]+)\s+[\d.]+\s+\d+\s+[\d.]+\s*$", line)
             if m:
                 amp[f"feff{int(m.group(1)):04d}.dat"] = float(m.group(2))

@@ -11,8 +11,6 @@ datas, binaries, hiddenimports = [], [], []
 for pkg in ("larch", "xraydb", "xafsmith"):
     d, b, h = collect_all(pkg)
     datas += d; binaries += b; hiddenimports += h
-# 构建环境是 pip install -e：dist-info 里的 direct_url.json 标记“开发安装”并含构建机本地路径，不能带进安装包
-datas = [x for x in datas if os.path.basename(x[0]) != "direct_url.json"]
 # pymatgen 只用到 Element 与 SpacegroupAnalyzer；其数据文件（元素表等）必须带上
 datas += collect_data_files("pymatgen")
 hiddenimports += collect_submodules("pymatgen.core") + collect_submodules("pymatgen.symmetry") \
@@ -38,19 +36,25 @@ def analysis(entry):
     return Analysis([entry], pathex=[os.path.join(ROOT, "src")], binaries=binaries, datas=datas, hiddenimports=hiddenimports,
                     excludes=excludes, noarchive=False)
 
+# 打包程序启用 Python UTF-8 模式：英文 Windows 默认编码是 cp1252，没写 encoding 的文本读写会遇到中文就崩溃
+# （CI 上 xafsmith-cli process 曾因此失败）。代码里已显式写 encoding="utf-8"，这里是兜底。
+PYOPTS = [("X utf8_mode=1", None, "OPTION")]
+
 a_gui = analysis(os.path.join(ROOT, "packaging", "xafsmith_gui_entry.py"))
 a_cli = analysis(os.path.join(ROOT, "packaging", "xafsmith_cli_entry.py"))
 pyz_gui = PYZ(a_gui.pure)
 pyz_cli = PYZ(a_cli.pure)
 
-exe_gui = EXE(pyz_gui, a_gui.scripts, [], exclude_binaries=True, name="XAFSmith", console=False,
+exe_gui = EXE(pyz_gui, a_gui.scripts, PYOPTS, exclude_binaries=True, name="XAFSmith", console=False,
               icon=os.path.join(ROOT, "src", "xafsmith", "assets", "xafsmith.ico"), contents_directory="_internal")
-exe_cli = EXE(pyz_cli, a_cli.scripts, [], exclude_binaries=True, name="xafsmith-cli", console=True,
+exe_cli = EXE(pyz_cli, a_cli.scripts, PYOPTS, exclude_binaries=True, name="xafsmith-cli", console=True,
               icon=os.path.join(ROOT, "src", "xafsmith", "assets", "xafsmith.ico"), contents_directory="_internal")
 
 # Qt 翻译文件只留中文与英文（其余约 6 MB 用不到）；opengl32sw.dll 先保留（无显卡驱动时可能需要，待另一台电脑验收后再定）
 def _keep(item):
     dest = item[0].replace("\\", "/")
+    if dest.endswith("direct_url.json"):     # 构建环境是 pip install -e：此文件标记“开发安装”并含构建机本地路径，不能带进安装包
+        return False
     if "PySide6/translations/" in dest:
         n = dest.rsplit("/", 1)[-1]
         return any(k in n for k in ("_zh_CN", "_en"))

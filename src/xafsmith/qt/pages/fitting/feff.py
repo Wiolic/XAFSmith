@@ -148,5 +148,5 @@ class FeffPage(Page):
         card.add(W.Table(xfeff.list_paths(dd).drop(columns=["file"]), max_height=400))
         inp = dd / "feff.inp"
         if inp.exists():
-            card.add(W.collapsible("feff.inp", W.code_block(inp.read_text(), height=300)))
+            card.add(W.collapsible("feff.inp", W.code_block(inp.read_text(encoding="utf-8"), height=300)))
         self.add(card)

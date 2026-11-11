@@ -78,6 +78,9 @@ def main():
             if stem == fb.lower() or stem.startswith(fb.lower() + "_") or (fb.lower() == "mkl" and stem.startswith("mkl")):
                 bad.append(e.name); break
     code = 0
+    leaked = [str(f.relative_to(root)) for f in root.rglob("direct_url.json")]
+    if leaked:                                    # pip -e 的标记文件含构建机本地路径，且会让程序以为是开发安装
+        print("失败：安装包里有 direct_url.json：" + ", ".join(leaked)); code = 1
     if bad:
         print("失败：出现禁用项 " + ", ".join(sorted(set(bad)))); code = 1
     if a.limit_mb and total_mb > a.limit_mb:

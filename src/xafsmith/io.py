@@ -133,7 +133,7 @@ def write_group_columns(g, path, cols=("energy", "mu", "norm", "flat", "dmude"))
         if a is not None and len(a) == len(g.energy):
             arrs.append(a)
             names.append(c)
-    np.savetxt(path, np.column_stack(arrs), header=" ".join(names), fmt="%.7g")
+    np.savetxt(path, np.column_stack(arrs), header=" ".join(names), fmt="%.7g", encoding="utf-8")
     return path
 
 
