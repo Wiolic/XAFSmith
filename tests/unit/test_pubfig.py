@@ -20,7 +20,7 @@ def test_chem_subscripts_formula_words_only():
 
 def test_ticks_left_bottom_and_labels_inside_figure():
     class G:
-        label = "IrO2"
+        label, element, edge, mode = "IrO2", "Ir", "L3", "trans"
         k = np.linspace(0, 14, 281)
         chi = np.sin(2 * k) * np.exp(-0.05 * k)
     fig, _ = pf.chik([G()], kweight=2)
