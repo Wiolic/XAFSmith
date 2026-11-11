@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
+.venv-build/
+
+# 演示项目的处理结果（可重新生成）
+tests/data/demo_project/output/
+tests/data/demo_project/notes/
+tests/data/demo_project/models/
+tests/data/demo_project/structures/
+
+# 仅本机测试（引用本人项目路径与文件名，不进仓库）
+tests/local/

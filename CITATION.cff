@@ -1,0 +1,43 @@
+cff-version: 1.2.0
+message: "If you use XAFSmith in a publication, please cite this repository, as well as Larch and FEFF on which it is built."
+title: "XAFSmith: XAFS processing and fitting software"
+version: 1.0.1
+license: PolyForm-Noncommercial-1.0.0
+date-released: 2026-11-11
+repository-code: "https://github.com/Wiolic/XAFSmith"
+authors:
+  - name: "Eggy"
+  - name: "Claude (Anthropic)"
+keywords:
+  - XAFS
+  - EXAFS
+  - XANES
+  - FEFF
+  - Larch
+references:
+  - type: article
+    title: "Larch: An Analysis Package for XAFS and Related Spectroscopies"
+    authors:
+      - family-names: Newville
+        given-names: M.
+    journal: "Journal of Physics: Conference Series"
+    volume: 430
+    start: "012007"
+    year: 2013
+  - type: article
+    title: "Multiple-scattering calculations of x-ray-absorption spectra"
+    authors:
+      - family-names: Zabinsky
+        given-names: S. I.
+      - family-names: Rehr
+        given-names: J. J.
+      - family-names: Ankudinov
+        given-names: A.
+      - family-names: Albers
+        given-names: R. C.
+      - family-names: Eller
+        given-names: M. J.
+    journal: "Physical Review B"
+    volume: 52
+    start: "2995"
+    year: 1995
