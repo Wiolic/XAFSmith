@@ -41,8 +41,21 @@ def _project_samples():
 IRTAOX = {"IrO2", "Ir foil", "IrCoOx_OCP"} <= _project_samples()
 
 
+_NONE_RC = [sys.getrefcount(None)]
+
+
+def _none_rc():
+    """Python < 3.12：None 的引用计数变化。某个 C 扩展多减 None 的引用时，累积到 0 才崩（none_dealloc），
+    崩溃位置与出错步骤无关；逐步打印下降量才能定位。3.12 起 None 不计引用（PEP 683），不打印。"""
+    if sys.version_info >= (3, 12):
+        return ""
+    r = sys.getrefcount(None)
+    d, _NONE_RC[0] = r - _NONE_RC[0], r
+    return f"  [None 引用 {r}，{d:+d}]" if d < -200 else ""
+
+
 def say(good, what):
-    print(f"[{'ok' if good else 'FAIL'}] {what}")
+    print(f"[{'ok' if good else 'FAIL'}] {what}{_none_rc()}", flush=True)
     OK[0] &= bool(good)
     return good
 
