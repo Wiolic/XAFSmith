@@ -3,8 +3,8 @@
 具体格式由 readers/ 下的 reader 实现（见 docs/dev/io_readers.md）：
   bsrf · xdi · athena_xmu · xdac · prj（Athena 工程）· columns（通用列文本，按列名映射）
 
-新代码请用 read_scan / read_file / detect_format；下面的 read_bsrf、read_columns、read_prj、read_any
-是为兼容旧调用保留的薄封装。
+入口：read_scan / read_file / detect_format / list_formats；read_prj（Athena 工程 → {组名: Group}）、
+read_any（自动识别，.prj 返回字典）；write_prj、write_group_columns 导出。
 
 统一后的 Group 属性：
   energy, mu, i0, i1, ifl, mode('trans'|'fluo'|None), element, edge, e_nominal,
@@ -22,54 +22,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .readers import (BY_NAME, ReadError, detect_format, list_formats, read_file,   # noqa: F401
-                      read_scan)
-from .readers.base import compute_mu, make_group as _make_group_new                  # noqa: F401
-
-
-def _make_group(energy, i0=None, i1=None, ifl=None, mu=None, mode="trans", element=None, edge=None,
-                e_nominal=None, filename="", label=None, timestamp="", source=""):
-    """旧接口（mode="mu" 表示直接给了 μ）；新代码请用 readers.base.make_group。"""
-    if mode == "mu":
-        mode = None
-    return _make_group_new(energy, i0=i0, i1=i1, ifl=ifl, mu=mu, mode=mode, element=element,
-                           edge=edge, e_nominal=e_nominal, filename=filename, label=label,
-                           timestamp=timestamp, source=source)
-
-
-def is_bsrf(path):
-    try:
-        return detect_format(path)[0] == "bsrf"
-    except ReadError:
-        return False
-
-
-def read_bsrf(path, mode=None, label=None):
-    """兼容旧调用：按 BSRF 格式读入。"""
-    g = read_scan(path, fmt="bsrf", mode=mode)
-    if label:
-        g.label = label
-    return g
-
-
-def read_columns(path, ecol=0, i0col=None, i1col=None, ifcol=None, mucol=None, mode="trans",
-                 element=None, edge=None, label=None, skiprows=None):
-    """兼容旧调用：按列号读通用列文本（列号从 0 开始）。新代码请用 read_scan(columns={...})。"""
-    cols = {"energy": ecol}
-    for k, v in (("i0", i0col), ("it", i1col), ("if", ifcol), ("mu", mucol)):
-        if v is not None:
-            cols[k] = v
-    from .readers.base import split_table, read_text, table_to_group
-    text = read_text(path)
-    if skiprows:
-        text = "\n".join(text.splitlines()[skiprows:])
-    pre, data = split_table(text)
-    g = table_to_group(Path(path), "columns", pre, data, None, None, columns=cols,
-                       mode=None if mucol is not None else mode, element=element, edge=edge,
-                       label=label)
-    if mucol is not None and mode in ("trans", "fluo"):
-        g.mode = mode
-    return g
+from .readers import ReadError, detect_format, list_formats, read_file, read_scan   # noqa: F401  门面：供 xio.* 调用
 
 
 def read_prj(path):

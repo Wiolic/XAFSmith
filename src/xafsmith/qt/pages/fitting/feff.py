@@ -96,10 +96,8 @@ class FeffPage(Page):
         edge.currentIndexChanged.connect(upd_out)
         site.currentIndexChanged.connect(upd_out)
         code.changed.connect(upd_out)
-        card.add(W.fields(pick, (T("吸收原子", "Absorber"), absorber), (T("吸收边", "Edge"), edge),
-                          (T("不等价位点", "Inequivalent site"), site), ("RMAX (Å)", rmax), ("NLEG", nleg), cols=6)
-                 if False else W.hbox(pick, W.field(T("吸收原子", "Absorber"), absorber), W.field(T("吸收边", "Edge"), edge),
-                                      W.field(T("不等价位点", "Site"), site), W.field("RMAX (Å)", rmax), W.field("NLEG", nleg), spacing=12))
+        card.add(W.hbox(pick, W.field(T("吸收原子", "Absorber"), absorber), W.field(T("吸收边", "Edge"), edge),
+                        W.field(T("不等价位点", "Site"), site), W.field("RMAX (Å)", rmax), W.field("NLEG", nleg), spacing=12))
         card.add(W.label(info, "faint"))
         f8 = W.fields((T("SCF 自洽半径 (Å)", "SCF radius (Å)"), scf, T("一般包含 2–3 个壳层（约 30–60 个原子）；越大越慢",
                                                                        "Usually 2–3 shells (~30–60 atoms); larger is slower")),

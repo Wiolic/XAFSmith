@@ -4,6 +4,21 @@
 [语义化版本](https://semver.org/lang/zh-CN/)。
 All notable changes are recorded here (format: Keep a Changelog; versioning: SemVer).
 
+## [未发布 / Unreleased]
+
+### 修复 / Fixed
+- 新建项目不再生成“打开图形界面.bat”：它只认源码安装的 `.venv` / `location.txt`，用安装包安装时双击只会报错。
+  请从开始菜单启动 XAFSmith，在“最近的项目”里打开项目。
+  New projects no longer get the "打开图形界面.bat" launcher, which did not work with the Windows installer.
+
+### 删除 / Removed
+- 未使用的代码：`io.read_bsrf`、`io.read_columns`（按列号读，可能静默算错 μ）、`io.is_bsrf` 等旧兼容接口，
+  `ft.backward`、`normalize.copy_group`、`mut_planner.layers_for_film`、`wavelet.ridge`、`report.plot_wavelet` 等无调用的函数，
+  以及界面里的死分支。读入请用 `io.read_scan(columns={...})`（按列名映射）。
+
+### 文档 / Docs
+- `XAFS处理规范.md` 更新为 XAFSmith 的实际目录、环境与启动步骤（不再提 `scripts/`）。
+
 ## [1.0.0] — 2026-11-11
 
 首个正式版（Windows）。First stable release (Windows).

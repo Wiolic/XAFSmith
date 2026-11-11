@@ -224,11 +224,6 @@ def test_prj_groups_and_element_guess():
     assert set(d) == {g.group_name for g in gs}
 
 
-# ------------------------------------------------------------------ 旧接口兼容
-def test_legacy_wrappers():
-    g = xio.read_columns(PUB / "cu_metal_rt.xdi", ecol=0, i0col=1, i1col=2, mode="trans")
-    assert np.allclose(g.mu, read_scan(PUB / "cu_metal_rt.xdi").mu, atol=1e-9)
-    g = xio.read_columns(PUB / "cu_metal_rt.xdi", ecol=0, mucol=3, mode="trans")
-    assert g.mode == "trans" and g.mu_from == "file"
-    assert xio.is_bsrf(PUB / "cu_metal_rt.xdi") is False
+# ------------------------------------------------------------------ io 门面
+def test_read_any():
     assert xio.read_any(PUB / "fe.060").format == "xdac"

@@ -1,8 +1,8 @@
-# 通用 XAFS 数据处理与拟合工具
+# XAFS 数据处理与拟合规范
 
-> 用途：放在项目根目录，作为 CLAUDE.md 使用。适用于任何体系、任何吸收边、透射或荧光数据（同步辐射 XAFS：XANES + EXAFS）。
+> 用途：XAFSmith 遵循的科学处理规范，人和 AI 助手共用。适用于任何体系、任何吸收边、透射或荧光数据（同步辐射 XAFS：XANES + EXAFS）。
 > 具体体系的信息（样品、边、结构模型、已有结论）不写在本文件里，写在项目的 `project.md`。
-> 工具的目录与文件约定以 **数据标准.md** 为准（本文第 3 节为早期版本的示意）。
+> 目录与文件约定以 **数据标准.md** 为准；命令用法见 **手册.md**。
 
 ---
 
@@ -12,7 +12,7 @@
 2. 帮用户在测试前做样品设计（μt、边跳、叠层、干扰边检查），在测试后做质量评估和分析。
 3. 所有结论分清"实测 / 拟合 / 推测"，不夸大数据能支持的内容。
 
-## 2. 工具模块（由 Claude 在 `scripts/` 中实现，每个模块独立、可单独运行）
+## 2. 工具模块（XAFSmith 中的同名模块，每个模块也可单独运行：`python -m xafsmith.<模块>`）
 
 | 模块 | 功能 |
 |---|---|
@@ -21,7 +21,7 @@
 | `calib` | 用参比箔做能量校准（一阶导数最大值），记录每条谱的 ΔE |
 | `normalize` | 合并扫描、边前/边后拟合、归一化、E₀ 定义 |
 | `autobk` | 背景扣除（rbkg、k 权重、spline 参数可设），得到 χ(k) |
-| `ft` | k 空间窗函数（Hanning/Kaiser）、傅里叶变换、反变换；输出 |χ(R)|、Re/Im；画图时标注"未相移校正" |
+| `ft` | k 空间窗函数（Hanning/Kaiser）、傅里叶变换；输出 |χ(R)|、Re/Im；画图时标注"未相移校正" |
 | `wavelet` | 小波变换（Morlet/Cauchy），用于区分轻/重散射体、重叠壳层 |
 | `feff_wrap` | 由 CIF 或手写结构生成 FEFF 输入（可调吸收边、RMAX），运行 FEFF6/8，读入 feffNNNN.dat |
 | `fit_exafs` | EXAFS 拟合：路径、参数绑定、约束、多 k 权重同时拟合、R 空间或 k 空间；输出参数、误差、R 因子、χ²_ν |
@@ -33,20 +33,22 @@
 
 ## 3. 项目目录与配置
 
+标准项目目录（`xafsmith new` 生成；每个文件的含义见数据标准.md）：
+
 ```
 project/
-├── CLAUDE.md          # 本文件（通用规则）
-├── project.md         # 体系特定信息：样品、测量清单、结构模型、已有结论、注意事项
-├── data/raw/          # 原始数据，只读
-├── data/meta.csv      # 每个文件的样品、边、模式、扫描次数、叠层、总μt、边跳、备注
-├── feff/              # 每个物相一个子目录：结构文件、feff.inp、输出
-├── scripts/           # 工具模块
-├── results/           # 参数表（CSV）、LCF 结果、QC 报告
-├── figs/              # 图
-└── notes/             # 每次分析的记录
+├── AGENTS.md / CLAUDE.md   # 给 AI 助手的说明（xafsmith agent --write 生成）
+├── project.md              # 体系特定信息：样品、测量清单、结构模型、已有结论、注意事项
+├── xafsmith.json           # 处理参数（每个吸收边一套；个别样品例外写 overrides + 理由）
+├── data/raw/               # 原始数据，只读
+├── data/meta.csv           # 每个文件的样品、边、模式、角色、参比、use 标记、备注
+├── structures/             # 结构文件（CIF）
+├── models/                 # 拟合模型 JSON
+├── output/                 # 全部结果：qc/ calib/ processed/ feff/ fits/ figs/ reports/ gui/
+└── notes/                  # 每次分析的记录
 ```
 
-`project.md` 模板（新体系时让 Claude 引导用户填写）：
+`project.md` 模板（新体系时由用户填写，AI 助手可引导）：
 
 ```
 # 体系与目标
@@ -111,7 +113,7 @@ project/
 8. **模拟图只是预期**：起点、无序度、时间常数等假设值要写清楚，不要让别人以为是数据。
 9. 样品设计里，**总 μt 和均匀性**比 Δμt 是否精确匹配更重要。
 
-## 8. 给 Claude 的工作规则
+## 8. 给 AI 助手的工作规则
 
 1. 新项目先读 `project.md` 和 `data/meta.csv`；缺失就引导用户补全，不要猜。
 2. 开始分析前先说明"这份数据能回答什么、不能回答什么"（质量评估在前，分析在后）。
@@ -124,15 +126,16 @@ project/
 
 ## 9. 环境
 
-- 推荐 conda 新建环境（Python 3.11–3.13）：`pip install xraylarch lmfit numpy scipy matplotlib pandas xraydb`。
-- FEFF：xraylarch 自带 `feff6l`（`larch/bin/<平台>/`），也可用 FEFF8L。
+- Windows：XAFSmith 安装包自带 Python、Larch、FEFF6L/FEFF8L；命令行为安装目录里的 `xafsmith-cli.exe`。
+- 从源码：`pip install` XAFSmith（Python 3.11 / 3.12），依赖（xraylarch、lmfit、xraydb 等）自动安装。
+- FEFF：xraylarch 自带 `feff6l` 与 `feff8l`，由 `xafsmith feff` 调用。
 - 已知问题：在 Linux 云容器里 `pip install xraylarch` 可能因 `bibtexparser` 编译失败而装不全；此时可只取其中的 `feff6l` 可执行文件，并用 numpy/scipy 自行实现 FT 与拟合（FEFF 路径文件的列：k、real[2φ_c]、|f_eff|、φ_eff、red factor、λ、Re[p]；相位 = real[2φ_c] + φ_eff，振幅 = |f_eff| × red factor）。
 - 在用户本机应优先尝试完整安装。
 
 ## 10. 启动清单（首次使用）
 
-1. 建环境，确认 `feff6l` 和 larch（或备用实现）可用；
-2. 让用户填写 `project.md`；
-3. 将原始数据放进 `data/raw/`，生成 `meta.csv` 并运行 `qc`；
+1. `xafsmith new <目录>` 建项目（或在图形界面“打开 / 新建项目”），`xafsmith validate` 应 0 错误；
+2. 填写 `project.md`；
+3. 将原始数据放进 `data/raw/`，`xafsmith init` 生成 `meta.csv`，运行 `xafsmith qc`；
 4. 用一个结构已知的标样跑通全流程（校准 → 归一化 → χ(k) → FT → FEFF 拟合），确定 S₀²，并与 Athena/Artemis 结果对照；
 5. 再处理未知样品，按第 4–6 节的统一参数批量运行。

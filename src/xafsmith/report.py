@@ -121,16 +121,6 @@ def plot_lcf(r, out=None):
     return _save(fig, out)
 
 
-def plot_wavelet(k, r, W, out=None, title="", rmax=6):
-    fig, (ax,) = _fig(1)
-    m = ax.contourf(k, r, W, 40, cmap="jet")
-    fig.colorbar(m, ax=ax)
-    ax.set_ylim(r[0], rmax)
-    ax.set_xlabel("k (Å$^{-1}$)"); ax.set_ylabel("R (Å) — " + NOPHASE)
-    ax.set_title(title)
-    return _save(fig, out)
-
-
 def _save(fig, out):
     fig.tight_layout(rect=(0, 0.05, 1, 0.97))
     if out:

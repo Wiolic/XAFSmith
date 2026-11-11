@@ -35,11 +35,6 @@ def cauchy(g, kweight=2, rmax_out=6.0, nfft=2048):
     return g.k, g.wcauchy_r, np.abs(g.wcauchy_mag)
 
 
-def ridge(k, r, W):
-    """各 R 处 |W| 最大值所在 k（用来判断散射体轻重）"""
-    return k[np.argmax(W, axis=1)]
-
-
 def main():
     from .io import read_any
     from .normalize import normalize

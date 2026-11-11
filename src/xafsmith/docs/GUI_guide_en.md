@@ -102,7 +102,7 @@ A “project” is a folder holding raw data, structures and every result in a f
 2. Click **Browse…** and choose an empty folder (or make one).
 3. Click **Create project**. Existing files are never overwritten.
 
-**Reopen later**: **double-click** it under “Recent projects”, or double-click **打开图形界面.bat** in the project folder.
+**Reopen later**: start XAFSmith and **double-click** it under “Recent projects”, or use **Open / new project → Browse…** and pick the folder.
 
 **What the project folder contains**
 

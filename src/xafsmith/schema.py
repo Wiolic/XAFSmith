@@ -25,13 +25,8 @@ EDGE_REQUIRED = ["element", "edge", "e_table", "norm", "bkg", "ft"]
 NORM_KEYS = ["pre1", "pre2", "norm1", "norm2", "nnorm"]
 BKG_KEYS = ["rbkg", "kweight"]
 FT_KEYS = ["kmin", "kmax", "dk", "window", "kweight"]
-TOP_OPTIONAL = ["overrides", "overrides_reason", "deglitch", "deglitch_reason"]
-
 # ---------------------------------------------------------------- 模型 JSON
 MODEL_REQUIRED = ["name", "sample", "kmin", "kmax", "rmin", "rmax", "kweight", "params", "paths"]
-PATH_REQUIRED = ["file"]
-
-
 class Report:
     def __init__(self):
         self.items = []

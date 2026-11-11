@@ -207,48 +207,47 @@ class PubFigPage(Page):
         if k_ not in self.KINDS:       # 旧版本的“拟合（k + R）”并入 χ(k)/|χ(R)| 的“叠加拟合”
             k_ = "chir"
         opt = {}
-        if True:
-            need_chi = k_ in ("chik", "chir")
-            cands = [k for k, g in S.groups.items() if (has_chi(g) if need_chi else hasattr(g, "flat"))]
-            if not cands:
-                self.add(ctl)
-                self.add(Banner("info", T("先载入样品" + ("，并在“χ(k) 与 FT”中计算 χ(k)" if need_chi else ""),
-                                          "Load samples first" + (" and compute χ(k)" if need_chi else ""))))
-                return
-            opt["sel"] = W.MultiSelect(cands, [c for c in self.state.get("sel", cands[:3]) if c in cands], T("谱（按顺序作图）", "Spectra (plot order)"))
-            opt["off"] = W.num(self.state.get("off", 0.0), 0, 50, 0.1)
-            opt["sub"] = W.check(T("化学式下标（IrO2→IrO₂）", "Formula subscripts (IrO2→IrO₂)"), self.state.get("sub", True))
-            items = [(T("谱", "Spectra"), opt["sel"]), (T("错开量", "Offset"), opt["off"])]
-            if k_ in ("xanes", "deriv"):
-                opt["lo"], opt["hi"] = W.num(self.state.get("lo", -20), -100, 0, 5), W.num(self.state.get("hi", 60), 10, 300, 5)
-                items += [(T("E−E0 下限", "E−E0 from"), opt["lo"]), (T("E−E0 上限", "E−E0 to"), opt["hi"])]
-            else:
-                opt["kw"] = W.combo([1, 2, 3], self.state.get("kw", 2))
-                items.append((T("k 权重", "k-weight"), opt["kw"]))
-                if k_ == "chir":
-                    opt["rmax"] = W.num(self.state.get("rmax", 6.0), 2, 10, 0.5)
-                    opt["re"] = W.check(T("同时画 Re χ(R)（虚线）", "Also Re χ(R) (dashed)"), self.state.get("re", False))
-                    items.append((T("R 上限", "R max"), opt["rmax"]))
-                # 叠加拟合：每条谱默认取最近一次拟合，也可在列表中指定
-                fit_ids = [i for i, f_ in enumerate(S.fits) if _fit_key(S, f_, cands)]
-                latest = {}
-                for i in fit_ids:
-                    latest[_fit_key(S, S.fits[i], cands)] = i
-                opt["usefit"] = W.check(T("叠加拟合曲线（虚线）", "Overlay fit (dashed)"), self.state.get("usefit", False) and bool(fit_ids))
-                saved = [i for i in self.state.get("fits", []) if i in fit_ids]
-                opt["fits"] = W.MultiSelect(fit_ids, saved or list(latest.values()),
-                                            T("无拟合：先在“EXAFS 拟合”中拟合", "No fits: fit under “EXAFS fitting” first"),
-                                            fmt=lambda i: fit_label(S.fits[i]))
-            ctl.add(W.fields(*items))
-            refs0 = self.state.get("refs")
-            if refs0 is None:
-                refs0 = pf.default_refs(cands)
-            opt["refs"] = W.MultiSelect(cands, [c for c in refs0 if c in cands], T("无（全部按样品配色）", "None (all as samples)"))
-            ctl.add(W.fields((T("配色方案", "Palette"), pal),
-                             (T("参比 / 标样（用灰色画，线稍细）", "References / standards (grey, thinner)"), opt["refs"])))
-            if "fits" in opt:       # 单独一行：放在上面一行会把页面撑宽，预览被裁掉
-                ctl.add(W.fields((T("叠加的拟合（每条谱默认取最近一次）", "Fits to overlay (latest per spectrum by default)"), opt["fits"])))
-            ctl.add(W.hbox(opt["sub"], *([opt["re"]] if "re" in opt else []), *([opt["usefit"]] if "usefit" in opt else []), None))
+        need_chi = k_ in ("chik", "chir")
+        cands = [k for k, g in S.groups.items() if (has_chi(g) if need_chi else hasattr(g, "flat"))]
+        if not cands:
+            self.add(ctl)
+            self.add(Banner("info", T("先载入样品" + ("，并在“χ(k) 与 FT”中计算 χ(k)" if need_chi else ""),
+                                      "Load samples first" + (" and compute χ(k)" if need_chi else ""))))
+            return
+        opt["sel"] = W.MultiSelect(cands, [c for c in self.state.get("sel", cands[:3]) if c in cands], T("谱（按顺序作图）", "Spectra (plot order)"))
+        opt["off"] = W.num(self.state.get("off", 0.0), 0, 50, 0.1)
+        opt["sub"] = W.check(T("化学式下标（IrO2→IrO₂）", "Formula subscripts (IrO2→IrO₂)"), self.state.get("sub", True))
+        items = [(T("谱", "Spectra"), opt["sel"]), (T("错开量", "Offset"), opt["off"])]
+        if k_ in ("xanes", "deriv"):
+            opt["lo"], opt["hi"] = W.num(self.state.get("lo", -20), -100, 0, 5), W.num(self.state.get("hi", 60), 10, 300, 5)
+            items += [(T("E−E0 下限", "E−E0 from"), opt["lo"]), (T("E−E0 上限", "E−E0 to"), opt["hi"])]
+        else:
+            opt["kw"] = W.combo([1, 2, 3], self.state.get("kw", 2))
+            items.append((T("k 权重", "k-weight"), opt["kw"]))
+            if k_ == "chir":
+                opt["rmax"] = W.num(self.state.get("rmax", 6.0), 2, 10, 0.5)
+                opt["re"] = W.check(T("同时画 Re χ(R)（虚线）", "Also Re χ(R) (dashed)"), self.state.get("re", False))
+                items.append((T("R 上限", "R max"), opt["rmax"]))
+            # 叠加拟合：每条谱默认取最近一次拟合，也可在列表中指定
+            fit_ids = [i for i, f_ in enumerate(S.fits) if _fit_key(S, f_, cands)]
+            latest = {}
+            for i in fit_ids:
+                latest[_fit_key(S, S.fits[i], cands)] = i
+            opt["usefit"] = W.check(T("叠加拟合曲线（虚线）", "Overlay fit (dashed)"), self.state.get("usefit", False) and bool(fit_ids))
+            saved = [i for i in self.state.get("fits", []) if i in fit_ids]
+            opt["fits"] = W.MultiSelect(fit_ids, saved or list(latest.values()),
+                                        T("无拟合：先在“EXAFS 拟合”中拟合", "No fits: fit under “EXAFS fitting” first"),
+                                        fmt=lambda i: fit_label(S.fits[i]))
+        ctl.add(W.fields(*items))
+        refs0 = self.state.get("refs")
+        if refs0 is None:
+            refs0 = pf.default_refs(cands)
+        opt["refs"] = W.MultiSelect(cands, [c for c in refs0 if c in cands], T("无（全部按样品配色）", "None (all as samples)"))
+        ctl.add(W.fields((T("配色方案", "Palette"), pal),
+                         (T("参比 / 标样（用灰色画，线稍细）", "References / standards (grey, thinner)"), opt["refs"])))
+        if "fits" in opt:       # 单独一行：放在上面一行会把页面撑宽，预览被裁掉
+            ctl.add(W.fields((T("叠加的拟合（每条谱默认取最近一次）", "Fits to overlay (latest per spectrum by default)"), opt["fits"])))
+        ctl.add(W.hbox(opt["sub"], *([opt["re"]] if "re" in opt else []), *([opt["usefit"]] if "usefit" in opt else []), None))
         ctl.add(W.fields((T("尺寸", "Size"), size), (T("格式", "Formats"), fmts), (T("文件名", "File name"), name)))
         self.add(ctl)
         view = Card(T("预览", "Preview"))
@@ -269,32 +268,31 @@ class PubFigPage(Page):
             if cur.get("fig") is not None:
                 plt.close(cur["fig"])
             with plain_rc():
-                if True:
-                    sel = opt["sel"].value()
-                    if not sel:
-                        W._clear_layout(holder.layout())
-                        cur["fig"] = None
-                        return
-                    gs = [S.groups[k] for k in sel]
-                    sub = opt["sub"].isChecked()
-                    cols = pf.series_colors(sel, pal.value(), opt["refs"].value())
-                    fits = None
-                    if "usefit" in opt and opt["usefit"].isChecked():
-                        # 按谱的显示名（g.label）对应：会话里的键名与 g.label 不一定相同
-                        fits = {}
-                        for i in opt["fits"].value():
-                            smp = _fit_key(S, S.fits[i], sel)
-                            if smp:
-                                fits[S.groups[smp].label] = S.fits[i]
-                        fits = fits or None
-                    if k_ in ("xanes", "deriv"):
-                        fig, c = pf.xanes(gs, size.value(), (opt["lo"].value(), opt["hi"].value()), opt["off"].value(),
-                                          deriv=k_ == "deriv", sub=sub, colors=cols)
-                    elif k_ == "chik":
-                        fig, c = pf.chik(gs, size.value(), opt["kw"].value(), opt["off"].value(), sub=sub, colors=cols, fits=fits)
-                    else:
-                        fig, c = pf.chir(gs, size.value(), opt["kw"].value(), opt["rmax"].value(), opt["off"].value(),
-                                         opt["re"].isChecked(), sub=sub, colors=cols, fits=fits)
+                sel = opt["sel"].value()
+                if not sel:
+                    W._clear_layout(holder.layout())
+                    cur["fig"] = None
+                    return
+                gs = [S.groups[k] for k in sel]
+                sub = opt["sub"].isChecked()
+                cols = pf.series_colors(sel, pal.value(), opt["refs"].value())
+                fits = None
+                if "usefit" in opt and opt["usefit"].isChecked():
+                    # 按谱的显示名（g.label）对应：会话里的键名与 g.label 不一定相同
+                    fits = {}
+                    for i in opt["fits"].value():
+                        smp = _fit_key(S, S.fits[i], sel)
+                        if smp:
+                            fits[S.groups[smp].label] = S.fits[i]
+                    fits = fits or None
+                if k_ in ("xanes", "deriv"):
+                    fig, c = pf.xanes(gs, size.value(), (opt["lo"].value(), opt["hi"].value()), opt["off"].value(),
+                                      deriv=k_ == "deriv", sub=sub, colors=cols)
+                elif k_ == "chik":
+                    fig, c = pf.chik(gs, size.value(), opt["kw"].value(), opt["off"].value(), sub=sub, colors=cols, fits=fits)
+                else:
+                    fig, c = pf.chir(gs, size.value(), opt["kw"].value(), opt["rmax"].value(), opt["off"].value(),
+                                     opt["re"].isChecked(), sub=sub, colors=cols, fits=fits)
                 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
                 canvas = FigureCanvasQTAgg(fig)
                 fig.set_dpi(150 if size.value() != "汇报 16:9" else 70)

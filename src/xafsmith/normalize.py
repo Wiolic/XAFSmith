@@ -134,10 +134,6 @@ def merge_scans(groups, label="merge", ref_index=0, reject=None, tol_sigma=4.0, 
     return m, report + short_report
 
 
-def copy_group(g):
-    return copy.deepcopy(g)
-
-
 def main():
     from .io import read_any
     ap = argparse.ArgumentParser()

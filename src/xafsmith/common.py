@@ -15,11 +15,6 @@ def e2k(de):
     return np.sqrt(np.clip(de, 0, None) * ETOK)
 
 
-def k2e(k):
-    """k (Å^-1) -> E - E0 (eV)"""
-    return np.asarray(k, dtype=float) ** 2 / ETOK
-
-
 def n_idp(kmin, kmax, rmin, rmax):
     """独立点数 N_idp = 2ΔkΔR/π"""
     return 2.0 * (kmax - kmin) * (rmax - rmin) / np.pi
@@ -68,12 +63,6 @@ def _json_default(o):
     if isinstance(o, Path):
         return str(o)
     return str(o)
-
-
-def ensure_dir(p):
-    p = Path(p)
-    p.mkdir(parents=True, exist_ok=True)
-    return p
 
 
 def append_csv(df, csv):

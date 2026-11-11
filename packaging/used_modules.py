@@ -1,4 +1,4 @@
-"""哪些第三方包真被用到：在源码环境里跑 pytest（unit + benchmark）和 test_qt --quick（演示项目），
+r"""哪些第三方包真被用到：在源码环境里跑 pytest（unit + benchmark）和 test_qt --quick（演示项目），
 退出时把 sys.modules 的顶层包名写到 build/used_modules.txt。体积排除列表只能据此决定。
 
 用法（在 XAFSmith/ 目录下）：

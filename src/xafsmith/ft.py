@@ -1,4 +1,4 @@
-"""ft —— k 空间加窗、傅里叶变换与反变换（larch xftf/xftr）。
+"""ft —— k 空间加窗与傅里叶变换（larch xftf）。
 
 所有 R 空间图须标注“未相移校正”。
 
@@ -9,7 +9,6 @@ import argparse
 
 
 DEFAULT_FT = dict(kmin=3.0, kmax=12.0, dk=1.0, window="hanning", kweight=2, rmax_out=10.0)
-DEFAULT_BFT = dict(rmin=1.0, rmax=3.0, dr=0.0, window="hanning")
 
 
 def forward(g, **kws):
@@ -19,15 +18,6 @@ def forward(g, **kws):
     xftf(g, kmin=p["kmin"], kmax=p["kmax"], dk=p["dk"], window=p["window"],
          kweight=p["kweight"], rmax_out=p["rmax_out"])
     g.ft_params = p
-    return g
-
-
-def backward(g, **kws):
-    p = dict(DEFAULT_BFT)
-    p.update({k: v for k, v in kws.items() if v is not None})
-    from larch.xafs import xftr
-    xftr(g, rmin=p["rmin"], rmax=p["rmax"], dr=p["dr"], window=p["window"])
-    g.bft_params = p
     return g
 
 

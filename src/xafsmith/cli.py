@@ -80,7 +80,7 @@ def create_project(root):
     paths.ensure()
     copies = {"xafsmith.json": paths.CONFIG, "project.md": paths.PROJECT_MD,
               "meta.csv": paths.META, "structures_README.md": paths.STRUCT / "README.md",
-              "model_example.json": paths.MODELS / "_模板.json", "run_gui.bat": paths.ROOT / "打开图形界面.bat"}
+              "model_example.json": paths.MODELS / "_模板.json"}
     made = []
     for src, dst in copies.items():
         if not dst.exists():

@@ -14,8 +14,8 @@ from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QIcon, QPixmap
-from PySide6.QtWidgets import (QApplication, QButtonGroup, QDialog, QFrame, QHBoxLayout, QLabel, QMainWindow,
-                               QProgressBar, QPushButton, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QHBoxLayout, QLabel, QMainWindow,
+                               QProgressBar, QPushButton, QStackedWidget, QVBoxLayout, QWidget)
 
 from xafsmith import paths
 from . import theme, widgets as W
@@ -329,9 +329,6 @@ class MainWindow(QMainWindow):
         p.on_show()
         self.save_session_later()
 
-    def refresh_current(self):
-        self.stack.currentWidget().refresh()
-
     def _state_changed(self, what):
         if what == "project":
             self.rebuild()
@@ -526,30 +523,6 @@ class MainWindow(QMainWindow):
 
     def show_disclaimer(self):
         self.open_help("about")
-
-    def _disclaimer_dialog(self):
-        from xafsmith import about, __version__
-        dlg = QDialog(self)
-        dlg.setWindowTitle(T("免责声明与引用", "Disclaimer & citation"))
-        dlg.resize(680, 520)
-        v = QVBoxLayout(dlg)
-        v.setContentsMargins(24, 22, 24, 18)
-        h = QLabel(T("免责声明与引用", "Disclaimer & citation"))
-        h.setObjectName("h1")
-        v.addWidget(h)
-        v.addWidget(W.label(f"XAFSmith {__version__} · Developed by Eggy & Claude Opus 5.5 (Anthropic) · {about.REPO}",
-                            "muted"))
-        tb = QTextBrowser()
-        tb.setObjectName("prose")
-        tb.setOpenExternalLinks(True)
-        body = [about.DISCLAIMER_EN if W.en() else about.DISCLAIMER_CN, "",
-                about.CITE_EN if W.en() else about.CITE_CN, ""] + about.UPSTREAM
-        tb.setPlainText("\n".join(body))
-        v.addWidget(tb, 1)
-        v.addWidget(W.hbox(None, W.copy_button(about.CITATION_TEXT + "\n\n" + "\n".join(about.UPSTREAM),
-                                                T("复制引用", "Copy citation")),
-                           W.button(T("关闭", "Close"), primary=True, slot=dlg.accept)))
-        dlg.exec()
 
     def _show_update(self, u):
         self._update = u

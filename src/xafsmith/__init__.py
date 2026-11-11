@@ -6,7 +6,7 @@
     calib       参比箔能量校准
     normalize   扫描合并、边前/边后归一化、E0
     autobk      背景扣除得到 chi(k)
-    ft          傅里叶变换与反变换
+    ft          k 空间加窗与傅里叶变换
     wavelet     小波变换（Cauchy / Morlet）
     structures  内置标准结构（pymatgen Structure）
     feff_wrap   结构 → feff.inp → 运行 feff6l → 路径

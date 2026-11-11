@@ -58,16 +58,6 @@ def recommend_mass(formula, area_cm2, element, edge, target_mut=2.0, diluent=Non
     return r
 
 
-def layers_for_film(formula, density, thickness_um, element, edge, target_mut=2.0, de=50.0):
-    """薄膜/箔：每层厚度已知，计算推荐叠层数"""
-    e0 = edge_energy(element, edge)
-    mu_b = xraydb.material_mu(formula, e0 - de, density=density) * thickness_um * 1e-4
-    mu_a = xraydb.material_mu(formula, e0 + de, density=density) * thickness_um * 1e-4
-    n = max(1, int(round(target_mut / mu_a)))
-    return dict(E0=e0, mut_per_layer=mu_a, step_per_layer=mu_a - mu_b, n_layers=n,
-                mut_total=n * mu_a, step_total=n * (mu_a - mu_b))
-
-
 def interfering_edges(elements, element, edge, emax=None, kmax_report=20.0):
     """列出目标边之后、扫描范围内出现的所有吸收边，换算成 k。没有这个检查不得选 k 范围。"""
     e0 = edge_energy(element, edge)

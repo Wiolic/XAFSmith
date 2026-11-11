@@ -50,6 +50,3 @@ class TaskHandle:
             self._on_progress(self.fraction, self.text)
 
 
-def null_handle() -> TaskHandle:
-    """不需要进度/取消的场合（如命令行）用的空句柄"""
-    return TaskHandle()
