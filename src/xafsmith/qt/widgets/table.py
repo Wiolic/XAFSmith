@@ -81,6 +81,9 @@ class DFModel(QAbstractTableModel):
         return f
 
     def headerData(self, s, o, role=Qt.ItemDataRole.DisplayRole):
+        if (role == Qt.ItemDataRole.TextAlignmentRole and o == Qt.Orientation.Horizontal
+                and pd.api.types.is_numeric_dtype(self.df.iloc[:, s]) and not pd.api.types.is_bool_dtype(self.df.iloc[:, s])):
+            return int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)     # 数值列表头右对齐
         if role != Qt.ItemDataRole.DisplayRole:
             return None
         if o == Qt.Orientation.Horizontal:
@@ -135,8 +138,9 @@ class Table(QTableView):
         hh.setHighlightSections(False)
         hh.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.resizeColumnsToContents()
+        ch = self.fontMetrics().averageCharWidth()          # 列宽上下限按字符宽度（跟随字体与缩放）
         for i in range(self.m.columnCount()):
-            self.setColumnWidth(i, min(max(self.columnWidth(i) + 12, 60), 360))
+            self.setColumnWidth(i, min(max(self.columnWidth(i) + ch, 6 * ch), 36 * ch))
         if fit:                               # 所有列按宽度均分、不出现横向滚动条（紧凑的小表）
             hh.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
             if self.m.df.shape[1] and not pd.api.types.is_numeric_dtype(self.m.df.iloc[:, -1]):
@@ -144,9 +148,11 @@ class Table(QTableView):
             self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         elif stretch:
             hh.setStretchLastSection(True)
-        self.verticalHeader().setDefaultSectionSize(26 if fit else 28)
+        fh = self.fontMetrics().height()
+        row_h = fh + (10 if fit else 12)                    # 行高 = 字高 + 内边距
+        self.verticalHeader().setDefaultSectionSize(row_h)
         rows = len(self.m.df)
-        self.setFixedHeight(height or min(max_height, 32 + 28 * max(rows, 1) + 6))
+        self.setFixedHeight(height or min(max_height, (fh + 18) + row_h * max(rows, 1) + 6))
         self.m.dataChanged.connect(lambda *_: self.edited.emit())
 
     def df(self):

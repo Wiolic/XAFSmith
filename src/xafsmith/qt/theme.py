@@ -1,7 +1,7 @@
 """外观：颜色、字体、样式表、线条图标、matplotlib 样式。
 
 设计参考 Claude 桌面版：暖米色底、白色卡片、细边框大圆角、衬线标题；强调色取图标边框的蓝色 #266EC4，
-内容区底部一行居中的小字提示。浅色 / 深色跟随系统。
+内容区底部一行居中的小字提示。只有一套浅色主题（强制浅色，不跟随系统深色）。
 """
 from __future__ import annotations
 
@@ -15,53 +15,90 @@ LIGHT = dict(
     text="#1F1E1D", text2="#5E5D59", text3="#8A8880",
     accent="#266EC4", accent_h="#1F5DA8", accent_soft="#E3ECF7", accent_text="#1F5DA8",
     ok="#2F7D4F", ok_soft="#E3F1E8", warn="#A86A12", warn_soft="#FAF0DC", err="#B3372B", err_soft="#F8E3E0",
+    magenta="#B5487A", gold="#A98512",
     info_soft="#EEF0F5", code="#F3F1EA", plot_bg="#FFFFFF", grid="#EEECE4",
 )
-DARK = dict(
-    bg="#262624", side="#1F1E1D", card="#30302E", raised="#3A3936",
-    border="#3E3D3A", border2="#4D4B47", hover="#383734", select="#42413D",
-    text="#F2F0E8", text2="#C2C0B6", text3="#97958C",
-    accent="#4C8DDB", accent_h="#66A0E6", accent_soft="#22324A", accent_text="#8DB8EC",
-    ok="#7CC495", ok_soft="#25392C", warn="#E3B05C", warn_soft="#3F3420", err="#EE8B7E", err_soft="#432824",
-    info_soft="#33363D", code="#1F1E1D", plot_bg="#30302E", grid="#3E3D3A",
-)
-C = dict(LIGHT)
+C = LIGHT   # 只有一套浅色主题
+
+# 设计令牌：字号 5 级（pt）、间距（px）、固定宽度（px）。样式表与页面都从这里取值，不再散落魔法数字。
+FS = dict(xs=8.5, sm=9.5, base=10, lg=12, xl=18)
+SP = dict(xs=4, sm=8, md=12, lg=16, xl=24)
+WIDTH = dict(sidebar=250, help_sidebar=230, toc=220, popup_min=260, nav_min=190)
 
 SANS = '"Segoe UI", "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif'
 SERIF = '"Cambria", "Microsoft YaHei UI", serif'   # Cambria：等高数字（Georgia 的 0 像 o，不适合数据）
 MONO = '"Cascadia Mono", Consolas, "Microsoft YaHei UI", monospace'
 
-# 数据曲线配色（色盲友好，深浅模式都清楚）
-SERIES = ["#266EC4", "#D0812A", "#3E8E5E", "#8E5BB5", "#B5487A", "#2A9DA6", "#C29A1C", "#6B6A64"]
+# 数据曲线配色（色盲友好）
+SERIES = ["#266EC4", "#D0812A", "#3E8E5E", "#8E5BB5", "#B5487A", "#2A9DA6", "#A98512", "#6B6A64"]   # 与白底对比度均 ≥3:1（tools 里可复算）
 
 
-def use_dark(dark: bool):
-    C.clear()
-    C.update(DARK if dark else LIGHT)
+def force_light(app):
+    """锁定浅色：Fusion 会跟随 Windows 深色设置，消息框、文件对话框等用的是调色板，所以显式设一套浅色 QPalette。"""
+    from PySide6.QtGui import QColor, QPalette
+    try:
+        app.styleHints().setColorScheme(Qt.ColorScheme.Light)
+    except Exception:
+        pass
+    c = C
+    p = QPalette()
+    R = QPalette.ColorRole
+    for role, key in ((R.Window, "bg"), (R.WindowText, "text"), (R.Base, "card"), (R.AlternateBase, "bg"),
+                      (R.Text, "text"), (R.Button, "card"), (R.ButtonText, "text"), (R.ToolTipBase, "text"),
+                      (R.ToolTipText, "bg"), (R.Highlight, "accent"), (R.Link, "accent_text"),
+                      (R.PlaceholderText, "text3"), (R.BrightText, "err")):
+        p.setColor(role, QColor(c[key]))
+    p.setColor(R.HighlightedText, QColor("#FFFFFF"))
+    for role in (R.WindowText, R.Text, R.ButtonText):
+        p.setColor(QPalette.ColorGroup.Disabled, role, QColor(c["text3"]))
+    app.setPalette(p)
+
+
+class _RoundPopups:
+    """让下拉框与菜单的弹出窗口背景透明，样式表里的圆角才不会在外面露出方角（Windows）。"""
+    _inst = None
+
+    @classmethod
+    def install(cls, app):
+        from PySide6.QtCore import QEvent, QObject
+        from PySide6.QtWidgets import QMenu
+
+        class F(QObject):
+            def eventFilter(self, o, e):
+                if e.type() == QEvent.Type.Polish and (isinstance(o, QMenu) or o.metaObject().className() == "QComboBoxPrivateContainer"):
+                    if not o.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground):
+                        o.setWindowFlags(o.windowFlags() | Qt.WindowType.FramelessWindowHint | Qt.WindowType.NoDropShadowWindowHint)
+                        o.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+                return False
+        cls._inst = F(app)
+        app.installEventFilter(cls._inst)
+
+
+def round_popups(app):
+    _RoundPopups.install(app)
 
 
 def qss() -> str:
     c = C
     return f"""
-* {{ font-family: {SANS}; font-size: 10pt; color: {c['text']}; }}
+* {{ font-family: {SANS}; font-size: {FS['base']}pt; color: {c['text']}; }}
 QMainWindow, QWidget#root, QWidget#main {{ background: {c['bg']}; }}
 QWidget#sidebar {{ background: {c['side']}; border-right: 1px solid {c['border']}; }}
 QScrollArea, QScrollArea > QWidget > QWidget#page {{ background: {c['bg']}; border: none; }}
 QWidget#page {{ background: {c['bg']}; }}
 
-QLabel#brand {{ font-family: {SERIF}; font-size: 15pt; color: {c['text']}; }}
-QLabel#credit {{ color: {c['text3']}; font-size: 8.5pt; }}
-QLabel#creditName {{ color: {c['accent_text']}; font-size: 8.5pt; font-weight: 600; }}
-QLabel#h1 {{ font-family: {SERIF}; font-size: 21pt; color: {c['text']}; }}
-QLabel#h2 {{ font-size: 11.5pt; font-weight: 600; color: {c['text']}; }}
-QLabel#h3 {{ font-size: 10pt; font-weight: 600; color: {c['text']}; }}
+QLabel#brand {{ font-family: {SERIF}; font-size: {FS['xl']}pt; color: {c['text']}; }}
+QLabel#credit {{ color: {c['text3']}; font-size: {FS['xs']}pt; }}
+QLabel#creditName {{ color: {c['accent_text']}; font-size: {FS['xs']}pt; font-weight: 600; }}
+QLabel#h1 {{ font-family: {SERIF}; font-size: {FS['xl']}pt; color: {c['text']}; }}
+QLabel#h2 {{ font-size: {FS['lg']}pt; font-weight: 600; color: {c['text']}; }}
+QLabel#h3 {{ font-size: {FS['base']}pt; font-weight: 600; color: {c['text']}; }}
 QLabel#muted {{ color: {c['text2']}; }}
-QLabel#faint {{ color: {c['text3']}; font-size: 9pt; }}
-QLabel#footnote {{ color: {c['text2']}; font-size: 9.3pt; }}
-QLabel#footnote:hover {{ color: {c['text2']}; }}
-QLabel#metricValue {{ font-family: {SERIF}; font-size: 17pt; color: {c['text']}; }}
-QLabel#metricLabel {{ color: {c['text3']}; font-size: 8.8pt; }}
-QLabel#pill {{ border-radius: 10px; padding: 2px 10px; font-size: 8.8pt; font-weight: 600; }}
+QLabel#faint {{ color: {c['text3']}; font-size: {FS['sm']}pt; }}
+QLabel#footnote {{ color: {c['text2']}; font-size: {FS['sm']}pt; }}
+QLabel#metricValue {{ font-family: {SERIF}; font-size: {FS['xl']}pt; color: {c['text']}; }}
+QLabel#metricLabel {{ color: {c['text3']}; font-size: {FS['xs']}pt; }}
+QLabel#pill {{ border-radius: 10px; padding: 2px 10px; font-size: {FS['xs']}pt; font-weight: 600; }}
 QLabel#navGap {{ background: transparent; }}
 
 QFrame#card {{ background: {c['card']}; border: 1px solid {c['border']}; border-radius: 14px; }}
@@ -75,16 +112,22 @@ QFrame#projectCard {{ background: {c['card']}; border: 1px solid {c['border']}; 
 
 /* 侧栏导航 */
 QPushButton#nav {{ text-align: left; border: none; border-radius: 9px; padding: 5px 10px; background: transparent;
-    color: {c['text2']}; font-size: 10pt; }}
+    color: {c['text2']}; font-size: {FS['base']}pt; }}
+QPushButton#nav[hint="true"] {{ color: {c['text3']}; }}
+QListWidget#toc {{ background: {c['side']}; border: none; border-left: 1px solid {c['border']}; padding: 8px 4px; outline: 0; }}
+QListWidget#toc::item {{ padding: 5px 8px; border-radius: 6px; color: {c['text2']}; font-size: {FS['sm']}pt; }}
+QListWidget#toc::item:hover {{ background: {c['hover']}; }}
+QListWidget#toc::item:selected {{ background: {c['select']}; color: {c['text']}; }}
 QPushButton#nav:hover {{ background: {c['hover']}; color: {c['text']}; }}
 QPushButton#nav:checked {{ background: {c['select']}; color: {c['text']}; font-weight: 600; }}
 QPushButton#newProject {{ text-align: left; border: 1px solid {c['border2']}; border-radius: 10px; padding: 8px 12px;
     background: {c['card']}; color: {c['text']}; font-weight: 600; }}
 QPushButton#newProject:hover {{ background: {c['raised']}; border-color: {c['text3']}; }}
 QPushButton#seg {{ border: 1px solid {c['border2']}; background: transparent; padding: 3px 12px; color: {c['text2']};
-    font-size: 9pt; border-radius: 0; }}
-QPushButton#seg:first {{ border-top-left-radius: 9px; border-bottom-left-radius: 9px; }}
-QPushButton#seg:last {{ border-top-right-radius: 9px; border-bottom-right-radius: 9px; }}
+    font-size: {FS['sm']}pt; border-radius: 0; }}
+QPushButton#seg[pos="first"], QPushButton#seg[pos="only"] {{ border-top-left-radius: 9px; border-bottom-left-radius: 9px; }}
+QPushButton#seg[pos="last"], QPushButton#seg[pos="only"] {{ border-top-right-radius: 9px; border-bottom-right-radius: 9px; }}
+QPushButton#seg[pos="mid"], QPushButton#seg[pos="last"] {{ margin-left: -1px; }}
 QPushButton#seg:checked {{ background: {c['text']}; color: {c['bg']}; border-color: {c['text']}; }}
 
 /* 按钮 */
@@ -122,9 +165,11 @@ QAbstractSpinBox::up-arrow {{ image: url(xs:chevup); width: 8px; height: 8px; }}
 QAbstractSpinBox::down-arrow {{ image: url(xs:chev); width: 8px; height: 8px; }}
 QAbstractSpinBox::up-button:hover, QAbstractSpinBox::down-button:hover {{ background: {c['hover']}; }}
 QAbstractSpinBox QLineEdit {{ border: none; padding: 0 0 0 2px; margin: 0; background: transparent; min-height: 0; }}
-QLineEdit:disabled, QComboBox:disabled, QDoubleSpinBox:disabled {{ color: {c['text3']}; background: {c['bg']}; }}
+QLineEdit[invalid="true"], QDoubleSpinBox[invalid="true"] {{ border: 1px solid {c['err']}; }}
+QLineEdit:disabled, QComboBox:disabled, QDoubleSpinBox:disabled, QSpinBox:disabled, QPlainTextEdit#input:disabled {{ color: {c['text3']}; background: {c['bg']}; }}
 QComboBox::drop-down {{ border: none; width: 22px; }}
 QComboBox::down-arrow {{ image: url(xs:chev); width: 10px; height: 10px; }}
+QComboBoxPrivateContainer {{ background: transparent; border: none; }}
 QComboBox QAbstractItemView {{ background: {c['raised']}; border: 1px solid {c['border']}; border-radius: 10px;
     padding: 4px; outline: 0; selection-background-color: {c['hover']}; selection-color: {c['text']}; }}
 QCheckBox {{ spacing: 7px; }}
@@ -152,8 +197,12 @@ QTableView {{ background: {c['card']}; border: 1px solid {c['border']}; border-r
     gridline-color: {c['border']}; selection-background-color: {c['accent_soft']}; selection-color: {c['text']};
     alternate-background-color: {c['bg']}; }}
 QTableView::item {{ padding: 3px 8px; }}
+QHeaderView {{ background: transparent; border: none; border-top-left-radius: 9px; border-top-right-radius: 9px; }}
 QHeaderView::section {{ background: {c['card']}; color: {c['text3']}; border: none;
-    border-bottom: 1px solid {c['border']}; padding: 6px 8px; font-size: 9pt; font-weight: 600; }}
+    border-bottom: 1px solid {c['border']}; padding: 6px 8px; font-size: {FS['sm']}pt; font-weight: 600; }}
+QHeaderView::section:first {{ border-top-left-radius: 9px; }}
+QHeaderView::section:last {{ border-top-right-radius: 9px; }}
+QHeaderView::section:only-one {{ border-top-left-radius: 9px; border-top-right-radius: 9px; }}
 QTableCornerButton::section {{ background: {c['card']}; border: none; }}
 QListWidget {{ background: {c['card']}; border: 1px solid {c['border']}; border-radius: 10px; padding: 4px; outline: 0; }}
 QListWidget::item {{ padding: 4px 6px; border-radius: 6px; }}
@@ -161,10 +210,10 @@ QListWidget::item:hover {{ background: {c['hover']}; }}
 QListWidget::item:selected {{ background: {c['select']}; color: {c['text']}; }}
 
 QPlainTextEdit#code, QTextBrowser#code {{ background: {c['code']}; border: 1px solid {c['border']}; border-radius: 10px;
-    font-family: {MONO}; font-size: 9.2pt; padding: 8px; }}
-QTextBrowser#doc {{ background: transparent; border: none; font-size: 10.5pt; }}
+    font-family: {MONO}; font-size: {FS['sm']}pt; padding: 8px; }}
+QTextBrowser#doc {{ background: transparent; border: none; font-size: {FS['base']}pt; }}
 QTextBrowser#prose {{ background: {c['card']}; border: 1px solid {c['border']}; border-radius: 12px; padding: 10px 14px;
-    font-family: {SERIF}; font-size: 11pt; }}
+    font-family: {SERIF}; font-size: {FS['lg']}pt; }}
 
 /* 分页 */
 QTabWidget::pane {{ border: none; }}
@@ -184,6 +233,39 @@ QScrollBar::add-line, QScrollBar::sub-line, QScrollBar::add-page, QScrollBar::su
     background: none; }}
 QSplitter::handle {{ background: transparent; }}
 QDialog {{ background: {c['bg']}; }}
+
+/* 主窗口部件（原内联样式） */
+QProgressBar#topBar {{ background: {c['card']}; border: 1px solid {c['border']}; border-radius: 8px; min-height: 16px; max-height: 16px; min-width: {WIDTH['nav_min']}px; max-width: {WIDTH['nav_min']}px; text-align: center; color: {c['text']}; font-size: {FS['xs']}pt; }}
+QProgressBar#topBar::chunk {{ background: {c['accent_soft']}; border-radius: 7px; }}
+QScrollArea#navScroll {{ background: {c['side']}; border: none; }}
+QWidget#navInner {{ border: none; }}
+QLabel#pill[kind="ok"] {{ background: {c['ok_soft']}; color: {c['ok']}; }}
+QLabel#pill[kind="warn"] {{ background: {c['warn_soft']}; color: {c['warn']}; }}
+QLabel#pill[kind="err"] {{ background: {c['err_soft']}; color: {c['err']}; }}
+QLabel#pill[kind="info"] {{ background: {c['info_soft']}; color: {c['text2']}; }}
+QToolButton#collapse {{ font-weight: 600; color: {c['text']}; padding: 4px 2px; border: none; }}
+QToolButton#collapse:hover {{ color: {c['accent']}; background: transparent; }}
+QListWidget#plain {{ border: none; background: transparent; }}
+QPushButton#ptEl {{ padding: 0; border-radius: 6px; font-size: {FS['sm']}pt; font-weight: 600; border: 1px solid {c['border']};
+    background: {c['card']}; color: {c['text']}; }}
+QPushButton#ptEl:hover {{ border-color: {c['accent']}; }}
+QPushButton#ptEl:checked {{ border-color: {c['accent']}; background: {c['accent']}; color: #FFFFFF; }}
+QLabel#toast {{ background: {c['text']}; color: {c['bg']}; border-radius: 10px; padding: 9px 16px;
+    border-left: 4px solid {c['text2']}; }}
+QLabel#toast[kind="ok"] {{ border-left-color: {c['ok']}; }}
+QLabel#toast[kind="warn"] {{ border-left-color: {c['warn']}; }}
+QLabel#toast[kind="err"] {{ border-left-color: {c['err']}; }}
+QPushButton#flowBtn {{ background: {c['accent_soft']}; color: {c['accent_text']}; font-weight: 600;
+    border: 1px solid {c['accent']}; border-radius: 13px; padding: 4px 14px; min-height: 18px; }}
+QPushButton#flowBtn:hover {{ background: {c['accent']}; color: #FFFFFF; }}
+QPushButton#flowBtn:disabled {{ background: transparent; color: {c['text3']}; border-color: {c['border']}; }}
+QFrame#flowPopup {{ background: {c['card']}; border: 1px solid {c['border2']}; border-radius: 14px; }}
+QLabel#flowNum {{ border-radius: 11px; font-weight: 600; font-size: {FS['sm']}pt; color: {c['text3']}; background: {c['hover']}; }}
+QLabel#flowNum[state="done"] {{ color: {c['ok']}; background: {c['ok_soft']}; }}
+QLabel#flowNum[state="next"] {{ color: {c['accent_text']}; background: {c['accent_soft']}; }}
+QPushButton#flowStep {{ text-align: left; border-radius: 8px; background: transparent; border: none; }}
+QPushButton#flowStep[state="next"] {{ border: 1.5px solid {c['accent']}; }}
+QPushButton#flowStep:hover {{ background: {c['hover']}; }}
 """
 
 
@@ -241,16 +323,27 @@ def svg(name: str, color: str | None = None, width: float = 1.6) -> str:
             f'stroke-width="{width}" stroke-linecap="round" stroke-linejoin="round">{_ICONS.get(name, "")}</svg>')
 
 
-def icon(name: str, color: str | None = None, size: int = 18, width: float = 1.6) -> QIcon:
-    r = QSvgRenderer(QByteArray(svg(name, color, width).encode()))
+def icon(name: str, color: str | None = None, size: int = 18, width: float = 1.6,
+         on: str | None = None, disabled: str | None = None) -> QIcon:
+    """线条图标。on：按钮选中（checked）时的颜色；disabled：禁用时的颜色（默认 text3 的淡色，避免白色图标在浅底上消失）。"""
     ic = QIcon()
-    for s in (size, size * 2):
-        pm = QPixmap(s, s)
-        pm.fill(Qt.GlobalColor.transparent)
-        p = QPainter(pm)
-        r.render(p, QRectF(0, 0, s, s))
-        p.end()
-        ic.addPixmap(pm)
+    variants = [(color, QIcon.Mode.Normal, QIcon.State.Off)]
+    if on:
+        variants += [(on, QIcon.Mode.Normal, QIcon.State.On), (on, QIcon.Mode.Active, QIcon.State.On)]
+    if disabled:
+        variants.append((disabled, QIcon.Mode.Disabled, QIcon.State.Off))
+    for col, mode, state in variants:
+        r = QSvgRenderer(QByteArray(svg(name, col, width).encode()))
+        for scale in (1, 1.5, 2, 3):          # 各缩放档位各一张，Qt 按屏幕 devicePixelRatio 选最接近的
+            s = round(size * scale)
+            pm = QPixmap(s, s)
+            pm.fill(Qt.GlobalColor.transparent)
+            p = QPainter(pm)
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
+            r.render(p, QRectF(0, 0, s, s))
+            p.end()
+            pm.setDevicePixelRatio(scale)
+            ic.addPixmap(pm, mode, state)
     return ic
 
 

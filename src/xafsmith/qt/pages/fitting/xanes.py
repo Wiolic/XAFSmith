@@ -34,7 +34,8 @@ class XanesPage(Page):
             return
         self.add(W.tabs((T("边位置与白线", "Edge & white line"), self._features(cands)),
                         (T("价态标定", "Valence calibration"), self._valence(cands)),
-                        (T("边前峰拟合", "Pre-edge fitting"), self._preedge(cands))))
+                        (T("边前峰拟合", "Pre-edge fitting"), self._preedge(cands)),
+                        state=self.state, key="tab"))
 
     def _features(self, cands):
         from xafsmith import xanes as xx

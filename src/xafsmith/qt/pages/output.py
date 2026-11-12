@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QGridLayout, QPushButton, QWidget
 from xafsmith import paths
 from .. import widgets as W
 from ..state import fit_label, has_chi, load_cfg, plain_rc, save_cfg, save_fit
-from ..theme import C
+from ..theme import C, FS, WIDTH
 from ..widgets import T, Banner, Card, Page
 
 
@@ -32,6 +32,7 @@ class SummaryPage(Page):
             card.add(Banner("info", T(f"本项目当前有 {len(S.fits)} 个拟合；只有保存过的拟合会进入报告。",
                                       f"{len(S.fits)} fits open; only saved fits are included.")))
         btn = W.button(T("生成报告", "Build report"), primary=True, icon_name="play")
+        W.bind_task(btn, "summary")
 
         def save_session_fits():
             for f in S.fits:
@@ -42,7 +43,7 @@ class SummaryPage(Page):
             def work():
                 # summary.build 只整理文件、不作图；不要在后台线程里改全局 rcParams（plain_rc）
                 return str(summary.build())
-            W.run_task(self, work, lambda d: (S.extra.__setitem__("summary_dir", d), self.refresh()), T("整理中…", "Building…"), btn)
+            W.run_task(self, work, lambda d: (S.extra.__setitem__("summary_dir", d), S.emit("results"), self.refresh()), T("整理中…", "Building…"), btn, key="summary")
         btn.clicked.connect(go)
         row = [None, btn]
         if S.fits:
@@ -119,6 +120,7 @@ class MethodsPage(Page):
             self.state["mt"] = sel.value()
             p, r = mt.save(sel.value() or None)
             S.extra["methods"] = r
+            S.emit("results")
             W.toast(self, T(f"已保存 {paths.rel(p)}", f"Saved {paths.rel(p)}"))
             show()
 
@@ -253,7 +255,7 @@ class PubFigPage(Page):
         view = Card(T("预览", "Preview"))
         holder = W.vbox()
         cap = W.label("", "muted")
-        cap.setStyleSheet("font-size:10.5pt;")
+        cap.setStyleSheet(f"font-size:{FS['base']}pt;")
         view.add(holder)
         view.add(W.label(T("图注（英文，随图保存为 .txt）", "Caption (saved with the figure as .txt)"), "h3"))
         view.add(cap)
@@ -295,7 +297,7 @@ class PubFigPage(Page):
                                      opt["re"].isChecked(), sub=sub, colors=cols, fits=fits)
                 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
                 canvas = FigureCanvasQTAgg(fig)
-                fig.set_dpi(150 if size.value() != "汇报 16:9" else 70)
+                fig.set_dpi(150 if size.value() != pf.SLIDE_SIZE else 70)
                 wpx, hpx = fig.get_size_inches() * fig.dpi
                 canvas.setFixedSize(int(wpx), int(hpx))
                 canvas.draw()
@@ -303,13 +305,14 @@ class PubFigPage(Page):
             W._clear_layout(holder.layout())
             holder.layout().addWidget(W.hbox(canvas, None))
             cap.setText(c)
+        render_d = W.debounced(self, lambda: W.wait_cursor(render))     # 数值微调：连续改只重画一次
         for wdg in list(opt.values()) + [size, pal]:
             if hasattr(wdg, "changed"):
                 wdg.changed.connect(lambda *_: W.wait_cursor(render))
             elif hasattr(wdg, "currentIndexChanged"):
                 wdg.currentIndexChanged.connect(lambda *_: W.wait_cursor(render))
             elif hasattr(wdg, "valueChanged"):
-                wdg.valueChanged.connect(lambda *_: W.wait_cursor(render))
+                wdg.valueChanged.connect(render_d)
             elif hasattr(wdg, "toggled"):
                 wdg.toggled.connect(lambda *_: W.wait_cursor(render))
 
@@ -524,11 +527,7 @@ class ElementsPage(Page):
             b.setFixedSize(40, 32)
             b.setToolTip(f"{z} {xraydb.atomic_name(z)}")
             b.setCursor(Qt.CursorShape.PointingHandCursor)
-            on = sym == cur
-            b.setStyleSheet(f"QPushButton{{padding:0;border-radius:6px;font-size:9.5pt;font-weight:600;"
-                            f"border:1px solid {C['accent'] if on else C['border']};"
-                            f"background:{C['accent'] if on else C['card']};color:{'#FFFFFF' if on else C['text']};}}"
-                            f"QPushButton:hover{{border-color:{C['accent']};}}")
+            b.setObjectName("ptEl")
             b.clicked.connect(lambda _=False, s=sym: (self.state.__setitem__("el", s), self.refresh()))
             grid.addWidget(b, r, c)
         grid.setRowMinimumHeight(8, 10)
@@ -544,7 +543,7 @@ class ElementsPage(Page):
             logs.log.warning("qt.pages.output.build 出错（已忽略或已提示）", exc_info=True)
             self.add(Banner("err", str(ex)))
             return
-        self.add(W.label(f"<span style='font-size:18pt;font-weight:600'>{cur}</span>&nbsp;&nbsp;"
+        self.add(W.label(f"<span style='font-size:{FS['xl']}pt;font-weight:600'>{cur}</span>&nbsp;&nbsp;"
                          f"<span style='color:{C['text2']}'>{inf['name']} · Z = {inf['Z']} · "
                          + T(f"相对原子质量 {inf['mass']:.3f} · 密度 {inf['density']:.3g} g/cm³",
                              f"atomic mass {inf['mass']:.3f} · density {inf['density']:.3g} g/cm³") + "</span>", rich=True))

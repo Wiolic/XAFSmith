@@ -69,7 +69,7 @@ class FitView(QWidget):
             a2.plot(gd.r, gd.chir_mag, color=C["text"], lw=1.2, label="|χ(R)|")
             a2.plot(gf.r, gf.chir_mag, color=C["err"], ls="--", label=T("|χ(R)| 拟合", "|χ(R)| fit"))
             a2.plot(gd.r, gd.chir_re, color=C["accent"], lw=0.9, label="Re")
-            a2.plot(gf.r, gf.chir_re, color="#B5487A", lw=0.9, ls="--", label=T("Re 拟合", "Re fit"))
+            a2.plot(gf.r, gf.chir_re, color=C["magenta"], lw=0.9, ls="--", label=T("Re 拟合", "Re fit"))
             a2.axvspan(md["rmin"], md["rmax"], color=C["text3"], alpha=0.1, lw=0)
             a2.set_xlim(0, 6)
             a2.set_xlabel(rlabel())
@@ -141,9 +141,9 @@ class FitView(QWidget):
         p = W.Plot(280)
         p.ax.plot(c["k"], c["chi"] * c["k"] ** kw, color=C["text"], lw=1, label=T("数据", "data"))
         p.ax.plot(dg["k"], dg["resid_k"], color=C["accent"], lw=1, label=T("残差", "residual"))
-        p.ax.axvspan(md["kmin"], md["kmax"], color="#C29A1C", alpha=0.08, lw=0)
+        p.ax.axvspan(md["kmin"], md["kmax"], color=C["gold"], alpha=0.08, lw=0)
         for kk, _, _ in dg["spikes"]:
-            p.ax.axvline(kk, color="#B5487A", ls=":", lw=1)
+            p.ax.axvline(kk, color=C["magenta"], ls=":", lw=1)
         p.ax.set_xlabel("k (Å⁻¹)")
         p.draw()
         body.add(p)
@@ -186,6 +186,7 @@ class FitView(QWidget):
                 W.toast(page, T(f"已保存 output/fits/{base}_robustness*.csv", f"Saved output/fits/{base}_robustness*.csv"))
             out.layout().addWidget(W.hbox(None, W.button(T("保存到 output/fits/", "Save to output/fits/"), icon_name="save", slot=save)))
         btn = W.button(T("运行稳健性检查", "Run robustness check"), icon_name="play")
+        W.bind_task(btn, "fit_robust")
 
         def go():
             from xafsmith import fit_exafs as fx, pipeline as pl
@@ -196,7 +197,8 @@ class FitView(QWidget):
                 if gg is None:
                     gg, _ = pl.build_sample(fit["summ"]["sample"])
                 return fx.robustness(gg, fit["model"], progress=lambda f, n: progress(f, n))
-            W.run_task(page, work, lambda r: (fit.__setitem__("robust", r), show()), T("稳健性检查…", "Robustness…"), btn, progress=True)
+            W.run_task(page, work, lambda r: (fit.__setitem__("robust", r), show()), T("稳健性检查…", "Robustness…"), btn, progress=True,
+                       key="fit_robust")
         btn.clicked.connect(go)
         body.add(W.hbox(None, btn))
         body.add(out)

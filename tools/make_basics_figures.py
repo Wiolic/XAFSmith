@@ -1,4 +1,4 @@
-"""生成《XAFS 基础讲义》的插图与公式图片（中文 / 英文两套）。
+"""生成《XAFS 基础讲义》的插图（300 dpi；公式在讲义里写成 $$…$$，由帮助窗口渲染）（中文 / 英文两套）。
 
 用法：python tools/make_basics_figures.py <演示项目目录>
 演示项目需含 Ir foil 与 IrO2 的已处理数据，以及内置 IrO2 与 Ir 的 FEFF 计算（output/feff/IrO2_IrL3/site0、
@@ -43,40 +43,8 @@ def style():
 def save(fig, name):
     d = OUT / LANG
     d.mkdir(parents=True, exist_ok=True)
-    fig.savefig(d / f"{name}.png", dpi=150, bbox_inches="tight", facecolor="white")
+    fig.savefig(d / f"{name}.png", dpi=300, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-
-
-def eq(name, tex, size=17):
-    """公式图片（与语言无关）"""
-    d = OUT / "eq"
-    d.mkdir(parents=True, exist_ok=True)
-    fig = plt.figure(figsize=(0.1, 0.1))
-    fig.text(0, 0, f"${tex}$", fontsize=size)
-    fig.savefig(d / f"{name}.png", dpi=150, bbox_inches="tight", pad_inches=0.08, facecolor="white")
-    plt.close(fig)
-
-
-# ----------------------------------------------------------------------------- 公式
-def equations():
-    style()
-    eq("photon_energy", r"E = h\nu = \frac{hc}{\lambda},\qquad E\,[\mathrm{eV}] \approx \frac{12398.4}{\lambda\,[\mathrm{\AA}]}")
-    eq("beer_lambert", r"I_1 = I_0\, e^{-\mu t}\qquad\Longrightarrow\qquad \mu t = \ln\frac{I_0}{I_1}")
-    eq("mu_mixture", r"\mu = \rho \sum_i w_i \left(\frac{\mu}{\rho}\right)_i")
-    eq("bragg", r"\lambda = 2d\,\sin\theta")
-    eq("fluo", r"\mu(E) \propto \frac{I_f}{I_0}")
-    eq("k_def", r"k = \sqrt{\frac{2m_e\,(E-E_0)}{\hbar^2}} \approx \sqrt{0.2625\,(E-E_0)\,[\mathrm{eV}]}\ \ \mathrm{\AA}^{-1}")
-    eq("chi_def", r"\chi(E) = \frac{\mu(E) - \mu_0(E)}{\Delta\mu_0(E_0)}")
-    eq("exafs_eq", r"\chi(k) = S_0^2 \sum_j \frac{N_j\, f_j(k)}{k\,R_j^2}\; e^{-2k^2\sigma_j^2}\; e^{-2R_j/\lambda(k)}\;"
-                   r"\sin\!\left[2kR_j + \delta_j(k)\right]")
-    eq("phase", r"\Delta\phi = 2kR + \delta(k)")
-    eq("ft", r"\chi(R) = \frac{1}{\sqrt{2\pi}} \int_{k_{min}}^{k_{max}} w(k)\, k^n \chi(k)\, e^{2ikR}\, dk")
-    eq("resolution", r"\Delta R \approx \frac{\pi}{2\,\Delta k}")
-    eq("nidp", r"N_{idp} \approx \frac{2\,\Delta k\,\Delta R}{\pi}")
-    eq("rfactor", r"\mathcal{R} = \frac{\sum_i \left[\chi_{data}(R_i) - \chi_{fit}(R_i)\right]^2}{\sum_i \chi_{data}(R_i)^2}")
-    eq("debye_waller", r"e^{-2k^2\sigma^2},\qquad \sigma^2 = \sigma^2_{static} + \sigma^2_{thermal}")
-    eq("lcf", r"\mu_{sample}(E) \approx \sum_i w_i\, \mu_i(E),\qquad \sum_i w_i = 1")
-    eq("wavelet", r"W(k,R) = \int \chi(k')\,k'^n\,\psi^*\!\left(\frac{k'-k}{s}\right) dk',\qquad s=\frac{\eta}{2R}")
 
 
 # ----------------------------------------------------------------------------- 示意图
@@ -375,8 +343,6 @@ def fig_wavelet(foil, oxide):
 def main():
     global LANG
     demo = Path(sys.argv[1]).resolve()
-    LANG = "zh"
-    equations()
     for LANG in ("zh", "en"):
         style()
         fig_absorption_coeff()

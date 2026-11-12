@@ -20,6 +20,20 @@ def safe(name):
     return re.sub(r"[^A-Za-z0-9_.-]", "_", str(name))
 
 
+VER = {"data": 0}          # 数据版本号：save_cfg 等不带 S 的函数也能 bump
+
+
+def bump():
+    VER["data"] += 1
+
+
+def _mtime(p):
+    try:
+        return Path(p).stat().st_mtime_ns
+    except OSError:
+        return 0
+
+
 class State(QObject):
     """一个项目的会话：已载入的谱、校准记录、拟合、当前处理参数"""
     changed = Signal(str)          # "groups" / "fits" / "calib" / "project"
@@ -40,7 +54,42 @@ class State(QObject):
         self.extra = {}
 
     def emit(self, what):
+        bump()
         self.changed.emit(what)
+
+    def data_key(self):
+        """页面是否需要重建的指纹：谱（含就地改动）、拟合、QC、校准、磁盘上的配置与结果。
+        不依赖各处记得 emit；emit 只是补充。"""
+        files = [paths.CONFIG, paths.META, paths.FEFF, paths.FITS, paths.LCF, paths.XANES, paths.FIGS,
+                 paths.REPORTS, paths.MODELS, paths.FITS_CSV, paths.LCF_CSV, paths.XANES_CSV, paths.QC_CSV,
+                 paths.CALIB_JSON]
+        return (VER["data"],
+                tuple((n, id(g), has_chi(g)) for n, g in self.groups.items()),
+                len(self.fits), id(self.qc), tuple(sorted(self.calib)),
+                tuple(sorted(k for k in self.extra if k != "page")),
+                tuple(_mtime(f) for f in files))
+
+    def cfg_defaults(self, sec, names=None):
+        """xafsmith.json 里的处理参数（sec = norm / bkg / ft）：取 names（谱名列表）中第一条谱所属吸收边的一套，
+        没有谱或配置里没有该边就取全项目第一个边；都没有则用软件默认值。返回 (参数字典, 来源说明)"""
+        from xafsmith import autobk as xbkg, ft as xft, normalize as xnorm
+        dflt = dict(norm=xnorm.DEFAULT_NORM, bkg=xbkg.DEFAULT_BKG, ft=xft.DEFAULT_FT)[sec]
+        cfg = load_cfg()
+        edges = cfg.get("edges", {})
+        ek = None
+        for n in (names or list(self.groups)):
+            if n in self.groups:
+                ek = edge_key(self.groups[n])
+                break
+        if ek not in edges:
+            ek = next(iter(edges), None)
+        if ek is None:
+            return dict(dflt), "default"
+        return {**dflt, **edges[ek].get(sec, {})}, ek
+
+    def par_key(self):
+        """当前处理参数的指纹：只有它变了时页面只需重画。"""
+        return json.dumps([self.norm_par, self.bkg_par, self.ft_par], sort_keys=True, default=str)
 
 
 # ----------------------------------------------------------------------------- 项目
@@ -76,6 +125,7 @@ def load_cfg():
 
 def save_cfg(cfg):
     paths.CONFIG.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    bump()
 
 
 # ----------------------------------------------------------------------------- 谱
@@ -127,6 +177,7 @@ def ref_calib(S, ref, e_table=None, smooth_ev=1.0, force=False):
     r = pl.calibrate_ref_file(ref, cfg)
     S.calib[ref] = r
     xcal.save_calib(S.calib, paths.CALIB_JSON)
+    S.emit("calib")
     return r
 
 

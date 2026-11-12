@@ -30,7 +30,7 @@ def button(text, primary=False, icon_name=None, slot=None, tip=None):
     if primary:
         b.setObjectName("primary")
     if icon_name:
-        b.setIcon(icon(icon_name, "#FFFFFF" if primary else C["text2"], 16))
+        b.setIcon(icon(icon_name, "#FFFFFF" if primary else C["text2"], 16, disabled=C["text3"]))
     if slot:
         b.clicked.connect(lambda *_: slot())
     if tip:

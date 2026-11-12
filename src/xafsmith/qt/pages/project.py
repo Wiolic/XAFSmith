@@ -48,7 +48,8 @@ class HomePage(Page):
                 it = QListWidgetItem(icon("folder", C["text2"], 16), f"{Path(p).name}    —    {p}")
                 it.setData(Qt.ItemDataRole.UserRole, p)
                 lw.addItem(it)
-            lw.setFixedHeight(min(260, 34 * len(rec) + 12))
+            rh = lw.fontMetrics().height() + 18               # 每行 = 字高 + 内边距，跟随字体
+            lw.setFixedHeight(min(8 * rh, rh * len(rec) + 12))
             lw.itemDoubleClicked.connect(lambda it: self.app.open_project(it.data(Qt.ItemDataRole.UserRole)))
             card.add(W.label(T("最近的项目（双击打开）", "Recent projects (double-click to open)"), "faint"))
             card.add(lw)
@@ -70,6 +71,8 @@ class HomePage(Page):
             else:
                 W.toast(self, T(f"{f} 中没有 xafsmith.json，不是项目；可以点“新建项目”。",
                                 f"{f} has no xafsmith.json; click “Create project”."), "warn")
+
+        path.returnPressed.connect(open_)             # 回车 = 打开
 
         def create():
             f = path.text().strip()
@@ -93,9 +96,27 @@ class HomePage(Page):
 
 class DataPage(Page):
     title_zh, title_en, icon_name = "数据登记", "Register data", "table"
+    _meta_dirty = False
+    _meta_save = None
+
+    def dirty(self):
+        if self._meta_dirty:
+            return T("data/meta.csv 有未保存的修改", "data/meta.csv has unsaved edits")
+        return None
+
+    def save_changes(self):
+        if self._meta_save is not None:
+            self._meta_save()
+        return not self._meta_dirty
+
+    def discard_changes(self):
+        self._meta_dirty = False
+        self.refresh()
 
     def build(self):
         from xafsmith import pipeline as pl
+        self._meta_dirty = False
+        self._meta_save = None
         self.header(T("原始数据放在 data/raw/<批次>/，每个批次带同批测量的单质参比（文件名含 foil / powder / metal）。原始文件只读。",
                       "Raw data go to data/raw/<batch>/, each batch with its elemental reference (file name containing "
                       "foil / powder / metal). Raw files are read-only."))
@@ -109,6 +130,8 @@ class DataPage(Page):
             if not fs:
                 return
             d = paths.RAW / (batch.text().strip() or "batch1")
+            if not self.confirm_leave():       # 登记会改写 meta.csv：先保存或放弃表格里未保存的编辑
+                return
             d.mkdir(parents=True, exist_ok=True)
             copied, skipped, failed = [], [], []
             for f in fs:
@@ -128,12 +151,15 @@ class DataPage(Page):
             if skipped:
                 msg += T(f"；{len(skipped)} 个同名文件已存在，未覆盖", f"; {len(skipped)} already there, not overwritten")
             msg += T(f"；登记新文件 {nreg} 个", f"; {nreg} new files registered")
-            W.toast(self, msg, "err" if failed else "ok")
-            for e in failed:
-                W.toast(self, e, "err")
+            if failed:
+                self.notice("err", msg, failed)          # 提示条在重建后仍显示
+            else:
+                W.toast(self, msg)
             self.refresh()
 
         def scan():
+            if not self.confirm_leave():           # 登记会改写 meta.csv：先保存或放弃表格里未保存的编辑
+                return
             meta, n = pl.scan_raw()
             cfg = pl.init_config(meta)
             W.toast(self, T(f"新增 {n} 行；吸收边 {list(cfg['edges'])}", f"{n} new rows; edges {list(cfg['edges'])}"))
@@ -148,8 +174,10 @@ class DataPage(Page):
                       None, spacing=12))
         self.add(up)
         # meta.csv
-        card = Card("data/meta.csv", actions=[W.button(T("打开 data 文件夹", "Open data folder"), icon_name="external",
-                                                       slot=lambda: W.open_folder(paths.DATA))])
+        card = Card("data/meta.csv", actions=[
+            W.button(T("撤销修改", "Undo edits"), icon_name="refresh", slot=self.discard_changes,
+                     tip=T("放弃表格里未保存的修改，从磁盘重读", "Discard unsaved table edits and reload from disk")),
+            W.button(T("打开 data 文件夹", "Open data folder"), icon_name="external", slot=lambda: W.open_folder(paths.DATA))])
         if paths.META.exists():
             meta = pd.read_csv(paths.META, dtype=str, encoding="utf-8-sig").fillna("")
         else:
@@ -164,11 +192,14 @@ class DataPage(Page):
                           choices={"role": ["reference", "standard", "sample"], "use": ["1", "0"],
                                    "mode": ["trans", "fluo"], "ref_file": refs}, max_height=460)
             card.add(tab)
+            tab.edited.connect(lambda: setattr(self, "_meta_dirty", True))
 
             def save():
                 tab.df().to_csv(paths.META, index=False, encoding="utf-8-sig")
+                self._meta_dirty = False
                 W.toast(self, T("已保存 meta.csv。改了 ref_file 或 role 后请在“校准与处理”中重新校准。",
                                 "meta.csv saved. After changing ref_file or role, recalibrate under “Calibrate & process”."))
+            self._meta_save = save
             card.add(W.hbox(None, W.button(T("保存 meta.csv", "Save meta.csv"), primary=True, icon_name="save", slot=save)))
         else:
             card.add(Banner("info", T("meta.csv 还是空的：添加数据后点“扫描 data/raw”。",
@@ -197,9 +228,27 @@ class DataPage(Page):
 
 class BatchPage(Page):
     title_zh, title_en, icon_name = "校准与处理", "Calibrate & process", "bolt"
+    _par_dirty = False
+    _par_save = None
+
+    def dirty(self):
+        if self._par_dirty:
+            return T("处理参数有未保存的修改", "Processing parameters have unsaved edits")
+        return None
+
+    def save_changes(self):
+        if self._par_save is not None:
+            self._par_save()
+        return not self._par_dirty
+
+    def discard_changes(self):
+        self._par_dirty = False
+        self.refresh()
 
     def build(self):
         from xafsmith import pipeline as pl
+        self._par_dirty = False
+        self._par_save = None
         self.header(T("每条吸收边一套参数，所有样品共用；保存后按顺序运行 ① ② ③。",
                       "One parameter set per edge, shared by all samples; save, then run ① ② ③ in order."))
         cfg = pl.load_config()
@@ -221,11 +270,14 @@ class BatchPage(Page):
         b1 = W.button(T("① 质量检查", "① Quality check"), icon_name="shield")
         b2 = W.button(T("② 按参比校准", "② Calibrate with references"), icon_name="target")
         b3 = W.button(T("③ 处理全部样品", "③ Process all samples"), primary=True, icon_name="play")
+        for b_, k_ in ((b1, "batch_qc"), (b2, "batch_calib"), (b3, "batch_proc")):
+            W.bind_task(b_, k_, "batch")
 
         def qc_done(df):
             cols = [c for c in ["label", "mode", "e0", "edge_step_mu", "n_glitches", "glitch_E", "i0_drops", "k_snr3",
                                 "self_abs_risk", "error"] if c in df]
             self.S.qc = df
+            self.S.emit("qc")
             show([W.label(f"→ {paths.rel(paths.QC_CSV)}", "faint"), W.Table(df[cols], max_height=520)])
 
         def cal_done(res):
@@ -249,12 +301,13 @@ class BatchPage(Page):
                             f"→ {paths.rel(paths.PROC)}/, {paths.rel(paths.FIGS)}/; then load samples under “Load spectra”"),
                           "faint"), W.Table(df, max_height=520)])
         b1.clicked.connect(lambda: W.run_task(self, lambda progress: pl.run_qc(progress=progress), qc_done, T("质量检查中…", "Checking…"), b1,
-                                              progress=True))
+                                              progress=True, key="batch_qc", excl="batch"))
         b2.clicked.connect(lambda: W.run_task(self, lambda progress: pl.run_calib(pl.load_config(), pl.load_meta(), progress=progress),
-                                              cal_done, T("校准中…", "Calibrating…"), b2, progress=True))
+                                              cal_done, T("校准中…", "Calibrating…"), b2, progress=True,
+                                              key="batch_calib", excl="batch"))
         b3.clicked.connect(lambda: W.run_task(self, lambda progress: pl.process_all(progress=progress), proc_done,
                                               T("校准 → 归一化 → 合并 → χ(k) → FT …", "Calibrate → normalize → merge → χ(k) → FT …"), b3,
-                                              progress=True))
+                                              progress=True, key="batch_proc", excl="batch"))
         run.add(W.hbox(b1, b2, b3, None))
         run.add(out)
         self.add(run)
@@ -266,10 +319,18 @@ class BatchPage(Page):
         sel = W.combo(edges, ek)
 
         def switch():
+            if not self.confirm_leave():              # 取消：把下拉框改回当前吸收边
+                sel.blockSignals(True)
+                sel.setCurrentIndex(edges.index(ek))
+                sel.blockSignals(False)
+                return
             self.state["edge"] = sel.value()
             self.refresh()
         sel.currentIndexChanged.connect(lambda *_: switch())
-        card = Card(T("处理参数", "Processing parameters"), actions=[sel])
+        card = Card(T("处理参数", "Processing parameters"), actions=[
+            W.button(T("撤销修改", "Undo edits"), icon_name="refresh", slot=self.discard_changes,
+                     tip=T("放弃未保存的修改，从 xafsmith.json 重读", "Discard unsaved edits and reload from xafsmith.json")),
+            sel])
         card.add(W.label(T(f"{c['element']} {c['edge']}，表值 E0 = {c.get('e_table')} eV（{c.get('e_table_source', '')}）",
                            f"{c['element']} {c['edge']}, tabulated E0 = {c.get('e_table')} eV ({c.get('e_table_source', '')})"),
                          "muted"))
@@ -277,7 +338,7 @@ class BatchPage(Page):
         card.add(W.field(T("样品中的全部元素（逗号分隔，用于干扰边检查与 k 上限）",
                            "All elements in the sample (comma-separated; for interfering edges and the k limit)"), el))
         n, b, f = c["norm"], c["bkg"], c["ft"]
-        pre1, pre2 = W.num(n["pre1"], step=5), W.num(n["pre2"], step=5)
+        pre1, pre2 = W.num(n["pre1"], -2000, -1, 5, 1), W.num(n["pre2"], -2000, -1, 5, 1)
         norm1, norm2 = W.num(n["norm1"], step=10), W.num(n.get("norm2") or -10, step=10)
         nnorm = W.combo([1, 2, 3], int(n["nnorm"]))
         sm = W.num(n.get("smooth_ev", 1.0), 0, 10, 0.5)
@@ -299,6 +360,13 @@ class BatchPage(Page):
         card.add(W.label(T("S0²（标样上拟合得到，样品拟合时固定）", "S0² (from the standard; fixed for samples)"), "h3"))
         card.add(W.fields(("S0²", s0v), (T("误差", "Error"), s0e), (T("来源", "Source"), s0s)))
 
+        W.link_range(kmin, kmax, 0.5)
+        W.link_range(pre1, pre2, 1.0)
+        mark = lambda *_: setattr(self, "_par_dirty", True)        # noqa: E731
+        for w_ in (el, pre1, pre2, norm1, norm2, nnorm, sm, rbkg, bkw, kmin, kmax, dk, win, fkw, s0v, s0e, s0s):
+            sig = getattr(w_, "valueChanged", None) or getattr(w_, "currentIndexChanged", None) or getattr(w_, "textChanged")
+            sig.connect(mark)
+
         def save():
             cfg2 = load_cfg()
             c2 = cfg2["edges"][ek]
@@ -309,7 +377,9 @@ class BatchPage(Page):
             c2["ft"].update(kmin=kmin.value(), kmax=kmax.value(), dk=dk.value(), window=win.value(), kweight=fkw.value())
             c2["s02_recommended"] = dict(s0, value=s0v.value(), err=s0e.value(), source=s0s.text())
             save_cfg(cfg2)
+            self._par_dirty = False
             W.toast(self, T("已保存到 xafsmith.json；改动后请重新“③ 处理全部样品”。",
                             "Saved to xafsmith.json; run “③ Process all samples” again."))
+        self._par_save = save
         card.add(W.hbox(None, W.button(T("保存参数", "Save parameters"), primary=True, icon_name="save", slot=save)))
         return card

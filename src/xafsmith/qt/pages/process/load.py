@@ -37,6 +37,7 @@ class LoadPage(Page):
             ms.changed.connect(upd_refs)
             upd_refs(ms.value())
             btn = W.button(T("载入", "Load"), primary=True, icon_name="upload")
+            W.bind_task(btn, "load", "groups")
 
             def load():
                 e = ek.value()
@@ -46,10 +47,11 @@ class LoadPage(Page):
                 refs = set(meta[meta["sample"].isin(todo)].ref_file) - {""}
                 todo = list(dict.fromkeys(list(meta[meta.file.isin(refs)]["sample"]) + todo))
 
-                def work():
+                def work(progress):
                     cfg = pl.load_config()
                     out, errs = {}, []
-                    for s in todo:
+                    for i, s in enumerate(todo):
+                        progress(i / len(todo), f"{s} ({i + 1}/{len(todo)})")      # 取消点：样品之间
                         try:
                             out[s], _ = pl.build_sample(s, cfg, meta)
                         except Exception as ex:      # noqa: BLE001
@@ -65,10 +67,10 @@ class LoadPage(Page):
                         if c:
                             S.norm_par.update(c["norm"]); S.bkg_par.update(c["bkg"]); S.ft_par.update(c["ft"])
                     S.emit("groups")
-                    for e_ in errs:
-                        W.toast(self, e_, "err")
+                    if errs:
+                        self.notice("err", T(f"{len(errs)} 个样品载入失败", f"{len(errs)} sample(s) failed to load"), errs)       # 提示条在重建后仍显示
                     self.refresh()
-                W.run_task(self, work, done, T("载入中…", "Loading…"), btn)
+                W.run_task(self, work, done, T("载入中…", "Loading…"), btn, progress=True, key="load", excl="groups")
             btn.clicked.connect(load)
             card.add(W.hbox(W.field(T("样品", "Samples"), ms), W.field(T("或整条吸收边", "or a whole edge"), ek),
                             W.vbox(None, btn), spacing=12))
@@ -189,9 +191,9 @@ class LoadPage(Page):
                 except Exception as ex:      # noqa: BLE001
                     logs.log.warning("qt.pages.process.read 出错（已忽略或已提示）", exc_info=True)
                     errs.append(f"{p.name}: {ex}")
-            for e in errs:
-                W.toast(self, e, "err")
             S.emit("groups")
+            if errs:
+                self.notice("err", T(f"{len(errs)} 个文件未读入", f"{len(errs)} file(s) not read"), errs)       # 提示条在重建后仍显示
             self.refresh()
         def wizard():
             sel = files.value()
@@ -223,7 +225,15 @@ class LoadPage(Page):
         rm = W.MultiSelect(list(S.groups), [], T("选择要移除的谱", "Spectra to remove"))
 
         def remove():
-            for k in rm.value():
+            v = rm.value()
+            if not v:
+                return
+            if not W.ask(self, T("移除谱", "Remove spectra"), T(
+                    f"从会话中移除 {len(v)} 条谱（{', '.join(v[:3])}{'…' if len(v) > 3 else ''}）？文件不会被删除，但未保存的处理结果会丢失。",
+                    f"Remove {len(v)} spectra from the session ({', '.join(v[:3])}{'…' if len(v) > 3 else ''})? "
+                    "Files are kept, but unsaved processing results are lost.")):
+                return
+            for k in v:
                 S.groups.pop(k, None)
             S.emit("groups")
             self.refresh()

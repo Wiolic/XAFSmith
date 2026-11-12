@@ -4,6 +4,41 @@
 [语义化版本](https://semver.org/lang/zh-CN/)。
 All notable changes are recorded here (format: Keep a Changelog; versioning: SemVer).
 
+## [1.1.0] — 2026-11-12
+
+界面美化与交互改进。UI polish and interaction fixes.
+
+### 新增 / Added
+- 帮助窗口：后退 / 前进、查找条（Ctrl+F）、右侧标题目录；讲义内的 `#锚点` 目录链接可跳转；文档首次点开时才渲染。
+  Help window: back/forward, find bar, heading outline, working in-page anchor links, lazy document rendering.
+- 未保存修改的询问（保存 / 放弃 / 取消）与“撤销修改”（meta.csv 表格、批处理参数）；移除谱、合并覆盖同名谱前确认。
+  Save/Discard/Cancel prompt and "Undo edits" for the meta table and batch parameters; confirmations before removing or overwriting spectra.
+- 归一化、背景、FT 参数卡的“恢复为 xafsmith.json 的值”。"Restore xafsmith.json values" on the parameter cards.
+- 快捷键：F1、Ctrl+O、Ctrl+1…9、Esc、项目路径框回车。Keyboard shortcuts.
+- 窗口位置与大小记忆（限制在屏幕可用区域内）。Window geometry is remembered and kept on screen.
+- 导航按钮在缺前置数据时变灰并提示缺哪一步。Sidebar hints for missing prerequisites.
+
+### 变更 / Changed
+- 切页不再重建页面：只有数据变了才重建，只改了处理参数时只重画；输入、内页标签、滚动位置保留。
+  Pages rebuild only when data changed; inputs, tabs and scroll position survive page switches.
+- 后台任务按名字登记：同一任务不能重复启动，①②③ 批处理互斥；任务运行时不能切换项目或语言。
+  Tasks are registered by key: no duplicate runs, batch steps are mutually exclusive, project/language switches wait for tasks.
+- 提示方式统一：持续性错误显示为页顶可关闭的提示条，轻提示排队显示（不再互相覆盖）；帮助窗口也能显示提示。
+  Persistent errors go to a dismissable page banner; toasts are queued; the help window shows toasts too.
+- 参数即时重画加 250 ms 防抖；数值框未获得焦点时忽略滚轮；kmin/kmax、Rmin/Rmax、pre1/pre2、norm1/norm2 范围联动；E0 非法时红框提示。
+  Debounced redraws, no accidental wheel edits, linked range limits, E0 validation.
+- 状态栏进度条带百分比与已用时间，不可中断的步骤会注明；载入与 LCF 显示进度。
+  Status-bar progress with percentage and elapsed time; load and LCF report progress.
+- 只保留一套浅色主题（系统深色模式下也保持浅色）；颜色、字号（5 级）、间距、宽度统一收进 `theme.py`。
+  Single light theme, locked even under Windows dark mode; colours, font sizes, spacing and widths as tokens in `theme.py`.
+- 小波图改用 viridis；系列配色在白底上对比度均 ≥ 3:1；下拉框与菜单的圆角不再露方角；表格行高、列宽随字体。
+  Wavelet map uses viridis; series colours ≥ 3:1 contrast; rounded popups; font-based table metrics.
+
+### 修复 / Fixed
+- 基础讲义插图模糊、有锯齿：插图改为 300 dpi，按窗口宽度平滑缩放成圆角卡片；公式改回 `$$…$$` 并按屏幕缩放渲染；图标与 logo 在高分屏上清晰。
+  Sharp figures, formulas and icons in the basics notes and on high-DPI screens.
+- 双语缺口：归一化页“flattened”、成图页尺寸判断与语言无关。Bilingual gaps in the normalization and figure pages.
+
 ## [1.0.1] — 2026-11-11
 
 ### 修复 / Fixed

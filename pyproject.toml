@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xafsmith"
-version = "1.0.1"
+version = "1.1.0"
 description = "可连接 AI 助手（agent）的同步辐射 XAFS（XANES + EXAFS）分析软件：图形界面 + 命令行，基于 xraylarch / FEFF。Agent-ready synchrotron XAFS analysis software."
 readme = "README.md"
 license = { file = "LICENSE" }   # PolyForm Noncommercial 1.0.0

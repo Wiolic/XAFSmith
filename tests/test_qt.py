@@ -568,6 +568,148 @@ def demo_suite(app, w, S, P):
         and b is not None and b.isEnabled(), "任务期间页面重建：正常收尾、状态栏收起")
 
 
+def u1_checks(app, w):
+    """U1：切页不丢输入、任务登记与按钮禁用、toast 队列、未保存修改"""
+    import threading
+    from PySide6.QtWidgets import QTabWidget
+    S, P = w.S, w.pages
+    # 1. 切页后输入仍在，且数据没变时不重建
+    if any(has for has in (len(S.groups),)):
+        g = next(k for k, g in S.groups.items() if hasattr(g, "chi"))
+        P["chi"].state["sel"] = [g]
+        w.go("chi")
+        pump(app)
+        cnt = []
+        orig = P["chi"].build
+        P["chi"].build = lambda: (cnt.append(1), orig())[1]
+        tb = [t for t in P["chi"].findChildren(QTabWidget) if t.count() == 4][0]
+        tb.setCurrentIndex(2)
+        w.go("norm")
+        pump(app)
+        w.go("chi")
+        pump(app)
+        tb2 = [t for t in P["chi"].findChildren(QTabWidget) if t.count() == 4][0]
+        say(tb2.currentIndex() == 2 and not cnt, f"切页后内页标签仍在、数据未变时不重建（重建 {len(cnt)} 次）")
+        S.emit("groups")                     # 数据版本变了 → 回来时重建，标签仍恢复
+        w.go("norm")
+        w.go("chi")
+        pump(app)
+        tb3 = [t for t in P["chi"].findChildren(QTabWidget) if t.count() == 4][0]
+        say(len(cnt) == 1 and tb3.currentIndex() == 2, "数据变了才重建，内页标签仍恢复")
+        P["chi"].build = orig
+        del P["chi"].build
+    # 2. 任务登记：运行中重复启动被拒，重建出的新按钮同样禁用
+    ev = threading.Event()
+    b1 = QPushButton("run")
+    W.bind_task(b1, "u1test", "u1grp")
+    done = []
+    h = W.run_task(w, lambda: ev.wait(10), lambda r: done.append(r), "busy", b1, key="u1test", excl="u1grp")
+    pump(app)
+    b2 = QPushButton("run2")
+    W.bind_task(b2, "u1other", "u1grp")
+    h2 = W.run_task(w, lambda: 1, lambda r: None, key="u1other", excl="u1grp")
+    say(h is not None and h2 is None and not b1.isEnabled() and not b2.isEnabled()
+        and W.task_running("u1test") and W.task_running(excl="u1grp") and W.running_count() >= 1,
+        "任务运行中：同 key / 同互斥组不能再启动，新按钮已禁用")
+    ev.set()
+    wait(app, 30)
+    say(done and b1.isEnabled() and b1.text() == "run" and b2.isEnabled() and not W.task_running("u1test"),
+        "任务结束后按钮恢复")
+    # 3. toast 队列
+    tz = w._toaster
+    tz.q.clear()
+    tz.timer.stop()
+    tz.label.hide()
+    w.toast("a")
+    w.toast("b")
+    w.toast("b")
+    w.toast("c", "err")
+    say(len(tz.q) == 2 and tz.label.text() == "a", f"toast 排队：显示 a，队列 {[t for t, _ in tz.q]}")
+    tz.timer.stop()
+    tz._next()
+    say(tz.label.text() == "b", "toast 依次显示")
+    tz.q.clear()
+    tz.timer.stop()
+    tz.label.hide()
+    # 4. 未保存修改与提示条
+    pg = P["data"]
+    pg._meta_dirty = True
+    say(bool(pg.dirty()), "数据登记：表格被编辑后 dirty() 有提示")
+    pg.discard_changes()
+    say(not pg.dirty(), "放弃修改后 dirty() 清零")
+    pg.notice("err", "测试", [f"e{i}" for i in range(8)])
+    pump(app)
+    from xafsmith.qt.widgets.layout import Banner
+    say(any("另 3 条" in l.text() for l in pg.findChildren(QLabel)), "页顶提示条：超过 5 条折叠")
+    pg.clear_notice()
+    say(pg._notice is None, "提示条可关闭")
+
+
+def u3_checks(app, w):
+    """U3：范围联动、防抖、滚轮防误触、E0 校验、帮助窗口 toast"""
+    from PySide6.QtCore import QPoint, QPointF, Qt
+    from PySide6.QtWidgets import QApplication
+    from PySide6.QtGui import QWheelEvent
+    # 范围联动
+    lo, hi = W.num(1, 0, 10, 0.1), W.num(5, 0, 25, 0.1)
+    W.link_range(lo, hi, 0.5)
+    lo.setValue(9)
+    say(hi.value() >= 9.5, f"kmin 超过 kmax：kmax 被顶到 {hi.value():.1f}")
+    hi.setValue(2)
+    say(lo.value() <= 1.5, f"kmax 低于 kmin：kmin 被压到 {lo.value():.1f}")
+    # 防抖
+    cnt = []
+    d = W.debounced(w, lambda: cnt.append(1), 60)
+    for _ in range(5):
+        d()
+    say(not cnt, "防抖：连续 5 次调用，尚未执行")
+    d.flush()
+    say(len(cnt) == 1, "防抖：flush 只执行一次")
+    for _ in range(3):
+        d()
+    t0 = time.time()
+    while len(cnt) < 2 and time.time() - t0 < 2:
+        pump(app)
+    say(len(cnt) == 2, "防抖：到时只执行一次")
+    # 滚轮：未获得焦点时忽略
+    sp = W.num(1, 0, 10, 0.1)
+    sp.show()
+    ev = QWheelEvent(QPointF(5, 5), QPointF(5, 5), QPoint(0, 0), QPoint(0, 120), Qt.MouseButton.NoButton,
+                     Qt.KeyboardModifier.NoModifier, Qt.ScrollPhase.NoScrollPhase, False)
+    QApplication.sendEvent(sp, ev)
+    say(sp.value() == 1 and not ev.isAccepted(), "数值框未获得焦点：滚轮被忽略")
+    sp.close()
+    # E0 非法：红框
+    from xafsmith.qt.pages.process._shared import norm_fields
+    nf = norm_fields(dict(W.__dict__.get("_np", {}) or w.S.norm_par))
+    nf.e0.setText("abc")
+    r = nf.read()
+    say(r["e0"] is None and nf.e0.property("invalid") is True, "E0 输入非法：红框并按自动 E0 处理")
+    nf.e0.setText("")
+    nf.read()
+    say(nf.e0.property("invalid") is False, "E0 清空后红框消失")
+    # pre1 < pre2 联动
+    nf.widgets["pre2"].setValue(-200)
+    say(nf.widgets["pre1"].value() < nf.widgets["pre2"].value(), "pre1 < pre2 联动")
+    # 窗口矩形限制在屏幕内；快捷键与恢复默认值
+    from xafsmith.qt.app import _avail, _fit_rect
+    x, y, ww, hh = _fit_rect(-5000, 99999, 99999, 99999)
+    av = _avail()
+    say(ww <= av.width() and hh <= av.height() and av.left() <= x and y + hh <= av.bottom() + 1, "窗口位置与大小被限制在屏幕内")
+    from PySide6.QtGui import QShortcut
+    seqs = {q.key().toString() for q in w.findChildren(QShortcut)}
+    say({"F1", "Ctrl+O", "Esc", "Ctrl+1", "Ctrl+9"} <= seqs, "快捷键 F1 / Ctrl+O / Esc / Ctrl+1…9 已登记")
+    nf.set_values(dict(e0=None, pre1=-120.0, pre2=-25.0, norm1=80.0, norm2=-5.0, nnorm=1, smooth_ev=1.0))
+    r = nf.read()
+    say(r["pre1"] == -120 and r["norm1"] == 80 and r["nnorm"] == 1, "恢复默认值：参数写回输入框")
+    # 帮助窗口有 toast
+    w.open_help("gui")
+    hw = w._help
+    hw.toast("help-toast")
+    say(hw._toaster.label.text() == "help-toast" and hw._toaster.label.isVisible(), "帮助窗口 toast 可见")
+    hw.hide()
+
+
 def wizard_check(app):
     """列映射向导：用临时目录里的合成数据（非标准列名）试读，并截获保存（不写项目的 xafsmith.json）。"""
     import tempfile
@@ -609,7 +751,7 @@ def wizard_check(app):
 
 def main():
     W.QUIET["v"] = True
-    app, w = make_window(str(PROJ), lang="zh", dark=False)
+    app, w = make_window(str(PROJ), lang="zh")
     w.resize(1440, 920)
     w.show()
     S = w.S
@@ -636,6 +778,10 @@ def main():
         "AI 助手：写入按钮与命令路径")
 
     (irtaox_suite if IRTAOX else demo_suite)(app, w, S, P)
+    n = len(W.ERRORS)
+    u1_checks(app, w)
+    u3_checks(app, w)
+    step("U1 检查", n)
 
     # 制样指导：元素来自化学式；吸收边查询：滤片
     w.go("planner")
@@ -652,10 +798,16 @@ def main():
     # 项目页不在导航里；流程与本项目悬浮窗
     w.go("data")
     w.flow_btn.open()
-    w.flow_btn._timer.stop()      # 悬浮窗 300 ms 检查一次鼠标、不在窗内就关闭；测试不模拟鼠标，慢的 CI 机器上会先被关掉
     pump(app, 0.1)
     say("home" not in w.nav and w.flow_btn.pop is not None and "本项目" in texts(w.flow_btn.pop), "流程与本项目悬浮窗")
+    c1 = w.flow_btn._cache
     w.flow_btn.close_pop()
+    w.flow_btn.open()
+    say(w.flow_btn._cache is c1, "U5：流程弹窗计数按 data_key 缓存")
+    w.flow_btn.close_pop()
+    # U5：导航提示（无谱时 norm 变灰，有谱后恢复）
+    w._nav_hints()
+    say(bool(w.S.groups) or w.nav["norm"].property("hint") is True, "U5：缺前置数据的导航按钮变灰")
 
     # 署名与免责声明始终可见
     lbls = " ".join(l.text() for l in w.findChildren(QLabel))
@@ -671,6 +823,25 @@ def main():
         and keys[:4] == ["gui", "tutorial", "quality", "basics"] and keys[-1] == "about"
         and "Claude Opus 5.5" in about_txt and "Athena / Artemis" in about_txt,
         f"使用指南独立窗口：{keys}，主窗口仍在 {cur}")
+    # U5：帮助窗口目录、锚点跳转、查找、后退
+    from xafsmith.qt.help import DocPane, _slug
+    hw.show_tab("basics")
+    pane = hw.btn["basics"][1].findChild(DocPane)
+    pane.resize(900, 600)
+    pump(app, 0.1)
+    n_h = len(pane.heads)
+    from PySide6.QtCore import QUrl
+    before = pane.tb.verticalScrollBar().value()
+    tgt = [h for h in pane.heads if h[0] == 2][-1]
+    pane._link(QUrl("#" + tgt[3]))
+    pump(app, 0.1)
+    moved = pane.tb.verticalScrollBar().value() > before
+    pane.find_edit.setText(tgt[1][:4])
+    pane.find(False)
+    found = pane.tb.textCursor().hasSelection()
+    pane.back()
+    say(n_h > 5 and pane.toc.count() > 5 and moved and found and pane.tb.verticalScrollBar().value() == before,
+        f"U5：帮助目录 {pane.toc.count()} 项、#锚点跳转、查找、后退")
     hw.close()
 
     # 英文界面逐页（不保存语言设置）

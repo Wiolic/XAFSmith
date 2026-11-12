@@ -29,6 +29,7 @@ class QCPage(Page):
         sel.changed.connect(lambda v: self.state.__setitem__("sel", v))
 
         run_btn = W.button(T("运行检查", "Run check"), primary=True, icon_name="play")
+        W.bind_task(run_btn, "qc")
 
         def run():
             import copy
@@ -54,8 +55,9 @@ class QCPage(Page):
                 paths.QC.mkdir(parents=True, exist_ok=True)
                 df.to_csv(paths.QC_CSV, index=False, encoding="utf-8-sig")
                 S.qc = df
+                S.emit("qc")
                 self.refresh()
-            W.run_task(self, work, done, T("质量检查中…", "Checking…"), run_btn, progress=True)
+            W.run_task(self, work, done, T("质量检查中…", "Checking…"), run_btn, progress=True, key="qc")
         run_btn.clicked.connect(lambda *_: run())
         card.add(W.hbox(sel, run_btn, spacing=12))
         if S.qc is not None:
@@ -146,6 +148,7 @@ class QCPage(Page):
             for s in v:
                 S.groups[s], _ = pl.build_sample(s, cfg, meta)
             S.qc = None
+            S.emit("qc")
             W.toast(self, T(f"已写入 xafsmith.json 并重新载入 {len(v)} 个样品；请重新运行检查",
                             f"Written to xafsmith.json and {len(v)} samples reloaded; run the check again"))
             self.refresh()

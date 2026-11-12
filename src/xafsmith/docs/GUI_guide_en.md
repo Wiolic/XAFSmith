@@ -90,7 +90,7 @@ A blue rounded button, always in the same place. Hover over it (or click) for a 
 | Multi-select boxes | Open to search and tick; “All / None” for bulk changes |
 | Explanation buttons | Some pages have one at the top right (e.g. “Before you fit · what is a good fit”); it opens a separate window that does not block the page |
 | Long calculations | Processing, QC, calibration, FEFF, fitting, robustness, LCF and reports run in the background; a thin bar at the top (with a percentage when the progress is known) and the progress at the bottom left. Tasks with progress (batch processing, QC, calibration, running saved models, robustness) show a **Cancel** button: it stops **after the current step** (a single fit or FEFF run cannot be interrupted), and a cancelled task writes no result. With several tasks running only their count is shown |
-| Light / dark | Follows the Windows setting |
+| Appearance | One light theme only; it stays light even when Windows uses dark mode |
 
 ### 3　Create a project
 
@@ -209,7 +209,8 @@ The table below lists the loaded spectra and their calibration status. You can a
 
 ### 7　Normalization
 
-- Top: the normalization parameters shared by the group; changes recompute at once.
+- Top: the normalization parameters shared by the group; changes recompute after ~0.25 s (continuous nudging recomputes once). **Restore xafsmith.json values** on the card resets the parameters to the project configuration for that edge (background and FT cards have it too).
+- Inputs are guarded: pre1 stays below pre2, kmin below kmax, Rmin below Rmax (change one and the other follows); a non-numeric E0 turns the box red and the derivative maximum is used.
 - Four tabs:
   - **μ(E) with pre- / post-edge lines**: check that both lines are sensible;
   - **Normalized overlay**: optionally flattened, x axis E − E0;
@@ -348,6 +349,19 @@ Drag the divider between the columns to resize them. A fit updates only the righ
 
 - **A fit you are in the middle of**: at the top of the left column, **Fit drafts** → name it → **Save draft**. A draft stores the data choice, FEFF folders, fit range, path table and parameter table (including edited start values and constraints). Later pick it in the same place → **Open** to continue from those settings (the spectra it needs are reloaded automatically). A draft does not contain fit results; click “Save result” for finished fits.
 - **Automatic restore**: when you close the app, the current page, processing parameters, loaded spectra and page settings are saved to `output/gui/session.json` in the project and restored the next time you open it (can be switched off on the home page). Only spectra registered in `meta.csv` can be restored; files read directly must be read again. Normalization / background / FT parameters come back as you had set them in the GUI.
+
+### General conventions
+
+- **Messages**: persistent errors (a failed load or normalization) appear as a dismissable banner at the top of the page; success and light hints show briefly at the bottom of the window; only blocking errors open a dialog.
+- **Number boxes**: the mouse wheel changes a value only after you click into the box, so scrolling the page never alters parameters.
+- **Progress**: the status bar at the bottom shows a progress bar, elapsed time and **Cancel**; a single fit / FEFF run / report build cannot be stopped midway and the status bar says "cannot be interrupted".
+- **Windows**: position and size are remembered (and pulled back onto the screen if needed); the help window too.
+- **Switching pages**: inputs, inner tabs and scroll position are kept when you come back; a page is rebuilt only when the data changed.
+- **Unsaved edits**: with unsaved edits in the meta.csv table or the "Calibrate & process" parameters, switching page, edge, project or language, or closing the window asks "Save / Discard / Cancel"; **Undo edits** on the card reloads from disk. Removing spectra and overwriting a group by a merge also ask first.
+- **Background tasks**: while a task runs its button is greyed out and cannot start twice (batch steps ①②③ exclude each other); the project or language cannot be switched while tasks run, but you can cancel them.
+- **Navigation**: pages whose prerequisite is missing (e.g. no spectra loaded) are greyed in the sidebar, and the tooltip says which step is missing; the "Workflow & project" pop-up opens on click and closes when you click outside.
+- **Help window**: Back / Forward and Find (Ctrl+F; Enter next, Shift+Enter previous) at the top; a heading outline on the right when the window is wide; table-of-contents links in the basics notes jump to the section.
+- **Shortcuts**: F1 help; Ctrl+O open / new project; Ctrl+1…9 go to the n-th sidebar page; Esc closes the "Workflow & project" pop-up; Enter in the project path box opens the project; Ctrl+Enter fits.
 
 ### 12　Fit history
 

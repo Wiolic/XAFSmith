@@ -40,7 +40,7 @@ class Plot(QWidget):
         self._tools = {}
         for name, tip, fn in (("pan", T("平移", "Pan"), self.nav.pan), ("zoom", T("框选放大", "Zoom to box"), self.nav.zoom)):
             b = QToolButton()
-            b.setIcon(icon(name, C["text3"], 16))
+            b.setIcon(icon(name, C["text3"], 16, on=C["accent_text"]))
             b.setToolTip(tip)
             b.setCheckable(True)
             b.clicked.connect(lambda _=False, f=fn, n=name: self._mode(f, n))

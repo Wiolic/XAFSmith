@@ -107,8 +107,9 @@ class CalibPage(Page):
                 info.setText(f"ΔE = E_table − E0_meas = {r['delta_e']:+.3f} eV" +
                              (T(f"　（已保存 {old['delta_e']:+.3f} eV）", f"   (saved {old['delta_e']:+.3f} eV)") if old else ""))
             ref.currentIndexChanged.connect(lambda *_: W.wait_cursor(load_ref))
-            etab.valueChanged.connect(lambda *_: calc())
-            sm.valueChanged.connect(lambda *_: calc())
+            calc_d = W.debounced(self, calc)
+            etab.valueChanged.connect(calc_d)
+            sm.valueChanged.connect(calc_d)
 
             def save():
                 r_ = ref.value()

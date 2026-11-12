@@ -106,6 +106,7 @@ class FeffPage(Page):
         card.add(f8)
         card.add(W.field(T("输出目录", "Output folder"), out))
         run = W.button(T("运行 FEFF", "Run FEFF"), primary=True, icon_name="play")
+        W.bind_task(run, "feff")
 
         def go():
             c = code.value()
@@ -116,7 +117,7 @@ class FeffPage(Page):
                        lambda df: (W.toast(self, T(f"完成：{len(df)} 条路径 → {out.text()}", f"Done: {len(df)} paths → {out.text()}")),
                                    self.state.__setitem__("dir", str(paths.ROOT / out.text())), self.refresh()),
                        T("FEFF 运行中…（FEFF8L 约 1–3 分钟）", "Running FEFF… (FEFF8L 1–3 min)") if c == "feff8" else T("FEFF 运行中…", "Running FEFF…"),
-                       run)
+                       run, key="feff")
         run.clicked.connect(go)
         card.add(W.label(T("注意：FEFF6L 与 FEFF8L 的 ΔE0 零点不同。换 FEFF 版本后，固定 e0 的模型要重新确定 e0。",
                             "Note: FEFF6L and FEFF8L have different ΔE0 zeros. After switching, re-determine e0 for models that fix it."),

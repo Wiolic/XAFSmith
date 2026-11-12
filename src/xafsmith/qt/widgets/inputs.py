@@ -2,16 +2,94 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QTimer, Qt, Signal
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QPushButton, QSizePolicy, QSpinBox, QVBoxLayout, QWidget)
-from ..theme import C
+from ..theme import C, FS, WIDTH
 
 from .core import T, en
 from .basic import hbox, link
 
 
+class _NoWheel:
+    """未获得焦点时忽略滚轮：滚动页面时不会误改参数（点进输入框后滚轮才起作用）"""
+
+    def wheelEvent(self, e):
+        if self.hasFocus():
+            super().wheelEvent(e)
+        else:
+            e.ignore()
+
+
+class _Spin(_NoWheel, QDoubleSpinBox):
+    pass
+
+
+class _ISpin(_NoWheel, QSpinBox):
+    pass
+
+
+class _Combo(_NoWheel, QComboBox):
+    pass
+
+
+def debounced(owner, fn, ms=250):
+    """返回一个“最后一次调用 ms 毫秒后才执行 fn”的函数（参数即时重画用，连续微调只算一次）。
+    返回的函数带 .flush()：立即执行挂起的那次（测试与“应用”按钮用）。owner 销毁后挂起的调用自动作废。"""
+    t = QTimer(owner)
+    t.setSingleShot(True)
+    t.setInterval(ms)
+    t.timeout.connect(fn)
+
+    def call(*_a):
+        t.start()
+
+    def flush():
+        try:
+            if t.isActive():
+                t.stop()
+                fn()
+        except RuntimeError:          # 页面已重建，旧控件已删除
+            pass
+    call.flush = flush
+    reg = getattr(owner, "_debounced", None)       # Page 在切页前统一 flush，防止 250 ms 内离开页面丢掉修改
+    if reg is not None:
+        reg.append(call)
+    return call
+
+
+def link_range(lo, hi, gap=0.1):
+    """范围联动：保证 lo < hi（至少相差 gap）。改 lo 超过 hi 时把 hi 顶上去，改 hi 低于 lo 时把 lo 压下来；
+    被推的一端到了自己的上下限就把正在改的这一端退回。"""
+    def fix_hi(_v=None):
+        if hi.value() < lo.value() + gap - 1e-9:
+            want = lo.value() + gap
+            if want <= hi.maximum() + 1e-9:
+                hi.setValue(want)
+            else:
+                lo.setValue(hi.value() - gap)
+
+    def fix_lo(_v=None):
+        if lo.value() > hi.value() - gap + 1e-9:
+            want = hi.value() - gap
+            if want >= lo.minimum() - 1e-9:
+                lo.setValue(want)
+            else:
+                hi.setValue(lo.value() + gap)
+    lo.valueChanged.connect(fix_hi)
+    hi.valueChanged.connect(fix_lo)
+
+
+def set_invalid(widget, bad, tip=""):
+    """输入非法：红框（动态属性 invalid，样式见 theme.qss）+ 悬停说明"""
+    widget.setProperty("invalid", bool(bad))
+    widget.setToolTip(tip if bad else "")
+    widget.style().unpolish(widget)
+    widget.style().polish(widget)
+
+
 def num(value=0.0, lo=-1e9, hi=1e9, step=0.1, decimals=2, width=None):
-    s = QDoubleSpinBox()
+    s = _Spin()
+    s.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
     s.setRange(lo, hi)
     s.setDecimals(decimals)
     s.setSingleStep(step)
@@ -23,7 +101,8 @@ def num(value=0.0, lo=-1e9, hi=1e9, step=0.1, decimals=2, width=None):
 
 
 def inum(value=0, lo=-10**6, hi=10**6):
-    s = QSpinBox()
+    s = _ISpin()
+    s.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
     s.setRange(lo, hi)
     s.setValue(int(value))
     s.setKeyboardTracking(False)
@@ -38,7 +117,8 @@ def text(value="", placeholder=""):
 
 def combo(options, current=None, fmt=None):
     """options: 取值列表；fmt: 取值 → 显示文字。用 .value() 取当前值"""
-    cb = QComboBox()
+    cb = _Combo()
+    cb.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
     cb._vals = list(options)
     for o in cb._vals:
         cb.addItem(fmt(o) if fmt else str(o))
@@ -72,16 +152,9 @@ class Segmented(QWidget):
             b.setObjectName("seg")
             b.setCheckable(True)
             b.setCursor(Qt.CursorShape.PointingHandCursor)
-            b.setProperty("first", i == 0)
             b.clicked.connect(lambda _=False, j=i: self.set(self.vals[j], emit=True))
-            # 圆角：第一个与最后一个
-            r = "9px"
-            if i == 0:
-                b.setStyleSheet(f"border-top-left-radius:{r};border-bottom-left-radius:{r};")
-            if i == len(self.vals) - 1:
-                b.setStyleSheet(b.styleSheet() + f"border-top-right-radius:{r};border-bottom-right-radius:{r};")
-            if i:
-                b.setStyleSheet(b.styleSheet() + "margin-left:-1px;")
+            n = len(self.vals)
+            b.setProperty("pos", "only" if n == 1 else "first" if i == 0 else "last" if i == n - 1 else "mid")
             lay.addWidget(b)
             self.btns.append(b)
         lay.addStretch(1)
@@ -158,14 +231,13 @@ class MultiSelect(QPushButton):
     def _popup(self):
         pop = QFrame(self, Qt.WindowType.Popup)
         pop.setObjectName("card")
-        pop.setStyleSheet(f"QFrame#card{{background:{C['raised']};border:1px solid {C['border']};border-radius:12px;}}")
         lay = QVBoxLayout(pop)
         lay.setContentsMargins(8, 8, 8, 8)
         lay.setSpacing(6)
         q = QLineEdit()
         q.setPlaceholderText(T("搜索", "Search"))
         lw = QListWidget()
-        lw.setStyleSheet("QListWidget{border:none;background:transparent;}")
+        lw.setObjectName("plain")
         for o in self.opts:
             it = QListWidgetItem(self.fmt(o))
             it.setData(Qt.ItemDataRole.UserRole, o)
@@ -207,7 +279,7 @@ class MultiSelect(QPushButton):
         if not self.max_sel:
             lay.addWidget(bar)
         h = min(360, 24 * len(self.opts) + 90)
-        pop.resize(max(self.width(), 260), h)
+        pop.resize(max(self.width(), WIDTH['popup_min']), h)
         pop.move(self.mapToGlobal(self.rect().bottomLeft()))
         pop.show()
         q.setFocus()

@@ -11,7 +11,7 @@ from ...state import has_chi, safe
 from ...theme import C
 from ...widgets import T, Banner, Card, Page
 
-from ._shared import need_groups
+from ._shared import need_groups, reset_button
 from .._common import rlabel
 
 
@@ -36,7 +36,24 @@ class ChiPage(Page):
         ctl.add(W.fields(("rbkg", w["rbkg"]), (T("背景 k 权重", "bkg k-weight"), w["bkw"]), ("kmin", w["kmin"]),
                          ("kmax", w["kmax"]), ("dk", w["dk"]), (T("窗函数", "Window"), w["win"]),
                          (T("FT k 权重", "FT k-weight"), w["fkw"]), (T("作图 Rmax", "Plot Rmax"), w["rmax"])))
+        W.link_range(w["kmin"], w["kmax"], 0.5)
+
+        def apply_bkg(d):
+            w["rbkg"].setValue(float(d["rbkg"]))
+            if int(d["kweight"]) in w["bkw"]._vals:
+                w["bkw"].setCurrentIndex(w["bkw"]._vals.index(int(d["kweight"])))
+
+        def apply_ft(d):
+            w["kmax"].setValue(float(d["kmax"]))       # 先放宽上限，再设下限，避免联动互相顶住
+            w["kmin"].setValue(float(d["kmin"]))
+            w["dk"].setValue(float(d["dk"]))
+            if d["window"] in w["win"]._vals:
+                w["win"].setCurrentIndex(w["win"]._vals.index(d["window"]))
+            if int(d["kweight"]) in w["fkw"]._vals:
+                w["fkw"].setCurrentIndex(w["fkw"]._vals.index(int(d["kweight"])))
         sel = W.MultiSelect(list(S.groups), self.state.get("sel", list(S.groups)[:1]), T("选择谱", "Choose spectra"))
+        ctl.add(W.hbox(reset_button(self, "bkg", apply_bkg, lambda: sel.value()),
+                       reset_button(self, "ft", apply_ft, lambda: sel.value()), None))
         showre = W.check(T("显示 Re χ(R)", "Show Re χ(R)"), self.state.get("re", False))
         ctl.add(W.hbox(sel, showre, spacing=12))
         self.add(ctl)
@@ -46,7 +63,7 @@ class ChiPage(Page):
         kl.setContentsMargins(0, 8, 0, 0)
         g0 = S.groups[sel.value()[0]] if sel.value() else next(iter(S.groups.values()))
         elems = W.text(self.state.get("elems", g0.element or ""))
-        rmin_, rmax_ = W.num(1.0, 0.5, 6, 0.05), W.num(3.0, 1, 8, 0.05)
+        rmin_, rmax_ = W.num(self.state.get("rmin", 1.0), 0.5, 6, 0.05), W.num(self.state.get("rmax_fit", 3.0), 1, 8, 0.05)
         kres = W.vbox()
         kl.addWidget(W.fields((T("样品中所有元素（逗号分隔）", "All elements in the sample (comma-separated)"), elems),
                               (T("拟合 Rmin", "Fit Rmin"), rmin_), (T("拟合 Rmax", "Fit Rmax"), rmax_)))
@@ -54,14 +71,17 @@ class ChiPage(Page):
         kl.addStretch(1)
         self.add(W.tabs(("χ(k)", pk), ("|χ(R)| / Re", W.vbox(pr, W.label(T("R 轴未相移校正：峰位比真实键长短约 0.3–0.5 Å。",
                                                                             "R is not phase-corrected: peaks appear ~0.3–0.5 Å shorter than bond lengths."), "faint"))),
-                        (T("背景 μ0(E)", "Background μ0(E)"), pb), (T("k 范围检查", "k-range check"), kcheck)))
+                        (T("背景 μ0(E)", "Background μ0(E)"), pb), (T("k 范围检查", "k-range check"), kcheck),
+                        state=self.state, key="tab"))
 
         def update():
             b.update(rbkg=w["rbkg"].value(), kweight=w["bkw"].value())
             f.update(kmin=w["kmin"].value(), kmax=w["kmax"].value(), dk=w["dk"].value(), window=w["win"].value(),
                      kweight=w["fkw"].value())
             v = sel.value()
-            self.state.update(sel=v, re=showre.isChecked(), rmax=w["rmax"].value(), elems=elems.text())
+            self.state.update(sel=v, re=showre.isChecked(), rmax=w["rmax"].value(), elems=elems.text(),
+                              rmin=rmin_.value(), rmax_fit=rmax_.value())
+            errs = []
             for k in v:
                 try:
                     g = S.groups[k]
@@ -71,7 +91,11 @@ class ChiPage(Page):
                     xft.forward(g, **f)
                 except Exception as ex:      # noqa: BLE001
                     logs.log.warning("qt.pages.process.update 出错（已忽略或已提示）", exc_info=True)
-                    W.toast(self, f"{k}: {ex}", "err")
+                    errs.append(f"{k}: {ex}")
+            if errs:
+                self.notice("err", T(f"{len(errs)} 条谱处理失败", f"{len(errs)} spectra failed"), errs, key="chi")
+            else:
+                self.clear_notice("chi")
             v = [k for k in v if has_chi(S.groups[k])]
             if not v:
                 for p in (pk, pr, pb):
@@ -118,15 +142,19 @@ class ChiPage(Page):
                   f"<b>{n_idp(f['kmin'], f['kmax'], rmin_.value(), rmax_.value()):.1f}</b>",
                   f"ΔR resolution = π/(2Δk) = <b>{r_resolution(f['kmin'], f['kmax']):.3f} Å</b>; N_idp = 2ΔkΔR/π = "
                   f"<b>{n_idp(f['kmin'], f['kmax'], rmin_.value(), rmax_.value()):.1f}</b>"), rich=True))
+        upd_d = W.debounced(self, lambda: W.wait_cursor(update))     # 连续微调只重画一次
         for x in ("rbkg", "kmin", "kmax", "dk", "rmax"):
-            w[x].valueChanged.connect(lambda *_: W.wait_cursor(update))
+            w[x].valueChanged.connect(upd_d)
         for x in ("bkw", "win", "fkw"):
             w[x].currentIndexChanged.connect(lambda *_: W.wait_cursor(update))
         sel.changed.connect(lambda *_: W.wait_cursor(update))
         showre.toggled.connect(lambda *_: update())
         elems.editingFinished.connect(update)
-        rmin_.valueChanged.connect(lambda *_: update())
-        rmax_.valueChanged.connect(lambda *_: update())
+        W.link_range(rmin_, rmax_, 0.1)
+        rd = W.debounced(self, update)
+        rmin_.valueChanged.connect(rd)
+        rmax_.valueChanged.connect(rd)
+        self.redraw = update
         W.wait_cursor(update)
 
         def export():

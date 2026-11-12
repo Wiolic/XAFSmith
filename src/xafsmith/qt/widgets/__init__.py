@@ -25,7 +25,7 @@ from .basic import (  # noqa: F401
 )
 from .prose import (  # noqa: F401
     _INFO,
-    _block_images,
+    retarget_images,
     ask,
     code_block,
     copy_button,
@@ -35,6 +35,9 @@ from .prose import (  # noqa: F401
     prose_style,
 )
 from .inputs import (  # noqa: F401
+    debounced,
+    link_range,
+    set_invalid,
     MultiSelect,
     Segmented,
     check,
@@ -68,11 +71,17 @@ from .tasks import (  # noqa: F401
     _Relay,
     _Worker,
     _show_status,
+    bind_task,
+    cancel_all_tasks,
+    refresh_status,
     run_task,
+    running_count,
+    task_running,
     shutdown_tasks,
     wait_cursor,
 )
 from .system import (  # noqa: F401
+    Toaster,
     open_folder,
     save_file_dialog,
     toast,

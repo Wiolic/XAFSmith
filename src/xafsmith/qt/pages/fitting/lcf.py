@@ -50,6 +50,7 @@ class LCFPage(Page):
                         W.field(T("上限", "To"), hi), W.vbox(None, s1), W.vbox(None, bd), W.vbox(None, es), spacing=12))
         card.add(W.field(T("备注", "Note"), note))
         btn = W.button("LCF", primary=True, icon_name="play")
+        W.bind_task(btn, "lcf")
 
         def go():
             st_ = [k for k in stds.value() if k != smp.value()]
@@ -67,19 +68,24 @@ class LCFPage(Page):
             # 界面线程里复制：后台计算期间用户可能在归一化等页面重算同一批谱
             sample_g, std_g = copy.deepcopy(G[smp_k]), [copy.deepcopy(G[k]) for k in st_]
 
-            def work():
+            def work(progress):
+                progress(0.05, T("线性组合拟合", "Linear combination fit"))
                 r = xlcf.lcf(sample_g, std_g, xmin=lo_v, xmax=hi_v, space=sp_v,
                              sum_to_one=sum1, bounds=bnd, fit_eshift=esh, kweight=2)
-                return dict(r=r, single=xlcf.single_standard_compare(sample_g, std_g, xmin=lo_v, xmax=hi_v, space=sp_v),
+                progress(0.35, T("单一标样比较", "Single-standard comparison"))
+                single = xlcf.single_standard_compare(sample_g, std_g, xmin=lo_v, xmax=hi_v, space=sp_v)
+                progress(0.6, T("所有标样组合", "All standard combinations"))
+                return dict(r=r, single=single,
                             combo=xlcf.fit_all_combinations(sample_g, std_g, xmin=lo_v, xmax=hi_v, space=sp_v,
                                                             sum_to_one=sum1, bounds=bnd) if len(std_g) > 2 else None)
 
             def done(res):
                 S.extra["lcf"] = res
+                S.emit("results")
                 paths.LCF.mkdir(parents=True, exist_ok=True)
                 append_csv(pd.DataFrame([xlcf.result_row(res["r"], note_t)]), paths.LCF_CSV)
                 self.refresh()
-            W.run_task(self, work, done, T("LCF 拟合中…", "LCF fitting…"), btn)
+            W.run_task(self, work, done, T("LCF 拟合中…", "LCF fitting…"), btn, progress=True, key="lcf")
         btn.clicked.connect(lambda *_: go())
         card.add(W.hbox(W.label(T("结果追加到 output/lcf/lcf_results.csv", "Results are appended to output/lcf/lcf_results.csv"), "faint"), None, btn))
         self.add(card)

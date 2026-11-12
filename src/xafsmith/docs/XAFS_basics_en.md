@@ -29,7 +29,7 @@
 X-rays are electromagnetic waves like visible light, with much shorter wavelengths (about 0.1–10 Å; 1 Å = 0.1 nm), so each
 photon carries much more energy:
 
-![photon energy](images/basics/eq/photon_energy.png)
+$$E = h\nu = \frac{hc}{\lambda},\qquad E\,[\mathrm{eV}] \approx \frac{12398.4}{\lambda\,[\mathrm{\AA}]}$$
 
 **Example**: the Ir L3 edge is at 11 215 eV, i.e. λ = 12398.4 / 11215 ≈ **1.106 Å** — the same order as chemical bond lengths
 (1–3 Å). This is no coincidence: XAFS senses neighbouring atoms with an electron wave whose wavelength is comparable to bond lengths.
@@ -38,14 +38,14 @@ photon carries much more energy:
 
 A beam of intensity I₀ passing through a sample of thickness t leaves with intensity I₁, decaying exponentially:
 
-![Beer–Lambert law](images/basics/eq/beer_lambert.png)
+$$I_1 = I_0\, e^{-\mu t}\qquad\Longrightarrow\qquad \mu t = \ln\frac{I_0}{I_1}$$
 
 μ is the **linear absorption coefficient** (cm⁻¹); μt is the dimensionless “absorption thickness”. μt = 1 leaves e⁻¹ ≈ 37 % of
 the beam.
 
 μ depends on composition and density. For a mixture (e.g. a sample + BN pellet):
 
-![mixture](images/basics/eq/mu_mixture.png)
+$$\mu = \rho \sum_i w_i \left(\frac{\mu}{\rho}\right)_i$$
 
 with density ρ, mass fraction wᵢ of element i, and its **mass absorption coefficient** (μ/ρ)ᵢ, which depends only on the element
 and the photon energy (tabulated; XAFSmith uses the Elam tables in xraydb).
@@ -117,7 +117,7 @@ continuum; a synchrotron gives exactly what is needed:
 
 A **double-crystal monochromator** of perfect silicon (commonly Si(111)) passes one wavelength by Bragg's law:
 
-![Bragg](images/basics/eq/bragg.png)
+$$\lambda = 2d\,\sin\theta$$
 
 **Example**: Si(111) has d = 3.1356 Å. For the Ir L3 edge at 11 215 eV (λ = 1.1055 Å), sin θ = 1.1055 / 6.2712, so θ ≈ **10.15°**.
 Scanning the energy means stepping the crystal angle.
@@ -131,7 +131,7 @@ Scanning the energy means stepping the crystal angle.
 - **Fluorescence**: after a core electron is ejected, an outer electron fills the hole and emits characteristic fluorescence whose
   intensity I_f is proportional to that element's absorption:
 
-  ![fluorescence](images/basics/eq/fluo.png)
+  $$\mu(E) \propto \frac{I_f}{I_0}$$
 
   Best for dilute samples, thin films and supported catalysts. Thick or concentrated samples suffer **self-absorption**: the
   fluorescence is reabsorbed on its way out, damping the white line and EXAFS amplitude (by 25 % or more in practice).
@@ -201,7 +201,7 @@ intensity and position distinguish tetrahedral from octahedral coordination.
 Above E₀, the excess energy E − E₀ becomes the photoelectron's kinetic energy. By de Broglie, the electron is a wave with
 **wavenumber** k:
 
-![k](images/basics/eq/k_def.png)
+$$k = \sqrt{\frac{2m_e\,(E-E_0)}{\hbar^2}} \approx \sqrt{0.2625\,(E-E_0)\,[\mathrm{eV}]}\ \ \mathrm{\AA}^{-1}$$
 
 **Example**:
 
@@ -220,7 +220,7 @@ The electron wavelength is comparable to bond lengths, so neighbouring atoms sca
 The photoelectron wave travels out from the absorber and is **backscattered** by a neighbour at distance R. Back at the absorber,
 the returning wave differs in phase from the outgoing one by
 
-![phase](images/basics/eq/phase.png)
+$$\Delta\phi = 2kR + \delta(k)$$
 
 2kR from the round trip 2R, and δ(k) from the extra phase given by the atomic potentials (the **phase shift**).
 
@@ -243,7 +243,7 @@ amorphous solids, solutions, nanoparticles and single-atom catalysts can all be 
 
 The picture above as a formula (single-scattering approximation, summed over neighbour “shells” j):
 
-![EXAFS equation](images/basics/eq/exafs_eq.png)
+$$\chi(k) = S_0^2 \sum_j \frac{N_j\, f_j(k)}{k\,R_j^2}\; e^{-2k^2\sigma_j^2}\; e^{-2R_j/\lambda(k)}\;\sin\!\left[2kR_j + \delta_j(k)\right]$$
 
 | Term | Name | Meaning | Source |
 |---|---|---|---|
@@ -261,7 +261,7 @@ Intuition:
 - **1/R²**: spherical waves spread out; distant atoms contribute little;
 - **σ² damping**:
 
-  ![Debye–Waller](images/basics/eq/debye_waller.png)
+  $$e^{-2k^2\sigma^2},\qquad \sigma^2 = \sigma^2_{static} + \sigma^2_{thermal}$$
 
   with a spread of positions, contributions from slightly different distances drift out of phase and cancel at high k; larger σ²
   damps high k faster. First shells at room temperature typically have σ² = 0.002–0.010 Å²;
@@ -293,7 +293,7 @@ post-edge 1.
 **Step 4 — background**: without neighbours, μ(E) would be a smooth curve μ₀(E). A spline is fitted to it (the AUTOBK algorithm
 requires χ(R) to be as small as possible below R_bkg, typically 1.0 Å, where no neighbour can be). Then
 
-![χ](images/basics/eq/chi_def.png)
+$$\chi(E) = \frac{\mu(E) - \mu_0(E)}{\Delta\mu_0(E_0)}$$
 
 **Step 5 — convert to k and weight**: change the axis to k (section 6.1). High-k oscillations are weak, so χ is multiplied by k,
 k² or k³:
@@ -315,7 +315,7 @@ may come from processing rather than from the samples.
 χ(k) is a sum of sine waves, one frequency (≈ 2R) per shell. A Fourier transform separates the frequencies into a “radial
 distribution”-like |χ(R)|:
 
-![FT](images/basics/eq/ft.png)
+$$\chi(R) = \frac{1}{\sqrt{2\pi}} \int_{k_{min}}^{k_{max}} w(k)\, k^n \chi(k)\, e^{2ikR}\, dk$$
 
 w(k) is a window (e.g. Hanning) that brings the data smoothly to zero at both ends, reducing truncation ripples.
 
@@ -331,9 +331,9 @@ Reading the plot:
 
 **Resolution and information content**:
 
-![resolution](images/basics/eq/resolution.png)
+$$\Delta R \approx \frac{\pi}{2\,\Delta k}$$
 
-![independent points](images/basics/eq/nidp.png)
+$$N_{idp} \approx \frac{2\,\Delta k\,\Delta R}{\pi}$$
 
 **Example**: k = 3–14 Å⁻¹ (Δk = 11) gives ΔR ≈ π/22 ≈ **0.14 Å** — shells closer than that cannot be separated in |χ(R)|. In an
 R window of 1.0–2.1 Å, N_idp ≈ 2 × 11 × 1.1 / π ≈ **7.7** (Larch counts one more, ≈ 8.7). A fit should not have more than about
@@ -356,7 +356,7 @@ every scattering **path** around the absorber (single scattering A→B→A, mult
 Fitting adjusts N, ΔR, σ² and ΔE₀ until χ from the EXAFS equation matches the data (usually in R space, inside a fit window). One
 measure is the R-factor:
 
-![R-factor](images/basics/eq/rfactor.png)
+$$\mathcal{R} = \frac{\sum_i \left[\chi_{data}(R_i) - \chi_{fit}(R_i)\right]^2}{\sum_i \chi_{data}(R_i)^2}$$
 
 ![fit](images/basics/en/11_fit.png)
 
@@ -389,7 +389,7 @@ step is to add outer paths in a wider R window and F-test each new path. **A fit
 
 The Fourier transform tells you “at which R” but discards “at which k”. A wavelet transform spreads χ(k) over the k–R plane:
 
-![wavelet](images/basics/eq/wavelet.png)
+$$W(k,R) = \int \chi(k')\,k'^n\,\psi^*\!\left(\frac{k'-k}{s}\right) dk',\qquad s=\frac{\eta}{2R}$$
 
 ![wavelet maps](images/basics/en/12_wavelet.png)
 
@@ -402,7 +402,7 @@ single-atom catalysis). They give a **qualitative** criterion; coordination numb
 
 If a sample is a mixture of known phases, its spectrum is approximately a weighted sum of theirs:
 
-![LCF](images/basics/eq/lcf.png)
+$$\mu_{sample}(E) \approx \sum_i w_i\, \mu_i(E),\qquad \sum_i w_i = 1$$
 
 For a mixture of Ir metal and IrO₂, the weights approximate the fractions of the two Ir species (per Ir atom). End-members must be
 **measured standards**, and the result should be compared with single-standard fits.

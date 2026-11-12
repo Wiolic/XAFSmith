@@ -17,6 +17,7 @@ SIZES = {
     "双栏 178 mm": dict(w=7.0, h=3.0, font=8, lw=1.0),
     "汇报 16:9": dict(w=13.333, h=7.5, font=18, lw=2.2),
 }
+SLIDE_SIZE = "汇报 16:9"            # SIZES 的键（语言无关；界面显示名另行翻译）
 COLORS = ["#000000", "#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#F0E442"]
 RLABEL = "R (Å, not phase-corrected)"
 

@@ -101,6 +101,20 @@ Conventions / 约定
   re-exports in the package `__init__` files. Mutable globals (`LANG`, `ERRORS`, `QUIET`, …) are defined in
   exactly one module.
 
+### Feedback conventions / 反馈约定
+
+- **Persistent or aggregated errors** (a failed load, spectra that failed to normalize) → in-page banner:
+  `Page.notice(kind, title, lines, key=...)` (updates in place, with ×, survives a rebuild; `clear_notice(key)`
+  removes it). Never one toast per item inside a loop.
+  持续性 / 汇总的错误：页内 Banner。
+- **Success and light hints** ("Saved …", "Exported …") → `W.toast(self, text, kind)`. The main window and the help
+  window both implement `toast()` (shared `W.Toaster`).
+  成功与轻提示：toast。
+- **Blocking errors only** (the page cannot continue, unsaved-changes questions) → a dialog.
+  只有阻断性错误才用对话框。
+- Parameter widgets that redraw on every change use `W.debounced(fn)` (250 ms); spin boxes ignore the mouse wheel
+  until focused (set by the global `NoWheelSpin` filter, see `widgets/inputs.py`).
+
 ### Background tasks and threads / 后台任务
 
 Long work runs through `widgets.run_task(parent, fn, on_done, …)` (one `QThread` per task). With

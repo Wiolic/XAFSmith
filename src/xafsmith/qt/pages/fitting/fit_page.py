@@ -6,12 +6,12 @@ from xafsmith import logs
 import json
 from pathlib import Path
 import pandas as pd
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QWidget
 from xafsmith import paths
 from ... import widgets as W
 from ...state import feff_dirs, has_chi, idents, load_model, run_model, saved_models
-from ...theme import C
+from ...theme import C, SP
 from ...widgets import T, Banner, Card, Page
 
 from .guides import show_fit_guide
@@ -24,6 +24,15 @@ class FitPage(Page):
     title_zh, title_en, icon_name = "EXAFS 拟合", "EXAFS fitting", "fit"
     fill = True
     max_width = 100000
+
+    def refresh(self):
+        lsa = getattr(self, "_lsa", None)          # 重建前记下左侧滚动位置，重建后恢复
+        try:
+            if lsa is not None:
+                self.state["lscroll"] = lsa.verticalScrollBar().value()
+        except RuntimeError:                       # C++ 对象已删除
+            pass
+        super().refresh()
 
     def build(self):
         from PySide6.QtGui import QKeySequence, QShortcut
@@ -50,6 +59,7 @@ class FitPage(Page):
         lv.setContentsMargins(0, 0, 0, 0)
         lv.setSpacing(8)
         lsa, lcol = self._scroll()
+        self._lsa = lsa
         lv.addWidget(lsa, 1)
         self._bar = W.QHBoxLayout()
         self._bar.setContentsMargins(0, 4, 4, 0)
@@ -97,6 +107,9 @@ class FitPage(Page):
                 add(Banner("info", T("选择至少一个 FEFF 目录。", "Choose at least one FEFF folder.")))
         lcol.addStretch(1)
         self._show_result(S.fits[-1] if S.fits else None)
+        y = self.state.get("lscroll", 0)
+        if y:
+            QTimer.singleShot(0, lambda: lsa.verticalScrollBar().setValue(y))
 
     def _scroll(self):
         from PySide6.QtWidgets import QScrollArea
@@ -107,7 +120,7 @@ class FitPage(Page):
         inner = QWidget()
         inner.setObjectName("page")
         col = W.QVBoxLayout(inner)
-        col.setContentsMargins(2, 2, 10, 8)
+        col.setContentsMargins(SP['xs'], SP['xs'], SP['md'], SP['sm'])
         col.setSpacing(12)
         sa.setWidget(inner)
         return sa, col
@@ -231,6 +244,7 @@ class FitPage(Page):
         mf.currentIndexChanged.connect(lambda *_: upd())
         upd()
         btn = W.button(T("运行", "Run"), primary=True, icon_name="play")
+        W.bind_task(btn, "fit_saved", "fit")
 
         def go():
             todo = smp.value() or [None]
@@ -248,7 +262,8 @@ class FitPage(Page):
                 S.emit("fits")
                 W.toast(self, T(f"完成 {len(fits)} 个拟合（右侧与“拟合历史”）", f"{len(fits)} fit(s) done (right and in “Fit history”)"))
                 self._show_result(fits[-1] if fits else None)
-            W.run_task(self, work, done, T("拟合中…", "Fitting…"), btn, progress=True)
+                self.ack()
+            W.run_task(self, work, done, T("拟合中…", "Fitting…"), btn, progress=True, key="fit_saved", excl="fit")
         btn.clicked.connect(go)
         body.add(W.field(T("模型", "Model"), mf))
         body.add(W.hbox(W.field(T("样品", "Samples"), smp), W.vbox(None, btn), spacing=10))
@@ -272,6 +287,8 @@ class FitPage(Page):
         c2.add(W.fields(("kmin", w["kmin"]), ("kmax", w["kmax"]), ("dk", w["dk"]), (T("窗", "Window"), w["win"]), cols=4))
         c2.add(W.fields((T("k 权重", "k-weights"), w["kws"]), ("Rmin", w["rmin"]), ("Rmax", w["rmax"]),
                         (T("拟合空间", "Fit space"), w["space"]), cols=4))
+        W.link_range(w["kmin"], w["kmax"], 0.5)          # kmin < kmax、Rmin < Rmax 自动联动
+        W.link_range(w["rmin"], w["rmax"], 0.1)
         nid = W.label("", rich=True)
         c2.add(nid)
         add(c2)
@@ -378,9 +395,10 @@ class FitPage(Page):
         mname.textChanged.connect(lambda s: self.state.__setitem__("mname_" + data_k, s))
         btn = W.button(T("拟合", "Fit"), primary=True, icon_name="play", tip="Ctrl+Enter")
         btn.setMinimumWidth(110)
+        W.bind_task(btn, "fit", "fit")
 
         def go():
-            if not btn.isEnabled():
+            if W.task_running(excl="fit"):
                 return
             count()
             _, used = names_used()
@@ -414,7 +432,9 @@ class FitPage(Page):
                 S.fits.append(fit)
                 S.emit("fits")
                 self._show_result(fit)          # 只更新右侧：左侧的设置与滚动位置不变
-            W.run_task(self, lambda: run_model(S, model, S.groups[data_k]), done, T("拟合中…", "Fitting…"), btn)
+                self.ack()
+            W.run_task(self, lambda: run_model(S, model, S.groups[data_k]), done, T("拟合中…", "Fitting…"), btn,
+                       key="fit", excl="fit")
         btn.clicked.connect(go)
         self._fit_go = go
         self._bar.addWidget(W.label(T("模型名", "Model name"), "faint"))

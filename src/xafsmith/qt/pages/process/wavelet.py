@@ -216,7 +216,7 @@ class WaveletPage(Page):
             for ax, d in zip(plot.axes, data):
                 ax.clear()
                 ax.grid(False)
-                im = ax.pcolormesh(d["kk"], d["rr"], d["W"], shading="auto", cmap="jet", vmin=0 if vmax else None, vmax=vmax)
+                im = ax.pcolormesh(d["kk"], d["rr"], d["W"], shading="auto", cmap="viridis", vmin=0 if vmax else None, vmax=vmax)
                 cur["cbs"].append(plot.fig.colorbar(im, ax=ax, shrink=0.9))
                 t = d.get("tab")
                 if isinstance(t, pd.DataFrame) and len(t):
@@ -245,8 +245,9 @@ class WaveletPage(Page):
             w[x].currentIndexChanged.connect(lambda *_: (st.update(k=w["k"].value(), k2=w["k2"].value()), self.refresh()))
         for x in ("kind", "kw"):
             w[x].currentIndexChanged.connect(lambda *_: W.wait_cursor(update))
+        upd_d = W.debounced(self, lambda: W.wait_cursor(update))     # 小波计算较慢：连续微调只算一次
         for x in ("eta", "sig", "rmax"):
-            w[x].valueChanged.connect(lambda *_: W.wait_cursor(update))
+            w[x].valueChanged.connect(upd_d)
         same.toggled.connect(lambda *_: W.wait_cursor(update))
         rng.editingFinished.connect(lambda: W.wait_cursor(update))
         W.wait_cursor(update)

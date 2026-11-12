@@ -88,6 +88,65 @@ def _alive(obj):
     return obj is not None and shiboken6.isValid(obj)
 
 
+_BOUND = []       # [(按钮, key, excl, 原文字)]：页面重建出的新按钮也按运行中的任务禁用
+
+
+def _matches(job, key, excl):
+    return bool((key and job.get("key") == key) or (excl and job.get("excl") == excl))
+
+
+def task_running(key=None, excl=None):
+    """key / excl 对应的任务是否在运行；都不给 = 是否有任何任务在运行"""
+    if key is None and excl is None:
+        return bool(_ACTIVE)
+    return any(_matches(j, key, excl) for j in _ACTIVE)
+
+
+def running_count():
+    return len(_ACTIVE)
+
+
+def cancel_all_tasks():
+    """只发取消信号（任务在下一个取消点停止）；返回被通知的任务数"""
+    n = 0
+    for j in list(_ACTIVE):
+        if not j["handle"].cancelled:
+            j["handle"].cancel()
+            n += 1
+    return n
+
+
+def _sync():
+    """按运行中的任务刷新已登记的按钮：在跑 → 禁用并显示忙碌文字；否则恢复"""
+    _BOUND[:] = [e for e in _BOUND if _alive(e[0])]
+    for btn, key, excl, orig in _BOUND:
+        job = next((j for j in _ACTIVE if _matches(j, key, excl)), None)
+        if job is not None:
+            btn.setEnabled(False)
+            btn.setText(job["text"])
+        else:
+            btn.setEnabled(True)
+            btn.setText(orig)
+
+
+def bind_task(btn, key, excl=None):
+    """页面 build() 里给按钮登记：该任务（或互斥组）在运行时按钮禁用；重建出的新按钮同样适用"""
+    _BOUND[:] = [e for e in _BOUND if _alive(e[0]) and e[0] is not btn]
+    _BOUND.append((btn, key, excl, btn.text()))
+    _sync()
+
+
+def _elapsed(j):
+    n = int(time.monotonic() - j["t0"])
+    return f"{n // 60}:{n % 60:02d}" if n >= 60 else f"{n} s"
+
+
+def refresh_status(status):
+    """状态栏随时间刷新已用时间（主窗口每秒调用一次，只在有任务运行时）"""
+    if _ACTIVE:
+        _show_status(status)
+
+
 def _show_status(status):
     """按当前所有活动任务刷新状态栏：0 个 → 隐藏；1 个 → 进度与取消；多个 → 只显示个数"""
     if status is None:
@@ -104,6 +163,9 @@ def _show_status(status):
         txt = j["text"]
         if j["frac"] is not None:
             txt = f"{txt} {j['ptext']} {j['frac'] * 100:.0f}%"
+        txt += f" · {_elapsed(j)}"
+        if not j["cancellable"]:
+            txt += T("（不可中断）", " (cannot be interrupted)")
         status(True, txt, j["frac"], j["cancel"] if j["cancellable"] else None)
         return
     live = [j for j in _ACTIVE if j["cancellable"] and not j["handle"].cancelled]
@@ -116,28 +178,37 @@ def _show_status(status):
 
 
 def run_task(parent, fn, on_done, busy_text=None, button_=None, progress=False, on_error=None,
-             cancellable=True, on_cancel=None):
+             cancellable=True, on_cancel=None, key=None, excl=None):
     """在后台线程运行 fn（耗时计算不卡界面）；完成后在界面线程调用 on_done(result)。
     progress=True 时 fn 接收一个 progress(f, 文字) 回调：它同时是取消点（见 xafsmith/tasks.py）。
     cancellable（默认 True）仅对 progress=True 的任务有意义：状态栏出现“取消”按钮，取消后不调用 on_done，
     调用 on_cancel()（如有）并提示“已取消”。返回任务句柄 TaskHandle。
+    key：任务名；excl：互斥组名。同 key 或同组的任务已在运行 → 不启动，提示“已在运行”并返回 None。
+    给了 key 时 button_ 自动登记（bind_task），页面重建后新按钮仍是禁用状态。未给 key 的调用保持旧行为。
     任务运行期间页面可能重建（按钮、页面被删除）：结束时跳过已删除的控件，不影响状态栏与线程回收。"""
+    if (key or excl) and task_running(key, excl):
+        toast(parent, T("该任务已在运行", "This task is already running"), "info")
+        return None
     app = parent.window()
     status = getattr(app, "busy", None)
     th = QThread()
     wk = None
     handle = TaskHandle(lambda f, n: wk.progress.emit(float(f), str(n)))
     job = dict(handle=handle, text=busy_text or T("运行中…", "Running…"), frac=None, ptext="",
-               cancellable=bool(cancellable and progress))
+               cancellable=bool(cancellable and progress), key=key, excl=excl, t0=time.monotonic())
     job["cancel"] = lambda: (handle.cancel(), _show_status(status))
     wk = _Worker(fn, handle, progress)
     wk.moveToThread(th)
     old_text = None
-    if button_ is not None:
+    bound = bool(key or excl) and button_ is not None
+    if bound:
+        bind_task(button_, key, excl)
+    elif button_ is not None:
         old_text = button_.text()
         button_.setEnabled(False)
         button_.setText(busy_text or T("运行中…", "Running…"))
     _ACTIVE.append(job)
+    _sync()
     _show_status(status)
     QApplication.setOverrideCursor(Qt.CursorShape.BusyCursor)
     state = {"finished": False}
@@ -152,7 +223,8 @@ def run_task(parent, fn, on_done, busy_text=None, button_=None, progress=False, 
         _show_status(status)
         th.quit()
         QApplication.restoreOverrideCursor()
-        if _alive(button_):
+        _sync()
+        if not bound and _alive(button_):
             button_.setEnabled(True)
             button_.setText(old_text)
 

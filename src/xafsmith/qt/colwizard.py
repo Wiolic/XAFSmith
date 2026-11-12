@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .theme import SP
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QHeaderView, QTableWidget, QTableWidgetItem, QVBoxLayout
 
@@ -34,7 +35,7 @@ class ColumnWizard(QDialog):
         self.setWindowTitle(T("列映射向导", "Column mapping wizard"))
         self.resize(820, 700)
         v = QVBoxLayout(self)
-        v.setContentsMargins(22, 18, 22, 16)
+        v.setContentsMargins(SP['xl'], SP['lg'], SP['xl'], SP['lg'])
         v.setSpacing(10)
         h = W.label(T("列映射向导", "Column mapping wizard"), "h1")
         v.addWidget(h)

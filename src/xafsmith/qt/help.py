@@ -7,13 +7,13 @@ from __future__ import annotations
 from xafsmith import logs
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import (QButtonGroup, QHBoxLayout, QLabel, QMainWindow, QPushButton, QScrollArea, QStackedWidget,
-                               QVBoxLayout, QWidget)
+from PySide6.QtCore import QSize, Qt, QUrl
+from PySide6.QtGui import QDesktopServices, QIcon, QKeySequence, QShortcut, QTextCursor, QTextDocument
+from PySide6.QtWidgets import (QButtonGroup, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
+                               QPushButton, QScrollArea, QStackedWidget, QVBoxLayout, QWidget)
 
 from . import widgets as W
-from .theme import C, icon
+from .theme import C, FS, SP, WIDTH, icon
 from .widgets import T, Banner, Card
 
 DOCS = Path(__file__).resolve().parent.parent / "docs"
@@ -47,16 +47,19 @@ def render_math(md, size=14):
     d = Path(tempfile.gettempdir()) / "xafsmith_math"
     d.mkdir(parents=True, exist_ok=True)
     col = C["text"]
+    from PySide6.QtGui import QGuiApplication
+    scr = QGuiApplication.primaryScreen()
+    dpr = max(1.0, scr.devicePixelRatio() if scr else 1.0)      # 高分屏按物理像素渲染，prose.retarget_images 再折算回逻辑尺寸
 
     def img(tex, display):
-        key = hashlib.md5(f"v2|{tex}|{display}|{col}|{size}".encode("utf-8")).hexdigest()[:16]
-        f = d / f"xs_math_{key}.png"
+        key = hashlib.md5(f"v3|{tex}|{display}|{col}|{size}|{dpr:.2f}".encode("utf-8")).hexdigest()[:16]
+        f = d / f"xs_math_{key}_x{dpr:.2f}.png"
         if not f.exists():
             try:                  # 透明背景；行内公式与正文同高，独立公式稍大
                 fig = Figure()
                 FigureCanvasAgg(fig)
                 fig.text(0, 0, f"${_tex(tex)}$", fontsize=size * (1.3 if display else 1.0), color=col)
-                fig.savefig(str(f), dpi=96 * 1.05, transparent=True, bbox_inches="tight", pad_inches=0.02, format="png")
+                fig.savefig(str(f), dpi=96 * 1.05 * dpr, transparent=True, bbox_inches="tight", pad_inches=0.02, format="png")
             except Exception:     # noqa: BLE001  无法渲染时保留原文
                 logs.log.debug("qt.help.img 出错（已忽略或已提示）", exc_info=True)
                 return None
@@ -72,6 +75,176 @@ def render_math(md, size=14):
     md = re.sub(r"\$\$(.+?)\$\$", disp, md, flags=re.S)
     md = re.sub(r"(?<![\\$])\$([^$\n]+?)\$", inline, md)
     return md, d
+
+
+def _slug(text):
+    """标题 → GitHub 风格锚点名（小写、去标点、空格变连字符），讲义目录里的 #锚点 链接据此跳转"""
+    import re
+    return re.sub(r"[^\w\- ]", "", text.strip().lower()).replace(" ", "-")
+
+
+class DocPane(QWidget):
+    """文档阅读面板：顶部后退/前进 + 查找条（Ctrl+F），右侧标题目录；文内 #锚点 链接由本面板按标题跳转"""
+
+    def __init__(self, tb):
+        super().__init__()
+        self.tb = tb
+        self.heads = []                 # [(层级, 标题, 块位置, slug)]
+        self._back, self._fwd = [], []
+        tb.setOpenLinks(False)
+        tb.setOpenExternalLinks(False)
+        tb.anchorClicked.connect(self._link)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+        bar = QWidget()
+        bar.setObjectName("topBar")
+        bl = QHBoxLayout(bar)
+        bl.setContentsMargins(SP['md'], SP['sm'], SP['md'], SP['sm'])
+        bl.setSpacing(6)
+        self.bb = QPushButton("‹")
+        self.fb = QPushButton("›")
+        for b, tip, slot in ((self.bb, T("后退", "Back"), self.back), (self.fb, T("前进", "Forward"), self.forward)):
+            b.setToolTip(tip)
+            b.setFixedWidth(34)
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.clicked.connect(slot)
+            bl.addWidget(b)
+        bl.addStretch(1)
+        self.find_edit = QLineEdit()
+        self.find_edit.setPlaceholderText(T("查找（Ctrl+F）", "Find (Ctrl+F)"))
+        self.find_edit.setClearButtonEnabled(True)
+        self.find_edit.setMinimumWidth(240)
+        self.find_edit.setToolTip(T("Enter 下一个，Shift+Enter 上一个", "Enter = next, Shift+Enter = previous"))
+        self.find_edit.returnPressed.connect(lambda: self.find(False))
+        self.find_edit.textChanged.connect(lambda _t: self.find(False, keep=True))
+        bl.addWidget(self.find_edit)
+        self.find_note = QLabel("")
+        self.find_note.setObjectName("faint")
+        bl.addWidget(self.find_note)
+        lay.addWidget(bar)
+        row = QHBoxLayout()
+        row.setSpacing(0)
+        row.addWidget(tb, 1)
+        self.toc = QListWidget()
+        self.toc.setFixedWidth(WIDTH['toc'])
+        self.toc.setObjectName("toc")
+        self.toc.setWordWrap(True)
+        self.toc.itemClicked.connect(lambda it: self.goto(it.data(Qt.ItemDataRole.UserRole), push=True))
+        row.addWidget(self.toc)
+        lay.addLayout(row, 1)
+        QShortcut(QKeySequence.StandardKey.Find, self, activated=self._focus_find)
+        QShortcut(QKeySequence("Shift+Return"), self.find_edit, activated=lambda: self.find(True))
+        self._build_toc()
+        tb.verticalScrollBar().valueChanged.connect(self._sync_toc)
+        self._nav_state()
+
+    def _build_toc(self):
+        doc = self.tb.document()
+        blk = doc.begin()
+        while blk.isValid():
+            lvl = blk.blockFormat().headingLevel()
+            if lvl and blk.text().strip():
+                self.heads.append((lvl, blk.text().strip(), blk.position(), _slug(blk.text())))
+            blk = blk.next()
+        for i, (lvl, text, _pos, _sl) in enumerate(self.heads):
+            if lvl > 3:
+                continue
+            it = QListWidgetItem(("    " * max(0, lvl - 2)) + text)
+            it.setData(Qt.ItemDataRole.UserRole, i)
+            self.toc.addItem(it)
+        self._toc_vis()
+
+    def _toc_vis(self):
+        self.toc.setVisible(self.toc.count() > 2 and self.width() >= 760)     # 窗口窄时隐藏目录，把宽度留给正文
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._toc_vis()
+
+    def _top_of(self, i):
+        doc = self.tb.document()
+        blk = doc.findBlock(self.heads[i][2])
+        return int(doc.documentLayout().blockBoundingRect(blk).top())
+
+    def goto(self, i, push=False):
+        if i is None or not (0 <= i < len(self.heads)):
+            return
+        sb = self.tb.verticalScrollBar()
+        if push:
+            self._back.append(sb.value())
+            self._fwd.clear()
+        sb.setValue(max(0, self._top_of(i) - 6))
+        self._nav_state()
+
+    def _link(self, url: QUrl):
+        frag = url.fragment()
+        if frag and not url.scheme() and not url.path():
+            for i, h in enumerate(self.heads):
+                if h[3] == _slug(frag) or h[3] == frag.lower():
+                    self.goto(i, push=True)
+                    return
+            return
+        if url.scheme() in ("http", "https"):
+            QDesktopServices.openUrl(url)
+
+    def _step(self, src, dst):
+        if not src:
+            return
+        sb = self.tb.verticalScrollBar()
+        dst.append(sb.value())
+        sb.setValue(src.pop())
+        self._nav_state()
+
+    def back(self):
+        self._step(self._back, self._fwd)
+
+    def forward(self):
+        self._step(self._fwd, self._back)
+
+    def _nav_state(self):
+        self.bb.setEnabled(bool(self._back))
+        self.fb.setEnabled(bool(self._fwd))
+
+    def _sync_toc(self, v):
+        cur = None
+        for i, h in enumerate(self.heads):
+            if h[0] <= 3 and self._top_of(i) <= v + 40:
+                cur = i
+        for r in range(self.toc.count()):
+            it = self.toc.item(r)
+            if it.data(Qt.ItemDataRole.UserRole) == cur:
+                self.toc.blockSignals(True)
+                self.toc.setCurrentItem(it)
+                self.toc.blockSignals(False)
+                break
+
+    def _focus_find(self):
+        self.find_edit.setFocus()
+        self.find_edit.selectAll()
+
+    def find(self, backward, keep=False):
+        text = self.find_edit.text()
+        tb = self.tb
+        if not text:
+            self.find_note.setText("")
+            c = tb.textCursor()
+            c.clearSelection()
+            tb.setTextCursor(c)
+            return
+        flags = QTextDocument.FindFlag.FindBackward if backward else QTextDocument.FindFlag(0)
+        if keep:                                    # 边输入边查：从当前选区开头重新找
+            c = tb.textCursor()
+            c.setPosition(min(c.anchor(), c.position()))
+            tb.setTextCursor(c)
+        if not tb.find(text, flags):
+            c = tb.textCursor()                     # 到头了：从另一端继续
+            c.movePosition(QTextCursor.MoveOperation.End if backward else QTextCursor.MoveOperation.Start)
+            tb.setTextCursor(c)
+            if not tb.find(text, flags):
+                self.find_note.setText(T("无匹配", "No match"))
+                return
+        self.find_note.setText("")
 
 
 class HelpWindow(QMainWindow):
@@ -90,10 +263,10 @@ class HelpWindow(QMainWindow):
         h.setSpacing(0)
         side = QWidget()
         side.setObjectName("sidebar")
-        side.setStyleSheet("QPushButton#nav{font-size:11pt;padding-top:7px;padding-bottom:7px;}")
-        side.setFixedWidth(230)
+        side.setStyleSheet(f"QPushButton#nav{{font-size:{FS['lg']}pt;padding-top:7px;padding-bottom:7px;}}")
+        side.setFixedWidth(WIDTH['help_sidebar'])
         v = QVBoxLayout(side)
-        v.setContentsMargins(12, 16, 12, 14)
+        v.setContentsMargins(SP['md'], SP['lg'], SP['md'], SP['lg'])
         v.setSpacing(2)
         t = QLabel(T("使用指南", "Help"))
         t.setObjectName("brand")
@@ -102,8 +275,12 @@ class HelpWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.btn = {}
         grp = QButtonGroup(self)
+        self._lazy = {}
         for key, title, ic, fn in doc_specs():
-            self._add(v, grp, key, title, ic, self._doc(fn))
+            page = QWidget()                      # 文档第一次点开时才渲染（公式、图片较慢）
+            QVBoxLayout(page).setContentsMargins(0, 0, 0, 0)
+            self._lazy[key] = (page, fn)
+            self._add(v, grp, key, title, ic, page)
         v.addStretch(1)
         self._add(v, grp, "about", T("关于与免责声明", "About & disclaimer"), "shield", self._about())
         h.addWidget(side)
@@ -114,7 +291,17 @@ class HelpWindow(QMainWindow):
         mv.addWidget(self.stack)
         h.addWidget(main_area, 1)
         self.setCentralWidget(root)
+        self._toaster = W.Toaster(self, WIDTH['help_sidebar'])
         self.show_tab("gui")
+
+    def closeEvent(self, e):
+        if self.main is not None:
+            self.main._save_geometry("help", self)
+        super().closeEvent(e)
+
+    def toast(self, text, kind="ok"):
+        """帮助窗口里触发的提示（如导出诊断包）显示在本窗口，不再丢失"""
+        self._toaster.show(text, kind)
 
     def _add(self, v, grp, key, title, ic, page):
         b = QPushButton("  " + title.replace("&", "&&"))
@@ -132,6 +319,9 @@ class HelpWindow(QMainWindow):
     def show_tab(self, key):
         if key in self.btn:
             b, page = self.btn[key]
+            if key in self._lazy:
+                pg, fn = self._lazy.pop(key)
+                pg.layout().addWidget(self._doc(fn))
             b.setChecked(True)
             self.stack.setCurrentWidget(page)
 
@@ -141,7 +331,7 @@ class HelpWindow(QMainWindow):
         md, mdir = render_math(md)
         # 讲义中的图片（images/…）与公式；不要改 objectName（全局样式表里 #doc 的字号会覆盖这里的 14 pt）
         tb = W.prose_browser(markdown=md, size=14, search_paths=[DOCS, mdir])
-        return tb
+        return DocPane(tb)
 
     def _export_diag(self):
         from datetime import datetime
@@ -165,7 +355,7 @@ class HelpWindow(QMainWindow):
         inner = QWidget()
         inner.setObjectName("page")
         lay = QVBoxLayout(inner)
-        lay.setContentsMargins(28, 24, 28, 24)
+        lay.setContentsMargins(SP['xl'], SP['xl'], SP['xl'], SP['xl'])
         lay.setSpacing(14)
         h = QLabel(T("关于与免责声明", "About & disclaimer"))
         h.setObjectName("h1")
@@ -221,12 +411,13 @@ class HelpWindow(QMainWindow):
                     b = W.button(T("更新到最新版", "Update now"), primary=True)
                     b.clicked.connect(lambda: W.run_task(self, xup.upgrade, lambda r: res.layout().addWidget(
                         Banner("ok", T("更新完成：请关闭 XAFSmith 并重新打开。", "Updated: close and reopen XAFSmith.")) if r[0]
-                        else W.code_block(r[1][-2000:])), T("正在下载并安装（约 1–5 分钟）…", "Downloading and installing (1–5 min)…"), b))
+                        else W.code_block(r[1][-2000:])), T("正在下载并安装（约 1–5 分钟）…", "Downloading and installing (1–5 min)…"), b,
+                        key="update_install"))
                     res.layout().addWidget(W.hbox(b, None))
             else:
                 res.layout().addWidget(Banner("info", T(f"已是最新版本 {u['current']}", f"Up to date ({u['current']})")))
         btn = W.button(T("现在检查", "Check now"), icon_name="refresh")
-        btn.clicked.connect(lambda: W.run_task(self, xup.check, show, T("检查中…", "Checking…"), btn))
+        btn.clicked.connect(lambda: W.run_task(self, xup.check, show, T("检查中…", "Checking…"), btn, key="update_check"))
         up.add(W.hbox(auto, None, btn))
         up.add(res)
         lay.addWidget(up)
