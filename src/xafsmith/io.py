@@ -66,7 +66,8 @@ def write_prj(groups, path, norm=None, bkg=None, ft=None):
                                    norm2=(np_.get("norm2") if (np_.get("norm2") or 0) > 0
                                           else float(g.energy[-1] - (e0 or g.energy[0]) + (np_.get("norm2") or 0))),
                                    nnorm=np_.get("nnorm", 2), e0=e0)
-        kmax_data = float(np.sqrt(0.2625 * max(g.energy[-1] - (e0 or g.energy[0]), 0)))
+        from .common import ETOK
+        kmax_data = float(np.sqrt(ETOK * max(g.energy[-1] - (e0 or g.energy[0]), 0)))
         x.autobk_details = Group(call_args=dict(rbkg=bp.get("rbkg", 1.0), kmin=0, kmax=kmax_data,
                                                 kweight=bp.get("kweight", 2), dk=0.1, win="hanning",
                                                 nclamp=3, clamp_lo=0, clamp_hi=1))

@@ -4,6 +4,19 @@
 [语义化版本](https://semver.org/lang/zh-CN/)。
 All notable changes are recorded here (format: Keep a Changelog; versioning: SemVer).
 
+## [未发布 / Unreleased]
+
+### 新增 / Added
+- 单元测试：normalize、autobk、ft、calib、fit_lcf、xanes、mut_planner 各一个文件（与直接调用 Larch / xraydb 逐位一致、合成真值、物理不变量）。
+  Unit tests for normalize, autobk, ft, calib, fit_lcf, xanes and mut_planner.
+- 基准测试：Fe K 边 LCF（公开 FeO / Fe2O3 / Fe3C 端点合成混合物还原比例）与边位置–价态标定。
+  Benchmarks: Fe K-edge LCF recovery on synthetic mixtures and edge-position valence calibration.
+- XAFS处理规范：混合物报告价态用半高点 E_half，不用一阶导数最大值。Processing rules: use E_half, not E0_deriv, for mixed-valence samples.
+
+### 修复 / Fixed
+- k–E 换算常数统一为与 Larch 相同的 2mₑ/ħ²（scipy CODATA）；原 `common.ETOK` 与 Larch 差 5×10⁻⁷，另有三处写死 0.2625（.prj 导出的 kmax、毛刺能量显示、干扰边默认范围）。影响 ≤ 0.03%。
+  The k–E constant now matches Larch exactly (it differed by 5e-7, and three places hard-coded 0.2625).
+
 ## [1.1.0] — 2026-11-12
 
 界面美化与交互改进。UI polish and interaction fixes.

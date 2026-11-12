@@ -11,7 +11,7 @@ import argparse
 
 import pandas as pd
 
-from .common import e2k, edge_energy
+from .common import ETOK, e2k, edge_energy
 
 
 class _LazyXraydb:
@@ -62,7 +62,7 @@ def interfering_edges(elements, element, edge, emax=None, kmax_report=20.0):
     """列出目标边之后、扫描范围内出现的所有吸收边，换算成 k。没有这个检查不得选 k 范围。"""
     e0 = edge_energy(element, edge)
     if emax is None:
-        emax = e0 + (kmax_report ** 2) / 0.2625
+        emax = e0 + (kmax_report ** 2) / ETOK
     rows = []
     for el in elements:
         for name, ed in xraydb.xray_edges(el).items():

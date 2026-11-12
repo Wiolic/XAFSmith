@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 from larch import Group
 
-from .common import n_idp, write_params
+from .common import ETOK, n_idp, write_params
 
 
 def _mkparam(name, spec):
@@ -321,7 +321,7 @@ def diagnose(curves, model, e0=None, kweight=2):
         for i in np.argsort(-np.abs(hf))[:3]:
             if abs(hf[i]) > 5 * mad:
                 kk = float(k[inw][i])
-                spikes.append((round(kk, 2), None if e0 is None else round(e0 + kk ** 2 / 0.2625, 1),
+                spikes.append((round(kk, 2), None if e0 is None else round(e0 + kk ** 2 / ETOK, 1),
                                round(abs(hf[i]) / mad, 1)))
     hints = []
     if np.isfinite(ratio):

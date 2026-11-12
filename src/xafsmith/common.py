@@ -6,7 +6,14 @@ from pathlib import Path
 import numpy as np
 
 
-ETOK = 0.2624682843  # 2m/hbar^2, 单位 eV^-1 Å^-2 (k = sqrt(ETOK*(E-E0)))
+def _etok():
+    # 2m_e/ħ²，单位 eV⁻¹ Å⁻²；与 larch.xafs.xafsutils.ETOK 同一公式、同一 CODATA（scipy.constants），
+    # 使这里换算的 k 与 larch autobk 的 k 网格完全一致。文档里的 0.2625 只是近似写法。
+    from scipy import constants as c
+    return 1.0 / (1.e20 * c.hbar ** 2 / (2 * c.m_e * c.e))
+
+
+ETOK = _etok()  # ≈ 0.262468424 (k = sqrt(ETOK*(E-E0)))
 
 
 def e2k(de):
