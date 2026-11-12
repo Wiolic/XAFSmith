@@ -283,3 +283,94 @@ class MultiSelect(QPushButton):
         pop.move(self.mapToGlobal(self.rect().bottomLeft()))
         pop.show()
         q.setFocus()
+
+
+class OrderList(QWidget):
+    """可调整顺序的列表：拖动条目，或选中后用 ↑ / ↓ / 倒序按钮。.value() 取当前顺序，changed(list) 在顺序变化时发出。
+    set_items(新列表)：保留已有条目的相对顺序，新条目追加在末尾，已不存在的移除。fmt：取值 → 显示文字。"""
+    changed = Signal(list)
+
+    def __init__(self, items=(), fmt=None):
+        from PySide6.QtWidgets import QAbstractItemView, QToolButton
+        from ..theme import icon
+        super().__init__()
+        self.fmt = fmt or str
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(6)
+        self.lw = QListWidget()
+        self.lw.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.lw.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.lw.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.lw.model().rowsMoved.connect(lambda *_: self._emit())
+        lay.addWidget(self.lw, 1)
+        col = QVBoxLayout()
+        col.setSpacing(4)
+        self.btns = {}
+        for key, ic, tip, fn in (("up", "chevup", T("上移", "Move up"), lambda: self.move(-1)),
+                                 ("down", "chev", T("下移", "Move down"), lambda: self.move(1)),
+                                 ("rev", "refresh", T("整体倒序", "Reverse all"), self.reverse)):
+            b = QToolButton()
+            b.setIcon(icon(ic, C["text2"], 16))
+            b.setToolTip(tip)
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.clicked.connect(fn)
+            col.addWidget(b)
+            self.btns[key] = b
+        col.addStretch(1)
+        lay.addLayout(col)
+        self.set_items(list(items))
+
+    def _fit_height(self):
+        rh = self.lw.sizeHintForRow(0) if self.lw.count() else -1      # 实际行高（含样式表的内边距）
+        if rh <= 0:
+            rh = self.lw.fontMetrics().height() + 10
+        n = max(2, min(8, self.lw.count()))
+        self.lw.setFixedHeight(n * rh + 2 * self.lw.frameWidth() + 8)
+
+    def value(self):
+        return [self.lw.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.lw.count())]
+
+    def _fill(self, vals, cur=None):
+        self.lw.blockSignals(True)
+        self.lw.clear()
+        for v in vals:
+            it = QListWidgetItem(f"{self.fmt(v)}")
+            it.setData(Qt.ItemDataRole.UserRole, v)
+            self.lw.addItem(it)
+        if cur is not None and 0 <= cur < self.lw.count():
+            self.lw.setCurrentRow(cur)
+        self.lw.blockSignals(False)
+        self._fit_height()
+
+    def set_items(self, items, emit=False):
+        old = self.value()
+        new = [x for x in old if x in items] + [x for x in items if x not in old]
+        if new != old:
+            self._fill(new)
+            if emit:
+                self._emit()
+
+    def set_value(self, order, emit=False):
+        self._fill(list(order))
+        if emit:
+            self._emit()
+
+    def move(self, d):
+        r = self.lw.currentRow()
+        v = self.value()
+        if r < 0 or not (0 <= r + d < len(v)):
+            return
+        v[r], v[r + d] = v[r + d], v[r]
+        self._fill(v, r + d)
+        self._emit()
+
+    def reverse(self):
+        v = self.value()
+        if len(v) > 1:
+            r = self.lw.currentRow()
+            self._fill(v[::-1], len(v) - 1 - r if r >= 0 else None)
+            self._emit()
+
+    def _emit(self):
+        self.changed.emit(self.value())

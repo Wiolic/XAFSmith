@@ -9,6 +9,8 @@ All notable changes are recorded here (format: Keep a Changelog; versioning: Sem
 界面美化与交互改进。UI polish and interaction fixes.
 
 ### 新增 / Added
+- 图片导出：“作图顺序”列表，可拖动或用 ↑ / ↓ / 倒序调整图中样品的顺序（图例、导出文件与 Origin 工程同步）。
+  Figure export: reorder the spectra in the figure (drag, up/down, reverse).
 - 帮助窗口：后退 / 前进、查找条（Ctrl+F）、右侧标题目录；讲义内的 `#锚点` 目录链接可跳转；文档首次点开时才渲染。
   Help window: back/forward, find bar, heading outline, working in-page anchor links, lazy document rendering.
 - 未保存修改的询问（保存 / 放弃 / 取消）与“撤销修改”（meta.csv 表格、批处理参数）；移除谱、合并覆盖同名谱前确认。

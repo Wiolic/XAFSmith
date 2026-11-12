@@ -216,7 +216,12 @@ class PubFigPage(Page):
             self.add(Banner("info", T("先载入样品" + ("，并在“χ(k) 与 FT”中计算 χ(k)" if need_chi else ""),
                                       "Load samples first" + (" and compute χ(k)" if need_chi else ""))))
             return
-        opt["sel"] = W.MultiSelect(cands, [c for c in self.state.get("sel", cands[:3]) if c in cands], T("谱（按顺序作图）", "Spectra (plot order)"))
+        opt["sel"] = W.MultiSelect(cands, [c for c in self.state.get("sel", cands[:3]) if c in cands], T("选择谱", "Choose spectra"))
+        # 作图顺序：拖动或 ↑↓ 调整；已选谱的相对顺序保留，新选的追加在末尾
+        order = W.OrderList(fmt=lambda k: S.groups[k].label if k in S.groups else k)
+        order.set_value([k for k in self.state.get("order", []) if k in opt["sel"].value()])
+        order.set_items(opt["sel"].value())
+        opt["sel"].changed.connect(lambda v: order.set_items(v, emit=True))
         opt["off"] = W.num(self.state.get("off", 0.0), 0, 50, 0.1)
         opt["sub"] = W.check(T("化学式下标（IrO2→IrO₂）", "Formula subscripts (IrO2→IrO₂)"), self.state.get("sub", True))
         items = [(T("谱", "Spectra"), opt["sel"]), (T("错开量", "Offset"), opt["off"])]
@@ -241,6 +246,8 @@ class PubFigPage(Page):
                                         T("无拟合：先在“EXAFS 拟合”中拟合", "No fits: fit under “EXAFS fitting” first"),
                                         fmt=lambda i: fit_label(S.fits[i]))
         ctl.add(W.fields(*items))
+        ctl.add(W.fields((T("作图顺序（拖动或 ↑↓；有错开量时第 1 条在最下，图例从上到下按此顺序）",
+                            "Plot order (drag or ↑↓; with an offset the first is at the bottom; legend top-down in this order)"), order)))
         refs0 = self.state.get("refs")
         if refs0 is None:
             refs0 = pf.default_refs(cands)
@@ -266,11 +273,12 @@ class PubFigPage(Page):
             for k, wdg in opt.items():
                 v = wdg.isChecked() if isinstance(wdg, W.QCheckBox) else wdg.value()
                 self.state[k] = v
+            self.state["order"] = order.value()
             import matplotlib.pyplot as plt
             if cur.get("fig") is not None:
                 plt.close(cur["fig"])
             with plain_rc():
-                sel = opt["sel"].value()
+                sel = [k for k in order.value() if k in opt["sel"].value()]
                 if not sel:
                     W._clear_layout(holder.layout())
                     cur["fig"] = None
@@ -306,7 +314,10 @@ class PubFigPage(Page):
             holder.layout().addWidget(W.hbox(canvas, None))
             cap.setText(c)
         render_d = W.debounced(self, lambda: W.wait_cursor(render))     # 数值微调：连续改只重画一次
+        order.changed.connect(lambda *_: W.wait_cursor(render))
         for wdg in list(opt.values()) + [size, pal]:
+            if wdg is opt["sel"]:          # 选谱变化经 order.changed 重画，避免画两次
+                continue
             if hasattr(wdg, "changed"):
                 wdg.changed.connect(lambda *_: W.wait_cursor(render))
             elif hasattr(wdg, "currentIndexChanged"):

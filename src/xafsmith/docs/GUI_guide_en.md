@@ -408,7 +408,7 @@ Load samples and standards first. Three tabs:
 **Settings**
 
 1. Figure type: normalized XANES, XANES derivative, kⁿχ(k), |χ(R)|, fit (k + R).
-2. Spectra (plot order), offset, range.
+2. Spectra, offset, range; in the **Plot order** list drag items or use ↑ / ↓ / reverse to set the curve order (with an offset the first is at the bottom; the legend, exported files and Origin project follow this order).
 3. **Palette**: 24, named as in PeakForge, in six families (Waters, Forests, Earth, Skies, Stone, Fields), each marked with its type:
    - monochrome ramps for one series of samples (oxidation state, time, potential), sampled evenly along the ramp;
    - contrast, soft (print), colour-blind safe.

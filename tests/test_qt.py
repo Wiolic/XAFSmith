@@ -374,6 +374,7 @@ def irtaox_suite(app, w, S, P):
     w.go("pubfig")
     P["pubfig"].state.update(kind="xanes", name="_test_fig", sel=["IrO2", "Ir foil"])
     P["pubfig"].refresh()
+    order_check(P["pubfig"])
     n = len(W.ERRORS)
     click(P["pubfig"], "保存到 output/figs/journal/")
     step("期刊出图", n)
@@ -513,6 +514,7 @@ def demo_suite(app, w, S, P):
     w.go("pubfig")
     P["pubfig"].state.update(kind="xanes", name="_test_fig", sel=["feo_rt1", "Fe_foil"])
     P["pubfig"].refresh()
+    order_check(P["pubfig"])
     n = len(W.ERRORS)
     click(P["pubfig"], "保存到 output/figs/journal/")
     step("期刊出图", n)
@@ -643,6 +645,26 @@ def u1_checks(app, w):
     say(any("另 3 条" in l.text() for l in pg.findChildren(QLabel)), "页顶提示条：超过 5 条折叠")
     pg.clear_notice()
     say(pg._notice is None, "提示条可关闭")
+
+
+def order_check(page):
+    """图片导出：作图顺序列表倒序后，图例顺序随之倒过来"""
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+    ol = page.findChildren(W.OrderList)
+    if not ol:
+        say(False, "图片导出：找不到作图顺序列表")
+        return
+
+    def legend():
+        cs = page.findChildren(FigureCanvasQTAgg)
+        leg = cs[-1].figure.axes[0].get_legend() if cs else None
+        return [t.get_text() for t in leg.get_texts()] if leg else []
+    before = legend()
+    ol[0].reverse()
+    after = legend()
+    say(len(before) >= 2 and after == before[::-1] and page.state.get("order") == ol[0].value(),
+        f"图片导出：倒序后图例 {before} → {after}")
+    ol[0].reverse()
 
 
 def u3_checks(app, w):
