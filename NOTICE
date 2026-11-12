@@ -1,0 +1,27 @@
+XAFSmith
+Copyright (c) 2026 Eggy. https://github.com/Wiolic/XAFSmith
+
+Required Notice: If you use XAFSmith or software based on it in a publication, cite: Eggy & Claude. XAFSmith: XAFS processing and fitting software. https://github.com/Wiolic/XAFSmith
+
+许可 / License
+  自 0.5.1 起，XAFSmith 按 PolyForm Noncommercial License 1.0.0 授权（全文见 LICENSE）：
+  - 允许：个人、学术研究、教学与其他非商业用途的使用、修改和分发；
+  - 不允许：任何商业用途，包括出售本软件或其修改版、收费分发、作为收费产品或服务的一部分；
+  - 分发本软件或其修改版时，必须附上许可条款（或其网址）和上面以 “Required Notice:” 开头的引用说明。
+  商业使用请联系作者另行授权。0.5.0 及更早的版本按当时附带的 MIT 许可发布。
+
+  Since 0.5.1, XAFSmith is licensed under the PolyForm Noncommercial License 1.0.0 (full text in LICENSE):
+  - allowed: personal, academic, teaching and other noncommercial use, modification and distribution;
+  - not allowed: any commercial use, including selling the software or a modified version, paid distribution,
+    or use as part of a paid product or service;
+  - anyone distributing the software or a modified version must pass on the license terms (or their URL) and the
+    line above that begins with "Required Notice:".
+  For commercial use, contact the author for a separate license. Versions 0.5.0 and earlier were released under
+  the MIT License that accompanied them.
+
+第三方组件 / Third-party components
+  XAFSmith 依赖的软件按各自的许可证授权，不受上述条款约束，例如 xraylarch（含 FEFF6L / FEFF8L）、xraydb、
+  lmfit、numpy、scipy、matplotlib、pandas、pymatgen、PySide6（LGPL）。使用 FEFF 计算的结果发表时，请同时引用 FEFF 与 Larch。
+  Dependencies are licensed under their own terms and are not covered by the above, e.g. xraylarch (with FEFF6L /
+  FEFF8L), xraydb, lmfit, numpy, scipy, matplotlib, pandas, pymatgen, PySide6 (LGPL). When publishing FEFF-based
+  results, also cite FEFF and Larch.

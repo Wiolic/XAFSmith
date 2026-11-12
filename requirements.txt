@@ -1,0 +1,12 @@
+xraylarch
+xraydb
+lmfit
+numpy
+scipy
+matplotlib
+pandas
+pymatgen
+streamlit
+plotly
+openpyxl
+pywebview

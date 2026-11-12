@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xafsmith"
+version = "1.1.0"
+description = "可连接 AI 助手（agent）的同步辐射 XAFS（XANES + EXAFS）分析软件：图形界面 + 命令行，基于 xraylarch / FEFF。Agent-ready synchrotron XAFS analysis software."
+readme = "README.md"
+license = { file = "LICENSE" }   # PolyForm Noncommercial 1.0.0
+requires-python = ">=3.10"
+authors = [{ name = "Eggy" }, { name = "Claude (Anthropic)" }]
+classifiers = ["License :: Other/Proprietary License", "Programming Language :: Python :: 3"]
+keywords = ["XAFS", "EXAFS", "XANES", "synchrotron", "FEFF", "larch"]
+dependencies = [
+    "xraylarch",
+    "xraydb",
+    "lmfit",
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "pandas",
+    "pymatgen",
+    "openpyxl",
+    # PySide6 6.12.0 在 Linux + Python 3.11 上反复多减 None 引用，GUI 测试最终 none_dealloc 崩溃（CI 对比：<6.12 正常）；
+    # 其他平台/版本组合 6.12.0 正常。待上游修复后可放宽。
+    'PySide6>=6.5,<6.12; sys_platform == "linux" and python_version < "3.12"',
+    'PySide6>=6.5; sys_platform != "linux" or python_version >= "3.12"',
+]
+
+[project.optional-dependencies]
+# 直接生成 Origin 工程（.opju）：需要本机装有 Origin 2021 及以上；没有时“图片导出”只写数据与 build_origin.py
+origin = ["originpro"]
+# 开发与测试：python -m pytest tests/unit
+dev = ["pytest", "ruff"]
+
+[project.urls]
+Homepage = "https://github.com/Wiolic/XAFSmith"
+
+[project.scripts]
+xafsmith = "xafsmith.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+xafsmith = ["templates/*", "docs/*.md", "docs/images/basics/*/*.png", "assets/*"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py311"
+extend-exclude = ["tests/data", "build", "dist"]
+
+[tool.ruff.lint]
+# 先只开：语法错误、pyflakes（未用导入 / 未定义名）、可变默认参数、默认参数里调用函数。
+# 暂不开 E501 与 ruff format（会改写几乎所有文件）；v1.0 前统一格式化一次。
+select = ["E9", "F", "B006", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# __init__.py 是有意的再导出
+"**/__init__.py" = ["F401"]
+# paths.py 的模块级目录变量由 set_root() 通过 globals() 动态赋值
+"src/xafsmith/paths.py" = ["F821"]
+# Qt 的惯用写法 index=QModelIndex()
+"src/xafsmith/qt/widgets/table.py" = ["B008"]

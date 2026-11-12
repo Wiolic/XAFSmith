@@ -1,0 +1,123 @@
+{
+  "xafsmith": {
+    "schema": "1.1"
+  },
+  "edges": {
+    "Cu_K": {
+      "element": "Cu",
+      "edge": "K",
+      "e_table": 8979.0,
+      "e_table_source": "xraydb (Elam)",
+      "reference": "data/raw/public/cu_metal_rt.xdi",
+      "elements_in_sample": [
+        "Cu"
+      ],
+      "norm": {
+        "pre1": -150,
+        "pre2": -30,
+        "norm1": 100,
+        "norm2": -10,
+        "nnorm": 2,
+        "smooth_ev": 1.0
+      },
+      "bkg": {
+        "rbkg": 1.0,
+        "kweight": 2
+      },
+      "ft": {
+        "kmin": 3.0,
+        "kmax": 12.0,
+        "dk": 1.0,
+        "window": "hanning",
+        "kweight": 2
+      }
+    },
+    "Fe_K": {
+      "element": "Fe",
+      "edge": "K",
+      "e_table": 7112.0,
+      "e_table_source": "xraydb (Elam)",
+      "reference": null,
+      "elements_in_sample": [
+        "Fe"
+      ],
+      "norm": {
+        "pre1": -150,
+        "pre2": -30,
+        "norm1": 100,
+        "norm2": -10,
+        "nnorm": 2,
+        "smooth_ev": 1.0
+      },
+      "bkg": {
+        "rbkg": 1.0,
+        "kweight": 2
+      },
+      "ft": {
+        "kmin": 3.0,
+        "kmax": 12.0,
+        "dk": 1.0,
+        "window": "hanning",
+        "kweight": 2
+      }
+    },
+    "Ni_K": {
+      "element": "Ni",
+      "edge": "K",
+      "e_table": 8333.0,
+      "e_table_source": "xraydb (Elam)",
+      "reference": "data/raw/public/ni_metal_rt.xdi",
+      "elements_in_sample": [
+        "Ni"
+      ],
+      "norm": {
+        "pre1": -150,
+        "pre2": -30,
+        "norm1": 100,
+        "norm2": -10,
+        "nnorm": 2,
+        "smooth_ev": 1.0
+      },
+      "bkg": {
+        "rbkg": 1.0,
+        "kweight": 2
+      },
+      "ft": {
+        "kmin": 3.0,
+        "kmax": 12.0,
+        "dk": 1.0,
+        "window": "hanning",
+        "kweight": 2
+      }
+    },
+    "Pt_L3": {
+      "element": "Pt",
+      "edge": "L3",
+      "e_table": 11564.0,
+      "e_table_source": "xraydb (Elam)",
+      "reference": "data/raw/public/pt_metal_rt.xdi",
+      "elements_in_sample": [
+        "Pt"
+      ],
+      "norm": {
+        "pre1": -150,
+        "pre2": -30,
+        "norm1": 100,
+        "norm2": -10,
+        "nnorm": 2,
+        "smooth_ev": 1.0
+      },
+      "bkg": {
+        "rbkg": 1.0,
+        "kweight": 2
+      },
+      "ft": {
+        "kmin": 3.0,
+        "kmax": 12.0,
+        "dk": 1.0,
+        "window": "hanning",
+        "kweight": 2
+      }
+    }
+  }
+}

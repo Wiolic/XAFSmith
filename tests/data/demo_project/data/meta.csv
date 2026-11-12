@@ -1,0 +1,12 @@
+﻿file,sample,edge_key,mode,role,use,time,npts,emax,note,batch,ref_file,format,group
+data/raw/public/cu_metal_rt.xdi,cu_metal_rt,Cu_K,trans,reference,1,2001-06-26T22:27:31,408,10145.9,,public,data/raw/public/cu_metal_rt.xdi,xdi,
+data/raw/public/cu_rt01.xmu,cu_rt01,Cu_K,,standard,0,Tue Jun 26 22:27:31 2001,408,10145.9,与 cu_metal_rt.xdi 是同一条谱（.xmu 格式），仅用于读入测试，不重复处理,public,data/raw/public/cu_metal_rt.xdi,athena_xmu,
+data/raw/public/fe.060,Fe_foil,Fe_K,trans,reference,1,10/3/02 10:20:36 PM,511,8962.9,Fe 箔（NSLS X-11A）；演示项目里同时作为 Fe 氧化物的参比，但它与氧化物并非同一次测量，ΔE 仅作演示,public,data/raw/public/fe.060,xdac,
+data/raw/public/fe2o3_rt1.xmu,fe2o3_rt1,Fe_K,,standard,1,Fri Aug 10 11:45:00 2001,412,8084.2,演示：参比 fe.060 来自另一条线站，ΔE 仅作演示,public,data/raw/public/fe.060,athena_xmu,
+data/raw/public/fe3c_rt.xdi,fe3c_rt,Fe_K,trans,standard,1,2002-03-16T18:27:34,348,7969.2,演示：参比 fe.060 来自另一条线站，ΔE 仅作演示,public,data/raw/public/fe.060,xdi,
+data/raw/public/fe_athena.prj,fe2o3_rt1_xmu,Fe_K,,standard,0,,412,8084.2,Athena 工程，内含与 fe2o3 / fe3c / feo 文件相同的谱，仅用于读入测试,public,data/raw/public/fe.060,prj,fe2o3_rt1_xmu
+data/raw/public/fe_athena.prj,fe3c_rt_xdi,Fe_K,,standard,0,,348,7969.2,Athena 工程，内含与 fe2o3 / fe3c / feo 文件相同的谱，仅用于读入测试,public,data/raw/public/fe.060,prj,fe3c_rt_xdi
+data/raw/public/fe_athena.prj,feo_rt1_xmu,Fe_K,,standard,0,,412,8084.1,Athena 工程，内含与 fe2o3 / fe3c / feo 文件相同的谱，仅用于读入测试,public,data/raw/public/fe.060,prj,feo_rt1_xmu
+data/raw/public/feo_rt1.xdi,feo_rt1,Fe_K,trans,standard,1,2001-08-10T11:10:00,412,8084.1,演示：参比 fe.060 来自另一条线站，ΔE 仅作演示,public,data/raw/public/fe.060,xdi,
+data/raw/public/ni_metal_rt.xdi,ni_metal_rt,Ni_K,trans,reference,1,2001-06-26T21:46:07,418,9567.4,,public,data/raw/public/ni_metal_rt.xdi,xdi,
+data/raw/public/pt_metal_rt.xdi,pt_metal_rt,Pt_L3,trans,reference,1,2001-06-27T04:10:45,418,12798.4,,public,data/raw/public/pt_metal_rt.xdi,xdi,

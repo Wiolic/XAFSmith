@@ -1,0 +1,17 @@
+{
+  "name": "example_1shell",
+  "sample": "样品名（与 data/meta.csv 的 sample 一致）",
+  "kmin": 3.0, "kmax": 12.0, "dk": 1.0, "window": "hanning",
+  "kweight": [1, 2, 3],
+  "rmin": 1.0, "rmax": 2.1, "fitspace": "r",
+  "params": {
+    "s02": {"value": 0.80, "vary": false},
+    "e0":  {"value": 0.0,  "vary": true, "min": -15, "max": 15},
+    "dr1": {"value": 0.0,  "vary": true, "min": -0.3, "max": 0.3},
+    "ss1": {"value": 0.003, "vary": true, "min": 0.0, "max": 0.03}
+  },
+  "paths": [
+    {"file": "output/feff/<结构>_<吸收原子><边>/site0/feff0001.dat", "label": "M-O",
+     "N": "6", "s02": "s02", "e0": "e0", "deltar": "dr1", "sigma2": "ss1"}
+  ]
+}
