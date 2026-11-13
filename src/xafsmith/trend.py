@@ -118,8 +118,9 @@ def _s02_ref_param(spec, params):
     return None
 
 
-def n_err(spec, row, params):
-    """(N_err 或 None, 是否复合表达式且没给误差)。spec：模型里的路径字典（可能为空 {}）；row：摘要路径行；params：摘要参数表。"""
+def n_err(spec, amp_err, params):
+    """(N_err 或 None, 是否复合表达式且没给误差)。spec：模型里的路径字典（可能为空 {}）；amp_err：该路径 s02 的 stderr
+    （summ["path_amp_err"]，可为 None）；params：摘要参数表。"""
     nf = spec.get("N") if isinstance(spec, dict) else None
     if nf is None or (isinstance(nf, str) and not nf.strip()):
         return None, False
@@ -137,7 +138,6 @@ def n_err(spec, row, params):
             e = None if p is None else p.get("stderr")
             return (None if e is None else float(e)), False
         ref = _s02_ref_param(spec, params)
-        amp_err = row.get("amp_err")
         if (ref is None or _param_fixed(ref)) and amp_err is not None:
             v = 1.0 if ref is None else float(ref["value"])
             return float(amp_err) / max(v, 1e-9), False
@@ -188,12 +188,13 @@ def trend_table(summ, model, meta=None, processed=None):
             if s not in e0e and pd.notna(v):
                 e0e[s] = float(v)
     params = summ.get("params", {})
+    amp = summ.get("path_amp_err") or [None] * len(summ["paths"])
     rows, composite = [], []
     for d in dsets:
-        prs = [r for r in summ["paths"] if r.get("dataset") == d["id"]]
+        prs = [(r, a) for r, a in zip(summ["paths"], amp) if r.get("dataset") == d["id"]]
         specs = d["paths"] if len(d["paths"]) == len(prs) else [{}] * len(prs)      # 位置对应；不对应时不给规格
-        for spec, r in zip(specs, prs):
-            ne, comp = n_err(spec, r, params)
+        for spec, (r, a_err) in zip(specs, prs):
+            ne, comp = n_err(spec, a_err, params)
             if comp and r["path"] not in composite:
                 composite.append(r["path"])
             row = dict(dataset=d["id"], sample=d["sample"], seq=seq_of[d["id"]], seq_source=sv["source"],

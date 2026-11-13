@@ -432,7 +432,7 @@ def summarize_multi(res, nm: dict, groups=None) -> dict:
     # 每条路径：N 的参考 S0² 见 _s02_ref（与旧格式相同）
     s02g = _s02val(res)
     prows = []
-    pextra, ptemps, plabels = [], [], []
+    pextra, ptemps, plabels, amp_errs = [], [], [], []
     for d, ds in zip(dl, res.datasets):
         pextra.append(sigma2_extra(d["paths"], d.get("temperature")))
         for spec, path in zip(_path_specs(d["paths"], ds), ds.paths.values()):
@@ -449,8 +449,10 @@ def summarize_multi(res, nm: dict, groups=None) -> dict:
                               R=float(path.reff + v["deltar"]), R_err=err("deltar"),
                               sigma2=float(v["sigma2"]), sigma2_err=err("sigma2"),
                               e0=float(v["e0"]), e0_err=err("e0"), deltar=float(v["deltar"]),
-                              dataset=d["id"], amp_err=err("s02")))      # C2：趋势表的 N_err 用（只加键，已有值与 CSV 列不变）
+                              dataset=d["id"]))
+            amp_errs.append(err("s02"))                  # C2：路径 s02 的 stderr，趋势表的 N_err 用（单独一个键，路径行与 CSV 列不变）
     out["paths"] = prows
+    out["path_amp_err"] = amp_errs                       # C2：与 paths 同序
     if any(x is not None for x in pextra) or any(t is not None for t in ptemps):
         info = [sigma2_info_row(d, ds) for d, ds in zip(dl, res.datasets)]
         _add_sigma2_fields(prows, [i for blk in info for i in blk], ptemps, warn, plabels)

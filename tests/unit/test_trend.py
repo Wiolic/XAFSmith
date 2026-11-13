@@ -73,7 +73,7 @@ def test_seq_non_numeric_is_missing():
 
 
 # ------------------------------------------------------------------ N_err
-ROW = dict(path="p", amp_err=0.06)
+ROW = 0.06
 
 
 def test_n_err_fixed_cases():
@@ -92,14 +92,14 @@ def test_n_err_single_param_name():
 
 def test_n_err_expression_with_fixed_s02_ref():
     params = {"s02": P(0.8, False), "N1": P(5.0, True, 0.3)}
-    e, comp = tr.n_err({"N": "N1*2"}, dict(amp_err=0.48), params)
+    e, comp = tr.n_err({"N": "N1*2"}, 0.48, params)
     assert comp is False and e == pytest.approx(0.48 / 0.8)
     # 路径的 s02 字段是别的固定参数：以它为参考
     params["amp"] = P(0.5, False)
-    e, comp = tr.n_err({"N": "N1*2", "s02": "amp"}, dict(amp_err=0.2), params)
+    e, comp = tr.n_err({"N": "N1*2", "s02": "amp"}, 0.2, params)
     assert e == pytest.approx(0.4)
     # 没有任何 S0² 参数：参考 = 1.0（固定）
-    assert tr.n_err({"N": "N1*2"}, dict(amp_err=0.2), {"N1": P(5.0, True, 0.1)})[0] == pytest.approx(0.2)
+    assert tr.n_err({"N": "N1*2"}, 0.2, {"N1": P(5.0, True, 0.1)})[0] == pytest.approx(0.2)
 
 
 def test_n_err_expression_with_varying_s02_ref_is_blank():
@@ -109,7 +109,7 @@ def test_n_err_expression_with_varying_s02_ref_is_blank():
     params = {"s02": P(0.8, False, 0.05, "a*b"), "N1": P(5.0, True, 0.3)}
     assert tr.n_err({"N": "N1*2"}, ROW, params) == (None, True)
     # 振幅误差没有 → 空，但仍提示复合
-    assert tr.n_err({"N": "N1*2"}, dict(amp_err=None), {"s02": P(0.8, False)}) == (None, True)
+    assert tr.n_err({"N": "N1*2"}, None, {"s02": P(0.8, False)}) == (None, True)
 
 
 # ------------------------------------------------------------------ 真实联合拟合
@@ -182,7 +182,7 @@ def test_trend_table_composite_n_expression(fitted):
     t = tr.trend_table(summ, m)
     # s02 参考（amp）固定 → N_err = amp_err / amp，非空；摘要里 amp_err 来自路径 s02 的 stderr
     assert t["N_err"].notna().all()
-    assert t["N_err"].iloc[0] == pytest.approx(summ["paths"][0]["amp_err"] / 1.0)
+    assert t["N_err"].iloc[0] == pytest.approx(summ["path_amp_err"][0] / 1.0)
     # 放开 amp：N 的参考 S0² 在变 → 留空并提示
     m2 = _model(n_a="N1*1", n_b="N1*1")
     m2["params"]["amp"] = {"value": 1.0, "vary": True}
@@ -207,11 +207,12 @@ def test_trend_table_single_dataset_raises(fitted):
 
 
 def test_summary_old_keys_unchanged(fitted):
-    """C2 只给多数据集路径行加了 amp_err；其余键与 v1.3 前相同。"""
+    """C2 没有改多数据集路径行（键、值都与 v1.3 前相同）；只在摘要顶层加了 path_amp_err（与 paths 同序）。"""
     _, summ = fitted
     keys = set(summ["paths"][0])
     assert keys == {"path", "reff", "degen", "N", "amp", "R", "R_err", "sigma2", "sigma2_err", "e0", "e0_err",
-                    "deltar", "dataset", "amp_err"}
+                    "deltar", "dataset"}
+    assert len(summ["path_amp_err"]) == len(summ["paths"])
     assert np.isfinite(summ["paths"][0]["N"])
 
 
