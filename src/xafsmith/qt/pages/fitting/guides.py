@@ -256,7 +256,7 @@ SIGMA2_ZH = """
 只有 1 个温度时，θ 只是 σ² 换了一种写法，没有额外信息；若同时放开静态项，两者还不可分。</p>
 <h3>怎么设</h3>
 <ul>
-<li>每个数据集填“温度 (K)”；路径的 σ² 点“σ² 模型…”选 Debye 或 Einstein，软件写成 <code>sigma2_debye(tempK, thD1)</code> 并建好参数 θ（缺省 50–2000 K）。</li>
+<li>勾选“使用 σ² 温度模型”后，每个数据集填“温度 (K)”；路径的 σ² 点“σ² 模型…”选 Debye 或 Einstein，软件写成 <code>sigma2_debye(tempK, thD1)</code> 并建好参数 θ（缺省 50–2000 K）。</li>
 <li>联合拟合：θ 在各温度的数据集之间共享（同名参数共享），这正是约束 σ²(T) 的来源；其他参数（S0²、ΔE0、ΔR）按需共享。</li>
 <li><b>静态项</b> <code>ss0</code> 吸收与温度无关的无序（也会吸收理论与实验的系统差），但它与 θ 相关：温度范围窄、点数少时二者难以分开，θ 的误差会很大。</li>
 </ul>
@@ -275,7 +275,7 @@ SIGMA2_EN = """
 With a single temperature θ is just another way of writing σ² and adds no information; if a static term is varied as well the two cannot be separated.</p>
 <h3>Setting it up</h3>
 <ul>
-<li>Fill in “Temperature (K)” for each dataset; use “σ² model…” on the path to choose Debye or Einstein: the software writes <code>sigma2_debye(tempK, thD1)</code> and creates the θ parameter (default 50–2000 K).</li>
+<li>Tick “Use a σ² temperature model”, then fill in “Temperature (K)” for each dataset; use “σ² model…” on the path to choose Debye or Einstein: the software writes <code>sigma2_debye(tempK, thD1)</code> and creates the θ parameter (default 50–2000 K).</li>
 <li>Joint fit: θ is shared between the datasets of the different temperatures (same name = shared), which is what constrains σ²(T); share the other parameters (S0², ΔE0, ΔR) as needed.</li>
 <li>The <b>static term</b> <code>ss0</code> absorbs temperature-independent disorder (and also theory/experiment systematics) but is correlated with θ: with a narrow temperature range or few points the two are hard to separate and the error of θ becomes large.</li>
 </ul>

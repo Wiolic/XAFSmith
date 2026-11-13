@@ -217,10 +217,26 @@ def sigma2_checks(app, w, S, P, k1, fdir):
     st["fdirs_" + k1] = [str(PROJ / fdir)]
     for k in [k for k in st if k.startswith("temp_")]:
         st.pop(k)
+    st.pop("use_tmodel", None)
     pg.refresh()
     pump(app)
     n0 = len(S.fits)
     try:
+        def tcheck():
+            return next((c for c in pg.findChildren(W.QCheckBox) if "σ² 温度模型" in c.text() or "temperature model" in c.text()), None)
+        tc = tcheck()
+        say(tc is not None and not tc.isChecked(), "拟合页有“使用 σ² 温度模型”勾选框，缺省不勾")
+        if tc is None:
+            return
+        row_hidden = all(not e.isVisibleTo(pg) for e in pg.findChildren(W.QLineEdit) if e.placeholderText() in ("不写", "not set"))
+        btn_hidden = all(not b.isVisibleTo(pg) for b in pg.findChildren(W.QPushButton) if "σ² 模型" in b.text() or "σ² model" in b.text())
+        say(row_hidden and btn_hidden, "不勾：温度框与“σ² 模型…”按钮不显示")
+        tc.setChecked(True)
+        pump(app, 0.1)
+        say(any(e.isVisibleTo(pg) for e in pg.findChildren(W.QLineEdit) if e.placeholderText() in ("不写", "not set")),
+            "勾选后显示温度框")
+        tc.setChecked(False)
+        pump(app, 0.1)
         def temp_edit():
             return next((e for e in pg.findChildren(W.QLineEdit) if e.placeholderText() in ("不写", "not set")), None)
 
@@ -239,6 +255,16 @@ def sigma2_checks(app, w, S, P, k1, fdir):
         ci = list(pt.m.df.columns).index("sigma2")
         pt.m.setData(pt.m.index(0, ci), "sigma2_debye(tempK, thD1)")
         pump(app, 0.2)
+        tc = tcheck()
+        if tc.isChecked():                     # 路径已用温度模型时，刷新后勾选框会自动勾上；先取消，检查“不勾不拟合”
+            tc.setChecked(False)
+            pump(app, 0.1)
+        n1 = len(S.fits)
+        click(pg, "拟合")
+        pump(app, 0.3)
+        say(len(S.fits) == n1, "路径用了温度模型但没勾选：不拟合（提示勾选）")
+        tc.setChecked(True)
+        pump(app, 0.1)
         te = temp_edit()
         te.setText("abc")
         n1 = len(S.fits)
@@ -313,6 +339,7 @@ def sigma2_dialog_checks(app, w, S, P, k1, k2, fdir):
         st.update(multi=False, data=k1)
         st["fdirs_" + k1] = [str(PROJ / fdir)]
         st.pop("partab", None)
+        st["use_tmodel"] = True                                # 勾选“使用 σ² 温度模型”才有温度框与按钮
         pg.refresh()
         pump(app)
         te = next(e for e in pg.findChildren(W.QLineEdit) if e.placeholderText() in ("不写", "not set"))

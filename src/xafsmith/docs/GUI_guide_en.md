@@ -349,7 +349,9 @@ Drag the divider between the columns to resize them. A fit updates only the righ
 - Restraints do not add to N_idp and the R-factor counts data only. The “Parameters” tab of the result has a restraints table (prior, fitted value, pull in σ); a pull beyond 2σ raises a warning: the data contradict the prior, so check where the prior came from or the model. Use restraints only with an independent prior.
 - Drafts, automatic restore and saved models include the restraints; two models with different restraints cannot be compared with the F-test.
 
-**Debye / Einstein temperature model for σ²** (“Temperature (K)” and “σ² model…” above the paths of card 3, optional)
+**Debye / Einstein temperature model for σ²** (above the paths of card 3, optional)
+
+- Tick “Use a σ² temperature model” first; only then are “Temperature (K)” and “σ² model…” shown. Usually leave it unticked: it is for one sample measured at several temperatures. Unticked, the model has no `temperature`; if a path σ² already uses `sigma2_debye` / `sigma2_eins` / `tempK`, the box is ticked automatically, and unticking it makes “Fit” show a message and not fit.
 
 - With several measurement temperatures, one θ (Debye or Einstein temperature) replaces one σ² per temperature: fewer parameters, and a check that σ² follows a simple vibrational model. Use at least 2–3 temperatures; with a single temperature θ is just another way of writing σ² and adds no information.
 - **Temperature (K)**: one field per dataset (per dataset tab in a joint fit); empty = no `temperature` in the model. In `sigma2_debye(tempK, thD1)`, `tempK` takes this value, so the same expression can be copied unchanged to every temperature's dataset. A non-numeric or ≤ 0 temperature is reported and nothing is fitted.

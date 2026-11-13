@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from xafsmith import logs
 import json
+import re
 from pathlib import Path
 import pandas as pd
 from PySide6.QtCore import Qt, QTimer
@@ -16,6 +17,8 @@ from ...widgets import T, Banner, Card, Page
 
 from .guides import show_fit_guide
 from .fit_view import FitView
+
+_TMODEL_RE = re.compile(r"\bsigma2_debye\b|\bsigma2_eins\b|\btempK\b")   # B6：路径 σ² 用了温度模型
 
 
 class FitPage(Page):
@@ -399,6 +402,20 @@ class FitPage(Page):
             out.append(item)
         return out
 
+    def _temp_row(self, edit_w, edit, k):
+        """B6：一行“温度 (K) [输入框] [σ² 模型…]”，标签、输入框、按钮垂直居中对齐。"""
+        lb = W.label(T("温度 (K)", "Temperature (K)"), wrap=False)
+        btn = self._sigma2_button(edit, k)
+        h = max(edit_w.sizeHint().height(), btn.sizeHint().height())
+        for w_ in (lb, edit_w, btn):                       # 同一高度：输入框与按钮上下边齐平，标签文字居中
+            w_.setFixedHeight(h)
+        lb.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        row = W.hbox(lb, edit_w, btn, None, spacing=SP["sm"])
+        lay = row.layout()
+        for w_ in (lb, edit_w, btn):
+            lay.setAlignment(w_, Qt.AlignmentFlag.AlignVCenter)
+        return row
+
     @staticmethod
     def _sigma2_button(edit, k):
         b = W.button(T("σ² 模型…", "σ² model…"),
@@ -531,9 +548,27 @@ class FitPage(Page):
                            bools=["use"], max_height=280, click_edit=True)
             ptab.hide_cols("file")
             ptabs[k] = ptab
+        # B6：勾选“使用 σ² 温度模型”才显示温度框与“σ² 模型…”按钮；不勾 = 模型里不写 temperature
+        def uses_tmodel():
+            return any(_TMODEL_RE.search(str(v)) for k_ in keys for v in (ptabs[k_].df().get("sigma2", []) if k_ in ptabs else []))
+        tm_on = bool(self.state.get("use_tmodel")) or uses_tmodel()
+        tcheck = W.check(T("使用 σ² 温度模型（Debye / Einstein：多个温度共用一个 θ）",
+                           "Use a σ² temperature model (Debye / Einstein: one θ shared by all temperatures)"), tm_on)
+        tcheck.setToolTip(T("一般不用勾。只有同一样品在不同温度下测量、想用一个 θ 描述 σ² 随温度的变化时才用。",
+                            "Usually leave unticked. Use it only for one sample measured at several temperatures, "
+                            "to describe how σ² changes with temperature by a single θ."))
+        trows = {k: self._temp_row(temps[k], edit_sigma2, k) for k in keys}
+        for r_ in trows.values():
+            r_.setVisible(tm_on)
+
+        def on_tcheck(on):
+            self.state["use_tmodel"] = bool(on)
+            for r_ in trows.values():
+                r_.setVisible(bool(on))
+        tcheck.toggled.connect(on_tcheck)
+        c3.add(tcheck)
         if not multi:
-            c3.add(W.hbox(W.fields((T("温度 (K)", "Temperature (K)"), temps[data_k]), cols=1), self._sigma2_button(edit_sigma2, data_k),
-                          None, stretch_last=False))
+            c3.add(trows[data_k])
             c3.add(ptabs[data_k])
         else:
             pages_ = []
@@ -549,8 +584,7 @@ class FitPage(Page):
                                     f"Copied the path table of {ids[k]} to the other {len(others)} dataset(s)"))
                     self.refresh()
                 ow = over[k]
-                col = W.vbox(W.hbox(W.fields((T("温度 (K)", "Temperature (K)"), temps[k]), cols=1), self._sigma2_button(edit_sigma2, k),
-                                    None),
+                col = W.vbox(trows[k],
                              ptabs[k],
                              W.label(T("覆盖拟合范围（留空 = 用上面“拟合范围”的共同值）",
                                        "Override the fit range (empty = the common range above)"), "faint"),
@@ -721,7 +755,13 @@ class FitPage(Page):
             if restraints is False:
                 return
             tvals = {}
-            for k in keys:
+            if not tcheck.isChecked() and uses_tmodel():
+                W.toast(self, T("路径 σ² 用了温度模型（sigma2_debye / sigma2_eins / tempK）：请勾选“使用 σ² 温度模型”并填温度，"
+                                "或把 σ² 改回普通参数。",
+                                "A path σ² uses a temperature model (sigma2_debye / sigma2_eins / tempK): tick “Use a σ² "
+                                "temperature model” and fill in the temperature, or change σ² back to a plain parameter."), "warn")
+                return
+            for k in (keys if tcheck.isChecked() else []):
                 txt = temps[k].text().strip()
                 if not txt:
                     continue
