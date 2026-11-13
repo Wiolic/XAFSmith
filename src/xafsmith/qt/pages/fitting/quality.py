@@ -18,8 +18,11 @@ def quality_checks(fit, dg=None):
     else:
         out.append((False, T(f"R 因子 {rf:.4f} &gt; 0.05：检查模型、R 窗口与数据", f"R-factor {rf:.4f} &gt; 0.05: check the model, R window and data")))
     nv, ni = s["nvarys"], s["n_idp"]
+    jt = T("（全部数据集合计）", " (all datasets)") if s.get("joint") else ""
+    if s.get("joint"):                     # 联合拟合：变量是共享的，与全部数据集的 N_idp 之和比较
+        ni = s["joint"]["n_idp"]
     ok = nv <= ni / 2
-    out.append((ok, T(f"变量数 {nv}，N_idp/2 = {ni / 2:.1f}", f"{nv} variables, N_idp/2 = {ni / 2:.1f}")
+    out.append((ok, T(f"变量数 {nv}，N_idp/2 = {ni / 2:.1f}{jt}", f"{nv} variables, N_idp/2 = {ni / 2:.1f}{jt}")
                 + ("" if ok else T("：变量太多，请固定或约束参数", ": too many; fix or constrain some"))))
     if dg is not None:
         r = dg["ratio"]
