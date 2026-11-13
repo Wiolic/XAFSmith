@@ -274,6 +274,53 @@ The FEFF Ir–O path of IrO₂, changing one parameter at a time: doubling N dou
 makes the oscillation faster, clearly out of phase at high k. **Fitting runs this backwards: from the measured oscillation to the
 parameters.**
 
+### 7.1 What σ² (the Debye–Waller factor) really is
+
+**In one sentence**: σ² is the **mean-square fluctuation of the distance** from the absorber to the atoms of one shell, in Å². Each
+path has its own σ². σ = √σ² is roughly how much those distances differ from each other: σ² = 0.004 Å² means σ ≈ 0.06 Å.
+
+**It has two parts**:
+
+| Source | What it is | Changes with temperature? |
+|---|---|---|
+| Thermal vibration σ²_thermal | Atoms vibrate, so every “snapshot” sees slightly different distances; more at higher temperature, not zero even at 0 K (zero-point motion) | yes |
+| Static disorder σ²_static | Bonds of the same kind are genuinely of different lengths: distortion, defects, amorphous regions, nanoparticle surfaces, mixed phases | no |
+
+The data only show the sum. **For samples measured at the same temperature, changes in σ² come from static disorder**, that is,
+from the structure changing.
+
+**What it does to the spectrum**: the amplitude is multiplied by e^(−2k²σ²). This factor is close to 1 at low k and small at high
+k. For example, at k = 12 Å⁻¹: σ² = 0.005 Å² → 0.24, σ² = 0.010 Å² → 0.06. So the larger σ² is:
+
+- the faster the oscillation in χ(k) dies away at high k;
+- the **lower and broader** that shell's peak in |χ(R)|.
+
+**The most common mistake**: a lower peak does not necessarily mean a smaller coordination number N. It may be a larger σ² (more
+disorder). N scales the amplitude by the same factor at every k, while σ² mainly suppresses high k; the fit separates the two from
+that difference, but not cleanly, because the two are **strongly correlated**. So:
+
+- use as long a k range as possible and compare k¹, k² and k³ weights;
+- check the correlation: if N and σ² are correlated above about 0.8, neither one alone is reliable;
+- when comparing a series, often fix N (or tie it to the known structure) and let only σ² vary, or the other way round, and state
+  which assumption you made.
+
+**Typical values**: first shells at room temperature mostly 0.002–0.010 Å²; larger for outer shells, light atoms and disordered
+materials. A fitted **σ² < 0 is unphysical** and usually means the model is wrong (N or S₀² too large, or the wrong path).
+
+**Several temperatures: the Debye / Einstein model**. How the thermal part changes with temperature can be described by one
+characteristic temperature θ (θ_D in the Debye model, θ_E in the Einstein model): σ² = σ²_thermal(T, θ) + σ²_static. For one sample
+measured at several temperatures, tick “Use a σ² temperature model” on the fit page: one θ plus one static term replaces one σ² per
+temperature. Use at least 2–3 temperatures; with one temperature, thermal and static disorder cannot be separated.
+
+**A time series (in situ, changing with time) is not this case**. At constant temperature a change in σ² is a change in structural
+disorder. Do not use the temperature model: fit σ² at each time point as usual (a joint fit can share what does not change, such as
+S₀² and ΔE₀). The second shell needs extra care:
+
+- its signal is weaker than the first shell's, so its σ² has a larger error;
+- it is often several paths overlapping (for example metal–metal and metal–oxygen–metal), so σ² and N are entangled.
+
+So look at **how σ² changes relative to the first time point, with its error bars**, not at single values.
+
 ---
 
 ## 8. From μ(E) to χ(k): data processing
