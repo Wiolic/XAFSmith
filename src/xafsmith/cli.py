@@ -373,6 +373,60 @@ def cmd_ftest(a):
     print(json.dumps(fx.hamilton_test(r1, r2), ensure_ascii=False, indent=2))
 
 
+def cmd_msbind(a):
+    """B5：多重散射路径的 ΔR / σ² 绑定建议；只打印，加 --out 才另存新模型（不覆盖已有模型）。"""
+    from . import paths, msbind as mb
+    from .common import write_params
+    model = _load_model(a.model)
+    blocks = [(d.get("id") or d.get("sample"), d) for d in model["datasets"]] if "datasets" in model         else [(model.get("sample", ""), model)]
+    if a.dataset:
+        blocks = [(i, d) for i, d in blocks if i == a.dataset or d.get("sample") == a.dataset]
+        if not blocks:
+            raise SystemExit(f"模型 {a.model} 中没有数据集 {a.dataset} / no dataset {a.dataset} in model {a.model}")
+    out_name = None
+    if a.out:
+        out_name = a.out[:-5] if a.out.endswith(".json") else a.out
+        target = paths.MODELS / f"{out_name}.json"
+        if target.exists():
+            raise SystemExit(f"模型 {out_name} 已存在，不覆盖：换一个 --out 名字 / model {out_name} already exists and "
+                             "is not overwritten: choose another --out name")
+    import copy
+    new = copy.deepcopy(model)
+    allchanged, rowsout = [], []
+    for (ds_id, d) in blocks:
+        rows = mb.model_rows(d["paths"])
+        sugg = mb.suggest(rows)
+        print(f"\n数据集 {ds_id}：{len(sugg)} 条多重散射路径 / dataset {ds_id}: {len(sugg)} multiple-scattering path(s)")
+        for s in sugg:
+            r = rows[s["index"]]
+            print(f"  [{s['index']}] {s['label']}")
+            for fld, cur, new_, basis in (("deltar", r["deltar"], s["deltar"], s["basis_deltar"]),
+                                          ("sigma2", r["sigma2"], s["sigma2"], s["basis_sigma2"])):
+                if new_ is None:
+                    why = s["problem"] or s["sigma2_problem"]
+                    print(f"      {fld:7s} 现在 {cur}  →  无建议：{why}")
+                else:
+                    tag = "一致 / same" if mb.equivalent(cur, new_) else "建议 / suggest"
+                    print(f"      {fld:7s} 现在 {cur}  →  {new_}  [{tag}]  {basis}")
+            rowsout.append(dict(dataset=ds_id, index=s["index"], label=s["label"], deltar_now=r["deltar"],
+                                deltar_suggest=s["deltar"], sigma2_now=r["sigma2"], sigma2_suggest=s["sigma2"],
+                                exact=s["exact"], problem=s["problem"] or s["sigma2_problem"]))
+        if out_name:
+            nd = next(x for x in (new["datasets"] if "datasets" in new else [new])
+                      if (x.get("id") or x.get("sample")) == ds_id)
+            allchanged += [f"{ds_id}/{c}" for c in mb.apply_to_paths(nd["paths"], sugg)]
+    if out_name:
+        new["name"] = out_name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(new, ensure_ascii=False, indent=2), encoding="utf-8")
+        write_params(target.with_suffix(".params.json"),
+                     dict(source_model=a.model, dataset=a.dataset, changed=allchanged, suggestions=rowsout,
+                          SS_TOL=mb.SS_TOL, BOND_TOL=mb.BOND_TOL, COLLINEAR_DEG=mb.COLLINEAR_DEG), "xafsmith msbind")
+        print(f"\n→ {paths.rel(target)}（改动 {len(allchanged)} 处）；原模型未改动 / the original model is unchanged")
+    else:
+        print("\n建议依赖几何假设（见依据）；三角路径的 σ² 是独立键近似。未写任何文件（加 --out 另存新模型）。")
+
+
 def cmd_compare(a):
     from . import paths, fit_exafs as fx
     from .common import write_params
@@ -646,6 +700,10 @@ def build_parser():
     p.set_defaults(f=cmd_ftest)
     p = sp.add_parser("compare", help="多模型比较表"); p.add_argument("models", nargs="+")
     p.add_argument("--out", default=None); p.set_defaults(f=cmd_compare)
+    p = sp.add_parser("msbind", help="多重散射路径的 ΔR / σ² 绑定建议（只打印；--out 另存新模型）")
+    p.add_argument("model"); p.add_argument("--dataset", default=None, help="只看这个数据集（id 或样品名）；缺省 = 全部")
+    p.add_argument("--out", default=None, help="把建议写入的新模型名（已存在则报错，不覆盖）")
+    p.set_defaults(f=cmd_msbind)
     p = sp.add_parser("lcf", help="线性组合拟合")
     p.add_argument("--sample", required=True); p.add_argument("--standards", nargs="+", required=True)
     p.add_argument("--emin", type=float, default=-20); p.add_argument("--emax", type=float, default=30)

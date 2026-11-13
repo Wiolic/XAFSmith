@@ -300,3 +300,44 @@ def _one(r, res, singles, geom, d):
                               (" / σ²: independent-bond approximation (exact)" if res["exact_sigma2"]
                                else " / σ²: independent-bond approximation")
     res["note"] = f"msbind: {res['basis_deltar'].split(' / ')[0]}; {res['basis_sigma2'].split(' / ')[0].split('；')[0]}"
+
+
+# ---------------------------------------------------------------- 模型 JSON 辅助（CLI 用）
+def path_info(file, root=None) -> tuple:
+    """FEFF 路径文件 → (nleg, reff)。"""
+    from .paths import ROOT
+    root = ROOT if root is None else root
+    f = Path(file)
+    if root and not f.is_absolute():
+        f = Path(root) / f
+    from larch.xafs import feffpath
+    p = feffpath(str(f))
+    return int(p.nleg), float(p.reff)
+
+
+def model_rows(paths_list, root=None) -> list[dict]:
+    """模型 JSON 的路径列表 → suggest 用的行（模型里的路径都是已勾选）。"""
+    rows = []
+    for ps in paths_list:
+        nleg, reff = path_info(ps["file"], root)
+        rows.append(dict(file=ps["file"], nleg=nleg, reff=reff, label=ps.get("label", ""), use=True,
+                         deltar=str(ps.get("deltar", "0")), sigma2=str(ps.get("sigma2", "0.003"))))
+    return rows
+
+
+def apply_to_paths(paths_list, sugg) -> list[str]:
+    """把建议写进模型 JSON 的路径列表（就地修改）：deltar / sigma2 / note。已等价的不动。返回改动说明。"""
+    changed = []
+    for s in sugg:
+        ps = paths_list[s["index"]]
+        did = []
+        if s["deltar"] is not None and not equivalent(ps.get("deltar", "0"), s["deltar"]):
+            ps["deltar"] = s["deltar"]
+            did.append("deltar")
+        if s["sigma2"] is not None and not equivalent(ps.get("sigma2", "0.003"), s["sigma2"]):
+            ps["sigma2"] = s["sigma2"]
+            did.append("sigma2")
+        if did:
+            ps["note"] = s["note"]
+            changed.append(f"{s['label']}: " + "+".join(did))
+    return changed
