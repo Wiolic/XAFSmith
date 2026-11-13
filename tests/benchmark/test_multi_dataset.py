@@ -202,3 +202,16 @@ def test_no_false_misfit_with_kweight_list():
         ratios.append(max(rp) / min(rp))
         assert not any("失配" in w for w in s["warnings"]), (seed, s["warnings"])
     print(f"\n每点残差平方均值比：中位数 {np.median(ratios):.2f}  最大 {max(ratios):.2f}")
+
+
+# ------------------------------------------------------------------ B7：N 的参考 S0² 在两种格式中相同
+def test_n_reference_s02_same_in_both_formats(chi_tutorial):
+    """路径振幅写成单独的参数 amp2 且有 N 字段：N 应等于 N 字段的值（参考 = amp2，不是全局 s02），旧格式与多数据集一致。"""
+    path = {"file": str(FEFF), "label": "Cu-Cu", "s02": "amp2", "N": "12", "e0": "e0", "deltar": "dr", "sigma2": "ss"}
+    params = {"s02": {"value": 0.5, "vary": False}, "amp2": 0.08, "e0": 0.0, "dr": 0.0, "ss": 0.008}
+    old = dict(name="Nref_old", sample="cu", **RANGE, params=params, paths=[path])
+    new = _multi([dict(id="cu", sample="cu", paths=[path])], params=params)
+    _, _, s_old = fx.run_fit(chi_tutorial, old)
+    _, _, s_new = fx.fit_multi({"cu": chi_tutorial}, new)
+    assert s_old["paths"][0]["N"] == pytest.approx(12.0, rel=1e-9)
+    assert s_new["paths"][0]["N"] == pytest.approx(s_old["paths"][0]["N"], rel=1e-12)

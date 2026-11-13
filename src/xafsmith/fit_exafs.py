@@ -295,7 +295,7 @@ def _add_restraints(summ: dict, res) -> dict:
 
 
 def _param_table(res, user):
-    """与 summarize 中参数表的代码相同（summarize 本身保持 v1.1 原样）。"""
+    """与 summarize 中参数表的代码相同（summarize 除 B7 的 N 参考 S0² 外保持 v1.1 原样）。"""
     pars = {}
     for name, p in res.params.items():
         if name not in user:
@@ -377,24 +377,19 @@ def summarize_multi(res, nm: dict, groups=None) -> dict:
                         f"误差按合计 χ²_ν 统一缩放，{a} 的失配会放大所有参数（包括只属于 {b} 的参数）的误差；"
                         f"先检查 {a} 的模型、k/R 范围或 ε_k")
     out["warnings"] = warn
-    # 每条路径：N 的参考 S0² 用该路径自己的振幅参数（若它就是一个参数名），否则同旧格式
+    # 每条路径：N 的参考 S0² 见 _s02_ref（与旧格式相同）
     s02g = _s02val(res)
     prows = []
     for d, ds in zip(dl, res.datasets):
-        specs = d["paths"]
-        if len(specs) != len(ds.paths):        # larch 按 label 存路径，label 冲突时会少路径 → 不能按位置对应
-            specs = [{}] * len(ds.paths)        # 退回旧格式的参考 S0²
-        for spec, path in zip(specs, ds.paths.values()):
+        for spec, path in zip(_path_specs(d["paths"], ds), ds.paths.values()):
             v = path.path_paramvals()
 
             def err(pn, path=path):
                 p = path.params.get(path.pathpar_name(pn)) if path.params else None
                 return None if p is None or p.stderr is None else float(p.stderr)
-            aname = spec.get("s02", "s02")
-            s02ref = res.params[aname].value if aname in res.params else s02g
             amp = float(path.degen) * float(v["s02"])
             prows.append(dict(path=path.label, reff=float(path.reff), degen=float(path.degen),
-                              N=amp / max(s02ref, 1e-9), amp=amp,
+                              N=amp / max(_s02_ref(res, spec, s02g), 1e-9), amp=amp,
                               R=float(path.reff + v["deltar"]), R_err=err("deltar"),
                               sigma2=float(v["sigma2"]), sigma2_err=err("sigma2"),
                               e0=float(v["e0"]), e0_err=err("e0"), deltar=float(v["deltar"]),
@@ -459,7 +454,7 @@ def summarize(res, model, data=None):
     prows = []
     s02g = _s02val(res)
     for ds in res.datasets:
-        for path in ds.paths.values():
+        for spec, path in zip(_path_specs(model.get("paths", []), ds), ds.paths.values()):
             v = path.path_paramvals()
 
             def err(pn):
@@ -467,7 +462,7 @@ def summarize(res, model, data=None):
                 return None if p is None or p.stderr is None else float(p.stderr)
             amp = float(path.degen) * float(v["s02"])
             prows.append(dict(path=path.label, reff=float(path.reff), degen=float(path.degen),
-                              N=amp / max(s02g, 1e-9), amp=amp,
+                              N=amp / max(_s02_ref(res, spec, s02g), 1e-9), amp=amp,
                               R=float(path.reff + v["deltar"]), R_err=err("deltar"),
                               sigma2=float(v["sigma2"]), sigma2_err=err("sigma2"),
                               e0=float(v["e0"]), e0_err=err("e0"), deltar=float(v["deltar"])))
@@ -480,6 +475,19 @@ def _s02val(res):
         if k in res.params:
             return res.params[k].value
     return 1.0
+
+
+def _path_specs(specs, ds):
+    """模型路径与 larch 路径按位置对应；larch 按 label 存路径，label 冲突时会少路径 → 不能对应，返回空 spec（用全局 S0²）。"""
+    specs = specs or []
+    return specs if len(specs) == len(ds.paths) else [{}] * len(ds.paths)
+
+
+def _s02_ref(res, spec, s02g):
+    """N 的参考 S0²（B7，旧格式与多数据集相同）：路径的 s02 字段（缺省 "s02"）若就是一个参数名，用该参数的值；
+    否则（表达式、或参数表里没有）用全局 S0²（_s02val）。"""
+    aname = spec.get("s02", "s02") if isinstance(spec, dict) else "s02"
+    return res.params[aname].value if isinstance(aname, str) and aname in res.params else s02g
 
 
 def report_text(res) -> str:
@@ -656,8 +664,8 @@ def robustness(data, model: dict, root=None, variants=None,
     离散度/基准误差（> 1 记为“不稳”，即参数随拟合条件的变化超过统计误差）。
     """
     if is_multi(model):            # 不静默降级：下面逐条件 try/except 会把每个条件都变成“错误”行
-        raise ValueError("多数据集模型暂不支持稳健性检查（计划在 B2 之后） / "
-                         "robustness checks are not yet supported for multi-dataset models (planned after B2)")
+        raise ValueError("多数据集模型暂不支持稳健性检查 / "
+                         "robustness checks are not yet supported for multi-dataset models")
     variants = variants or robustness_variants(model)
     rows = []
     for i, (name, change) in enumerate(variants):
