@@ -8,8 +8,9 @@
 
 spec = {"out": ".../xxx.opju", "style": {...}, "graphs": [{
     "book": "fig_xanes", "csv": ".../fig_xanes.csv",
-    "columns": [{"name", "long", "units"}],          # 依次 X1, Y1, X2, Y2 …
+    "columns": [{"name", "long", "units", "axis"}],  # 依次 X1, Y1, X2, Y2 …；趋势图每条曲线 X、Y、E 三列（axis="E" = y 误差）
     "lines": [{"x": 0, "y": 1, "color": "#1E5FBF", "width": 3.5, "dash": 0, "legend": "IrO\\-(2)"}],
+               # 趋势图另有 "symbol": true（线 + 符号）与 "yerr": 误差列序号（0 起）
     "xlabel": "...", "ylabel": "...",                 # Origin 富文本（\\+() 上标、\\-() 下标、\\x(hhhh) 字符）
     "xlim": [lo, hi], "ylim": [lo, hi], "xinc": 10, "yinc": 0.5,
     "hide_y": false, "legend_pos": "tl" | "tr", "png": null | ".../xxx.png"}]}
@@ -49,13 +50,21 @@ def build(spec, op=None, show=False):
             wks.set_label(i, c.get("long", ""), "L")
             if c.get("units"):
                 wks.set_label(i, c["units"], "U")
-        wks.cols_axis("XY" * (len(g["columns"]) // 2))
+        wks.cols_axis("".join(c.get("axis") or ("X" if c["name"].startswith("X") else "Y") for c in g["columns"]))
         gp = op.new_graph(lname=g["book"], template="line")
         gp.lt_exec("page.aa=1;")                 # 抗锯齿（曲线与文字平滑）
         lay = gp[0]
         entries = []
         for n, ln in enumerate(g["lines"]):
-            p = lay.add_plot(wks, coly=ln["y"], colx=ln["x"], type="l")
+            if ln.get("symbol"):                 # C2 趋势图：线 + 符号，可带 y 误差列
+                kw = dict(colyerr=ln["yerr"]) if ln.get("yerr") is not None else {}
+                p = lay.add_plot(wks, coly=ln["y"], colx=ln["x"], type="y", **kw)
+                p.symbol_size = st.get("symbol_size", 14)
+                p.symbol_kind = st.get("symbol_kind", 2)         # 2 = 圆点
+                p.symbol_interior = st.get("symbol_interior", 1)  # 1 = 实心
+                # 误差棒线宽（st["errbar_w"]）与端帽宽（st["cap_w"]）：LabTalk / originpro 写法未能查证，这里不改格式（未验证）
+            else:
+                p = lay.add_plot(wks, coly=ln["y"], colx=ln["x"], type="l")
             p.color = ln["color"]
             sname = lay.obj.GetStrProp(p._format_property("name"))
             lay.lt_exec(f"set {sname} -w {int(round(ln.get('width', 3.0) * 500))}; set {sname} -d {int(ln.get('dash', 0))};")

@@ -18,7 +18,11 @@ import numpy as np
 import pandas as pd
 
 STYLE = dict(layer_w=25.0, layer_h=19.0, left=4.8, top=1.25, font="Arial", fsize=32, axis_w=2, tick_len=6,
-             lw_main=3.5, lw_other=3.0)
+             lw_main=3.5, lw_other=3.0,
+             # C2 趋势图（误差棒线 = 坐标轴线宽 2 pt；端帽总宽 16 pt；符号 14 pt 实心同色）。
+             # 符号大小 / 形状 / 实心用 originpro 文档里的 Plot 属性；误差棒线宽与端帽宽的 LabTalk 写法未能查证 → 只记录在 spec 里，
+             # origin_builder 不据此改格式（未验证，见 origin_builder 的说明）
+             symbol_size=14, symbol_kind=2, symbol_interior=1, errbar_w=2, cap_w=16)
 
 _SUB = str.maketrans("₀₁₂₃₄₅₆₇₈₉₊₋", "0123456789+-")
 _SUP = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻", "0123456789+-")
@@ -92,6 +96,30 @@ def _legend_side(ax, lines):
     return "tl" if tops[0] < tops[1] else "tr"
 
 
+def _errorbar_parts(ax):
+    """ErrorbarContainer → ({数据线 id: yerr 数组或 None}, {端帽线 id})。
+    yerr 由误差棒竖线段还原：(上端 − 下端) / 2（对称误差；没有竖线 = 该线无误差棒）。点数对不上时不给 yerr。"""
+    from matplotlib.container import ErrorbarContainer
+    data, caps = {}, set()
+    for c in ax.containers:
+        if not isinstance(c, ErrorbarContainer):
+            continue
+        ln = c.lines[0]
+        if ln is None:
+            continue
+        caps.update(id(x) for x in (c.lines[1] or ()))
+        yerr = None
+        bars = c.lines[2] or ()
+        if len(bars):
+            seg = bars[0].get_segments()
+            if len(seg) == len(np.atleast_1d(ln.get_xdata())):
+                yerr = np.array([(s[1][1] - s[0][1]) / 2 if len(s) >= 2 else np.nan for s in seg], float)
+                if not np.isfinite(yerr).any():
+                    yerr = None
+        data[id(ln)] = yerr
+    return data, caps
+
+
 def figure_spec(fig, out_dir, name, kind="", png=False):
     """从 matplotlib 图取曲线与坐标轴，写 CSV，返回 builder 用的说明（每个坐标轴一张 Origin 图）"""
     out_dir = Path(out_dir)
@@ -99,7 +127,9 @@ def figure_spec(fig, out_dir, name, kind="", png=False):
     graphs = []
     axes = [a for a in fig.axes if a.get_label() != "<colorbar>"]
     for ai, ax in enumerate(axes):
-        lines = [ln for ln in ax.get_lines() if len(np.atleast_1d(ln.get_xdata())) > 2]
+        ebar, caps = _errorbar_parts(ax)          # C2：误差棒图的端帽线不是曲线；数据线即使只有 2 个点也保留
+        lines = [ln for ln in ax.get_lines()
+                 if id(ln) not in caps and (len(np.atleast_1d(ln.get_xdata())) > 2 or id(ln) in ebar)]
         if not lines:
             continue
         book = re.sub(r"[^\w]+", "_", f"{name}_{ai + 1}" if len(axes) > 1 else name)[:28]
@@ -119,12 +149,21 @@ def figure_spec(fig, out_dir, name, kind="", png=False):
             legend = "" if lab.startswith("_") else origin_text(lab)
             cx, cy = f"X{i + 1}", f"Y{i + 1}"
             data[cx], data[cy] = pd.Series(x), pd.Series(y)
+            ix = len(cols)                     # 无误差棒的图：x = 2i、y = 2i+1（与 C2 之前相同）
             cols += [dict(name=cx, long=xlab), dict(name=cy, long=legend or f"line {i + 1}")]
+            extra = {}
+            if ebar.get(id(ln)) is not None:
+                ce = f"E{i + 1}"
+                data[ce] = pd.Series(ebar[id(ln)])
+                cols.append(dict(name=ce, long=(legend or f"line {i + 1}") + " yErr", axis="E"))
+                extra["yerr"] = ix + 2
+            if id(ln) in ebar:                  # 误差棒图：点 + 线（实心同色符号）
+                extra["symbol"] = True
             ls = ln.get_linestyle()
             dash = {"--": 1, ":": 2, "-.": 3}.get(ls, 0)
             main = ls in ("-", "solid") and ln.get_linewidth() >= 0.9 * max(l_.get_linewidth() for l_ in lines)
-            spec_lines.append(dict(x=2 * i, y=2 * i + 1, color=_hex(ln.get_color()), dash=dash, legend=legend,
-                                   width=STYLE["lw_main"] if main else STYLE["lw_other"]))
+            spec_lines.append(dict(x=ix, y=ix + 1, color=_hex(ln.get_color()), dash=dash, legend=legend,
+                                   width=STYLE["lw_main"] if main else STYLE["lw_other"], **extra))
         df = pd.DataFrame(data)
         csv = out_dir / f"{book}.csv"
         df.to_csv(csv, index=False, encoding="utf-8")
