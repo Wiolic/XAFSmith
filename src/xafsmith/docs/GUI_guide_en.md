@@ -375,6 +375,12 @@ Drag the divider between the columns to resize them. A fit updates only the righ
 - Card 4 is one shared parameter table (names are the union over the ticked paths of all datasets).
 - Right column: joint metrics on top (joint R-factor, χ²_ν, Σ N_idp, variables, datasets); the **Dataset** drop-down switches the plot, paths, quality check and diagnosis to that dataset (with its R-factor, N_idp and χ² share); “Parameters” and “Full report” are joint. Robustness checks are not yet supported for multi-dataset models.
 - **Save result** writes one CSV (one row per path, with a `dataset` column), one model json (`datasets` format), one report, and one figure per dataset `…_<dataset>_fit.png`. A saved multi-dataset model runs directly from **Run a saved model** (the samples come from the model's `datasets`, the sample box is greyed) or from the command line `xafsmith fit <model>`.
+- **Two tools for series samples** (time-resolved, potential series …; card 3 in joint mode):
+  - **Sync ticked paths to all datasets** (default off, remembered): when on, ticking / unticking a path in one dataset sets the same path file (same folder + file name) in the other datasets. Only the tick is synced, never the expressions; datasets without that row are skipped.
+  - **Independent σ² per dataset**: σ² parameters shared by ≥ 2 datasets (names in the `sigma2` field of the ticked paths, inside expressions too, e.g. `ss1*1.5`) become one per dataset, named `<name>_<dataset id>` (characters other than letters/digits/underscore in the id become `_`; a name clash gets `_2`…). New parameters copy the original's value, vary, limits and expr; the original disappears from the table once unused; a name already ending in this dataset's suffix is left alone, so a second click changes nothing. σ² only (no N / ΔR). **The variable count rises: watch N_idp.** The button is greyed out while “Use a σ² temperature model” is ticked (the two do opposite things).
+- **“Trend” tab** (result area, joint fit of ≥ 2 datasets): N, R, σ², ΔE0 and the measured edge position E0 of each path against the sequence variable, as points + lines + 1σ error bars on stacked panels with a shared x axis; choose panels (default N, R, σ², edge position), paths and the x-axis title; the trend table below is saved with **Save trend table** to `output/fits/<model>_trend.csv` and `.params.json` (also written by **Save result**).
+  - x axis (sequence variable): the `seq` column of meta.csv (only if every dataset has it) → else measurement `time` (hours after the earliest) → else dataset order (ticks show the sample names); **never mixed**: if one dataset lacks it the whole axis drops one level and the page says which datasets lack `seq`. Several rows of one sample with different `seq` count as missing.
+  - Error bars are 1σ (covariance matrix scaled by √χ²_ν, Larch). Paths with a **fixed N** (empty or numeric N field) get no error bars; a single parameter name in N uses that parameter's error; any other expression gets an error only if the S0² reference parameter is fixed, otherwise it is left blank with a note. Parameters **shared between datasets** (one fitted value) are drawn too, with a note: a flat line does not mean “no change”. E0 is the measured edge position from normalization, not a fitted quantity. Fit results are model-dependent.
 - Drafts and automatic restore also keep the multi-dataset settings (chosen datasets, per-dataset path tables and range overrides).
 
 **Two common recipes**
@@ -443,7 +449,7 @@ Load samples and standards first. Three tabs:
 
 **Settings**
 
-1. Figure type: normalized XANES, XANES derivative, kⁿχ(k), |χ(R)|, fit (k + R).
+1. Figure type: normalized XANES, XANES derivative, kⁿχ(k), |χ(R)|, **Trend** (below).
 2. Spectra, offset, range; in the **Plot order** list drag items or use ↑ / ↓ / reverse to set the curve order (with an offset the first is at the bottom; the legend, exported files and Origin project follow this order).
 3. **Palette**: 24, named as in PeakForge, in six families (Waters, Forests, Earth, Skies, Stone, Fields), each marked with its type:
    - monochrome ramps for one series of samples (oxidation state, time, potential), sampled evenly along the ramp;
@@ -453,6 +459,8 @@ Load samples and standards first. Three tabs:
 5. Size (single column 85 mm / 1.5 column / double column 178 mm / slide 16:9), formats (TIFF, PNG, SVG, PDF), file name.
 
 The preview is at true size; below it is the English caption (saved with the figure as .txt, including processing parameters).
+
+**Trend** (needs a joint fit of ≥ 2 datasets in the session): choose a joint fit (default: the latest), panels (N, R, σ², ΔE0, edge position), paths and the x-axis title (empty = default for the sequence source); size, palette (one colour per path), formats and file name are as for the other figures. Journal sizes stack the panels in one column, each panel 0.6 × the height of that size; the 16:9 slide size uses a two-column grid. Error-bar style: error-bar and cap line width = 0.7 × the curve line width, cap 0.3 × the font size, filled round markers 0.5 × the font size in the line colour; 1σ. The English caption states the model, number of datasets, edge, sequence source, what the error bars mean, fixed N and shared parameters, what E0 is, and that fit results are model-dependent. The Origin project has X / Y / yErr columns per curve (curves with a fixed N only X / Y) and uses line + symbol plots with 14 pt filled round symbols in the line colour. **Origin is not installed here, so the error-bar width (2 pt), the cap width (16 pt) and the look of the project in Origin are not verified**; without Origin only the data and `build_origin.py` are written, to be run in Origin's script window.
 
 **Save**: **Save to output/figs/journal/**. Arial, 600 dpi TIFF / PNG.
 

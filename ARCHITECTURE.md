@@ -17,6 +17,7 @@ This document is for developers and for AI assistants that change the code. For 
             │ io + readers/ │ qc │ calib │ normalize │ autobk │ ft │   │
             │ wavelet │ feff_wrap │ fit_exafs │ fit_lcf │ xanes │      │  ← computation, no Qt
             │ mut_planner │ report / pubfig / summary / methods_text  │
+            │ trend │ seqtools │ msbind │ sigma2 │ origin_export      │
             ├────────────────────────────────────────────────────────┤
             │ paths │ schema │ logs │ tasks │ update │ about           │  ← infrastructure
             └─────────────┬──────────────────────────────────────────┘
@@ -165,5 +166,6 @@ Test data are public only (`tests/data/demo_project/SOURCES.md` records source a
 | new data format | `readers/base.py`, `readers/formats.py`, `docs/dev/io_readers.md` |
 | processing parameters / validation | `pipeline.py`, `schema.py`, `docs/数据标准.md` |
 | fitting | `fit_exafs.py`, `qt/pages/fitting/fit_page.py`, `docs/XAFS处理规范.md` |
+| joint-fit series (trend table, trend figure, σ² independence, tick sync) | `trend.py` (no Qt: seq variable, N_err rule, shared flags), `seqtools.py`, `pubfig.trend`, `origin_export._errorbar_parts`, `qt/pages/fitting/trend_view.py`, `docs/数据标准.md` |
 | a GUI page | `qt/app.py` (navigation), the page module, `qt/widgets/` |
 | release | `packaging/`, `.github/workflows/release.yml`, `docs/dev/RELEASING.md` |
