@@ -449,7 +449,7 @@ def summarize_multi(res, nm: dict, groups=None) -> dict:
                               R=float(path.reff + v["deltar"]), R_err=err("deltar"),
                               sigma2=float(v["sigma2"]), sigma2_err=err("sigma2"),
                               e0=float(v["e0"]), e0_err=err("e0"), deltar=float(v["deltar"]),
-                              dataset=d["id"]))
+                              dataset=d["id"], amp_err=err("s02")))      # C2：趋势表的 N_err 用（只加键，已有值与 CSV 列不变）
     out["paths"] = prows
     if any(x is not None for x in pextra) or any(t is not None for t in ptemps):
         info = [sigma2_info_row(d, ds) for d, ds in zip(dl, res.datasets)]
