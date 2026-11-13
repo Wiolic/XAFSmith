@@ -330,21 +330,10 @@ def cmd_fit(a):
     print(f"→ {paths.rel(paths.FITS)}/{base}.fit_report.txt, {paths.rel(paths.FITS_CSV)}, {fig_txt}")
 
 
-def _fit_ranges(model):
-    from . import fit_exafs as fx
-    return [tuple(str(d[k]) for k in ("sample", "kmin", "kmax", "rmin", "rmax", "kweight", "fitspace"))
-            for d in fx.normalize_model(model)["datasets"]]
-
-
 def cmd_ftest(a):
     from . import fit_exafs as fx
-    if _fit_ranges(_load_model(a.small)) != _fit_ranges(_load_model(a.large)):
-        print("两个模型的数据或拟合范围不同，F 检验不适用 / the two models use different data or fit ranges: "
-              "the F-test does not apply")
-    if (fx.normalize_model(_load_model(a.small))["restraints"]
-            != fx.normalize_model(_load_model(a.large))["restraints"]):
-        print("两个模型的软约束不同，χ² 含不同的约束项，F 检验不适用 / the two models have different restraints: "
-              "their χ² contain different restraint terms, the F-test does not apply")
+    for msg in fx.ftest_blockers(_load_model(a.small), _load_model(a.large)):
+        print(msg)
     r1 = _run_model(a.small)[2]
     r2 = _run_model(a.large)[2]
     print(json.dumps(fx.hamilton_test(r1, r2), ensure_ascii=False, indent=2))

@@ -580,6 +580,58 @@ def hamilton_test(small, large):
                 note="p<0.05 时加入的参数/路径显著")
 
 
+def _fit_ranges(model):
+    return [tuple(str(d[k]) for k in ("sample", "kmin", "kmax", "rmin", "rmax", "kweight", "fitspace"))
+            for d in normalize_model(model)["datasets"]]
+
+
+def ftest_blockers(model_small, model_large) -> list[str]:
+    """F 检验不适用的原因（双语）；空列表 = 无已知障碍。文字与 `xafsmith ftest` 的提示逐字相同。"""
+    out = []
+    if _fit_ranges(model_small) != _fit_ranges(model_large):
+        out.append("两个模型的数据或拟合范围不同，F 检验不适用 / the two models use different data or fit ranges: "
+                   "the F-test does not apply")
+    if normalize_model(model_small)["restraints"] != normalize_model(model_large)["restraints"]:
+        out.append("两个模型的软约束不同，χ² 含不同的约束项，F 检验不适用 / the two models have different restraints: "
+                   "their χ² contain different restraint terms, the F-test does not apply")
+    return out
+
+
+COMPARE_NOTE = ("F 检验只对嵌套模型有效（小模型是大模型的特例），软件不检查嵌套关系，须自行保证 / "
+                "The F-test is valid only for nested models; nesting is not checked by the software.")
+
+
+def compare_models(entries) -> pd.DataFrame:
+    """多模型比较表。entries: [dict(name, model, result, summ)]；按 nvarys 升序（稳定排序），
+    第 i 行与第 i-1 行做 F 检验（调用 hamilton_test，数值不另算）。"""
+    order = sorted(entries, key=lambda e: e["summ"]["nvarys"])
+    cols = ["model", "n_datasets", "samples", "nvarys", "n_idp", "rfactor", "chi2_reduced", "chi_square",
+            "n_restraints", "vs", "F", "p", "b", "dof", "note"]
+    rows = []
+    for i, e in enumerate(order):
+        nm = normalize_model(e["model"])
+        s = e["summ"]
+        row = dict(model=e["name"], n_datasets=len(nm["datasets"]),
+                   samples=";".join(dict.fromkeys(d["sample"] for d in nm["datasets"])),
+                   nvarys=s["nvarys"], n_idp=s["n_idp"], rfactor=s["rfactor"], chi2_reduced=s["chi2_reduced"],
+                   chi_square=e["result"].chi_square, n_restraints=len(nm["restraints"] or []),
+                   vs=None, F=None, p=None, b=None, dof=None, note=None)
+        if i > 0:
+            prev = order[i - 1]
+            row["vs"] = prev["name"]
+            blockers = ftest_blockers(prev["model"], e["model"])
+            if blockers:
+                row["note"] = "；".join(blockers)
+            elif s["nvarys"] == prev["summ"]["nvarys"]:
+                row["note"] = "变量数相同，不做 F 检验 / same number of variables: no F-test"
+            else:
+                h = hamilton_test(prev["result"], e["result"])
+                for k in ("F", "p", "b", "dof", "note"):
+                    row[k] = h.get(k)
+        rows.append(row)
+    return pd.DataFrame(rows, columns=cols)
+
+
 def robustness_variants(model, dk_lo=0.5, dk_hi=1.0, dr=0.2):
     """稳健性检查的拟合条件变化：k 下限 ±dk_lo、k 上限 ±dk_hi、R 上限 ±dr、单一 k 权重 1/2/3"""
     base = dict(kmin=model["kmin"], kmax=model["kmax"], rmax=model["rmax"], kweight=model.get("kweight", 2))
