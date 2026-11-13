@@ -579,6 +579,12 @@ def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
                              for d in s2["datasets"]))
             t = texts(pg)
             say("联合 R 因子" in t and "Σ N_idp" in t and "多数据集模型暂不支持稳健性检查" in t, "右栏：联合指标与稳健性提示")
+            # C2：趋势标签页（表、图、保存按钮；横轴来源 order / seq / time 由 meta 决定）
+            from PySide6.QtWidgets import QTabWidget as _QTW
+            fv0 = pg.findChildren(FitView)[-1]
+            tt = [t_ for t_ in fv0.findChildren(_QTW) if any(t_.tabText(i) == "趋势" for i in range(t_.count()))]
+            say(bool(tt) and "保存趋势表" in [b.text().strip() for b in fv0.findChildren(QPushButton)],
+                "结果页：多数据集拟合有“趋势”标签页与“保存趋势表”按钮")
             # 切换数据集：图、路径、诊断重画
             fv = pg.findChildren(FitView)[-1]
             cb = [c for c in fv.findChildren(QComboBox) if c.count() == 2 and c.itemText(1) == id2][0]
@@ -629,7 +635,11 @@ def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
             base = safe(s2["model"])
             fig1, fig2 = (PROJ / "output" / "figs" / f"{base}_{i}_fit.png" for i in (id1, id2))
             mj = PROJ / "models" / f"{base}.json"
-            made += [fig1, fig2, mj, PROJ / "output" / "fits" / f"{base}.fit_report.txt"]
+            made += [fig1, fig2, mj, PROJ / "output" / "fits" / f"{base}.fit_report.txt",
+                     PROJ / "output" / "fits" / f"{base}_trend.csv", PROJ / "output" / "fits" / f"{base}_trend.params.json"]
+            say((PROJ / "output" / "fits" / f"{base}_trend.csv").exists()
+                and (PROJ / "output" / "fits" / f"{base}_trend.params.json").exists(),
+                "保存结果顺带写 _trend.csv 与 .params.json")
             dfc = pd.read_csv(FITS_CSV)
             last = dfc[dfc["model"] == s2["model"]]
             say(fig1.exists() and fig2.exists() and mj.exists() and set(last["dataset"]) == {id1, id2},

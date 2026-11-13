@@ -359,6 +359,13 @@ def save_fit(fit):
                 kw = d["kweight"][-1] if isinstance(d["kweight"], list) else d["kweight"]
                 xrep.plot_fit(fit["curves"][d["id"]], xfit.dataset_view(s_, d["id"]), kweight=kw,
                               out=paths.FIGS / f"{base}_{pl.safe(d['id'])}_fit.png")
+        if len(s_["datasets"]) >= 2:           # C2：联合拟合顺带写趋势表（趋势表失败不影响已保存的结果）
+            try:
+                from xafsmith import trend as xtr
+                meta, proc = xtr.load_project_tables()
+                xtr.save_trend(xtr.trend_table(s_, md, meta, proc), base, s_["model"], "GUI save")
+            except Exception:      # noqa: BLE001
+                logs.log.warning("state.save_fit：趋势表未保存（已忽略）", exc_info=True)
         return base
     kw = md["kweight"][-1] if isinstance(md["kweight"], list) else md["kweight"]
     with plain_rc():

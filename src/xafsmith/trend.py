@@ -208,3 +208,18 @@ def trend_table(summ, model, meta=None, processed=None):
     df.attrs.update(seq_source=sv["source"], seq_notes=sv["notes"], n_composite=composite,
                     seq_labels=sv["labels"])
     return df
+
+
+def save_trend(table, base, model_name="", tool="xafsmith trend"):
+    """趋势表 → output/fits/<base>_trend.csv（utf-8-sig）与 <base>_trend.params.json；返回 CSV 路径。"""
+    from .common import write_params
+    csv = paths.FITS / f"{base}_trend.csv"
+    csv.parent.mkdir(parents=True, exist_ok=True)
+    table.to_csv(csv, index=False, encoding="utf-8-sig")
+    write_params(paths.FITS / f"{base}_trend.params.json",
+                 dict(model=model_name or base, seq_source=table.attrs.get("seq_source"),
+                      seq_notes=table.attrs.get("seq_notes", []), n_composite=table.attrs.get("n_composite", []),
+                      columns=list(table.columns), rows=int(len(table)),
+                      note="1-sigma errors from the fit (Larch, scaled by sqrt(chi2_reduced)); fit results, "
+                           "model-dependent; E0_edge is the measured edge position, not a fit result"), tool)
+    return csv

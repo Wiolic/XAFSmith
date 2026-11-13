@@ -147,11 +147,17 @@ class FitView(QWidget):
         tabs = W.tabs((T("参数", "Parameters"), p_tab), (T("路径", "Paths"), path_tab),
                       (T("质量检查", "Quality") + (f"  ⚠ {nwarn}" if nwarn else "  ✓"), q),
                       (T("诊断", "Diagnosis"), self._diagnose()), (T("稳健性", "Robustness"), self._robust()),
+                      *([(T("趋势", "Trend"), self._trend())] if ids and len(ids) >= 2 else []),      # C2
                       *([(T("σ²(T)", "σ²(T)"), s2_tab)] if s2_tab is not None else []),
                       (T("完整报告", "Full report"), rep))
         tabs.setCurrentIndex(page.state.get("fit_tab", 0))
         tabs.currentChanged.connect(lambda i: page.state.__setitem__("fit_tab", i))
         lay.addWidget(tabs)
+
+    def _trend(self):
+        """C2：N / R / σ² / ΔE0 / 边位置随序列变量的趋势（联合拟合 ≥ 2 个数据集）；趋势表与保存按钮在页内。"""
+        from .trend_view import build_trend_tab
+        return build_trend_tab(self.page, self.full)
 
     def _sigma2_tab(self, s0, fit):
         """B6：用了 Debye / Einstein 模型时的 σ²(T) 图：每个 θ 参数一条拟合模型曲线 + 各数据集拟合 σ² 点（误差棒）。"""
