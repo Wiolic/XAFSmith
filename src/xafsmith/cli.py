@@ -395,8 +395,8 @@ def cmd_plan(a):
 def cmd_robust(a):
     from . import paths, fit_exafs as fx
     if fx.is_multi(_load_model(a.model)):
-        sys.exit("多数据集模型暂不支持稳健性检查（计划在 B2 之后） / "
-                 "robustness checks are not yet supported for multi-dataset models (planned after B2)")
+        sys.exit("多数据集模型暂不支持稳健性检查 / "
+                 "robustness checks are not yet supported for multi-dataset models")
     model, g, res, dset, summ = _run_model(a.model)
     tab, ver = fx.robustness(g, model, progress=lambda f, n: print(f"  {n}"))
     base = summ["model"].replace("/", "_")
