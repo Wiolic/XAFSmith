@@ -8,6 +8,7 @@ from xafsmith import fit_exafs as fx
 CU = str(Path(__file__).resolve().parents[1] / "data" / "benchmark" / "feffcu01.dat")
 PATH = dict(file=CU, label="Cu", s02="s02", e0="e0", deltar="dr", sigma2="sigma2_debye(tempK, thD) + ss0")
 OLD = dict(name="m", sample="s1", kmin=3, kmax=12, rmin=1, rmax=2, params={"s02": 0.8}, paths=[PATH])
+PLAIN = dict(PATH, sigma2="ss0")
 
 
 def _multi(**top):
@@ -18,7 +19,7 @@ def _multi(**top):
 
 
 def test_temperature_none_by_default():
-    assert fx.normalize_model(OLD)["datasets"][0]["temperature"] is None
+    assert fx.normalize_model({**OLD, "paths": [PLAIN]})["datasets"][0]["temperature"] is None
 
 
 def test_temperature_old_format():
@@ -28,7 +29,9 @@ def test_temperature_old_format():
 def test_temperature_dataset_over_top():
     a, b, c = fx.normalize_model(_multi(temperature=100))["datasets"]
     assert (a["temperature"], b["temperature"], c["temperature"]) == (10.0, 100.0, 300.5)
-    assert fx.normalize_model(_multi())["datasets"][1]["temperature"] is None
+    m = _multi()
+    m["datasets"][1]["paths"] = [PLAIN]
+    assert fx.normalize_model(m)["datasets"][1]["temperature"] is None
 
 
 @pytest.mark.parametrize("bad", [0, -5, "300", float("nan"), float("inf"), True, [300]])
@@ -65,9 +68,28 @@ def test_tempk_word_boundary_and_other_fields():
 
 
 def test_tempk_without_temperature_raises():
-    nm = fx.normalize_model(OLD)
+    with pytest.raises(ValueError, match=r"paths\[0\]\.sigma2.*tempK"):
+        fx.normalize_model(OLD)
+    nm = fx.normalize_model({**OLD, "temperature": 5})          # build_paths 自身也防御
+    nm["datasets"][0]["temperature"] = None
     with pytest.raises(ValueError, match=r"paths\[0\]\.sigma2.*tempK"):
         fx.build_paths(nm["datasets"][0], root=".")
+
+
+@pytest.mark.parametrize("sigma2,text", [
+    ("sigma2_debye(300)", "2 个位置参数"),
+    ("ss0 + sigma2_eins(300, thD, 1)", "2 个位置参数"),
+])
+def test_normalize_raises_on_sigma2_errors(sigma2, text):
+    with pytest.raises(ValueError, match=text):
+        fx.normalize_model({**OLD, "paths": [dict(PATH, sigma2=sigma2)], "temperature": 1})
+
+
+def test_normalize_raises_on_reserved_and_misplaced():
+    with pytest.raises(ValueError, match="tempK"):
+        fx.normalize_model({**OLD, "temperature": 1, "params": {"tempK": 1.0}})
+    with pytest.raises(ValueError, match="deltar"):
+        fx.normalize_model({**OLD, "temperature": 1, "paths": [dict(PATH, deltar="sigma2_debye(1, thD)")]})
 
 
 def test_build_paths_does_not_mutate_model():

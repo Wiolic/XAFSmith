@@ -38,6 +38,7 @@ import pandas as pd
 from larch import Group
 
 from .common import ETOK, n_idp, write_params
+from .sigma2 import parse_temperature, raise_on_errors
 
 
 def _mkparam(name, spec):
@@ -61,16 +62,6 @@ def _mkparam(name, spec):
 
 _TEMPK = re.compile(r"\btempK\b")
 _PATH_STR_FIELDS = ("N", "s02", "e0", "deltar", "sigma2", "third", "fourth", "ei")
-
-
-def parse_temperature(v, where="temperature"):
-    """temperature（K）：None → None；数字且有限且 > 0 → float；否则 ValueError（双语）。"""
-    if v is None:
-        return None
-    if isinstance(v, bool) or not isinstance(v, (int, float)) or not np.isfinite(v) or v <= 0:
-        raise ValueError(f"{where} 应为大于 0 的有限数字（K），实际是 {v!r} / "
-                         f"{where} must be a finite number > 0 (kelvin), got {v!r}")
-    return float(v)
 
 
 def _subst_tempk(expr, temperature, where):
@@ -179,6 +170,7 @@ def normalize_model(model: dict) -> dict:
     纯函数（深拷贝，不改输入）。取值顺序：数据集自己的值 → 顶层值 → 内置默认。缺必填 → ValueError。"""
     import copy
     m = copy.deepcopy(model)
+    raise_on_errors(m)                                       # B6：temperature / tempK / σ² 模型函数的错误级检查
     out = dict(name=m.get("name", ""), params=m.get("params", {}), multi=is_multi(m), datasets=[],
                restraints=_normalize_restraints(m.get("restraints")))
     if not out["multi"]:

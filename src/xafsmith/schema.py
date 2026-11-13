@@ -489,6 +489,13 @@ def _check_restraints(rep, at, m):
                 rep.warn(f"{where} expr", f"参数 {n} 不在任何路径中，larch 会把它固定，软约束对它不起作用")
 
 
+def _check_sigma2(rep, at, m):
+    """B6：temperature / tempK / sigma2_debye / sigma2_eins（数据标准 4.3；规则在 sigma2.model_issues）。"""
+    from .sigma2 import model_issues
+    for level, where, zh, _en in model_issues(m):
+        (rep.err if level == "error" else rep.warn)(f"{at} {where}", zh)
+
+
 def check_models(rep, meta, klim=None):
     samples = set(meta["sample"]) if meta is not None else set()
     klim = klim or {}
@@ -508,6 +515,7 @@ def check_models(rep, meta, klim=None):
         if "datasets" in m:
             _check_multi(rep, at, m, klim, samples)
             _check_restraints(rep, at, m)
+            _check_sigma2(rep, at, m)
             continue
         for k in MODEL_REQUIRED:
             if k not in m:
@@ -525,6 +533,7 @@ def check_models(rep, meta, klim=None):
                                          "（XAFS 处理规范：变量数不多于 N_idp 的一半，最好 ≤ N_idp − 3），结果可靠性低")
         _check_paths(rep, at, m, klim, samples)
         _check_restraints(rep, at, m)
+        _check_sigma2(rep, at, m)
 
 
 def check_structures(rep):

@@ -239,3 +239,101 @@ def test_restraints_old_format(proj):
     (proj / "models" / "old.json").write_text(json.dumps(m), encoding="utf-8")
     items = [(lv, at, x) for lv, at, x in schema.validate(structures=False).items if "old.json" in at]
     assert any(lv == "错误" and "restraints[0] expr" in at and "nope" in x for lv, at, x in items), items
+
+
+# ------------------------------------------------------------------ B6：σ² 温度模型
+def _sg(sigma2="sigma2_debye(tempK, thD) + ss0", temps=(10, 100), **kw):
+    """多数据集，每个数据集一个温度；θ 参数 thD 带 min。"""
+    p = lambda s: [{"file": str(FEFF), "s02": "amp", "e0": "e0", "deltar": "dr", "sigma2": s}]  # noqa: E731
+    m = dict(name="mm", kmin=3, kmax=14, rmin=1.4, rmax=3.0, kweight=2, window="kaiser", dk=4,
+             params={"amp": 1.0, "e0": 0.0, "dr": 0.0, "thD": dict(value=300, min=50, max=2000), "ss0": 0.0},
+             datasets=[dict(id="A", sample="cu_metal_rt", temperature=temps[0], paths=p(sigma2)),
+                       dict(id="B", sample="cu_rt01", temperature=temps[1], paths=p(sigma2))])
+    m.update(kw)
+    return m
+
+
+def _err(proj, m, where, text, level="错误"):
+    items = _mm(proj, m)
+    assert any(lv == level and where in at and text in x for lv, at, x in items), items
+    return items
+
+
+def test_sigma2_valid_clean(proj):
+    assert _mm(proj, _sg()) == []
+
+
+def test_sigma2_not_triggered_for_plain_models(proj):
+    assert _mm(proj, _multi()) == []
+
+
+def test_sigma2_error_in_params_expr(proj):
+    m = _sg()
+    m["params"]["bad"] = dict(expr="sigma2_debye(300, thD)")
+    _err(proj, m, "params.bad", "只能写在路径的 sigma2 字段")
+
+
+def test_sigma2_error_in_restraints(proj):
+    _err(proj, _sg(restraints=[dict(expr="sigma2_eins(300, thD)", value=0.003, sigma=0.001)]),
+         "restraints[0].expr", "只能写在路径的 sigma2 字段")
+
+
+def test_sigma2_error_in_other_path_field(proj):
+    m = _sg()
+    m["datasets"][0]["paths"][0]["deltar"] = "sigma2_debye(10, thD)"
+    _err(proj, m, "datasets[0].paths[0].deltar", "只能写在路径的 sigma2 字段")
+
+
+@pytest.mark.parametrize("expr", ["sigma2_debye(tempK)", "sigma2_eins(tempK, thD, 1)",
+                                  "sigma2_debye(t=tempK, theta=thD)"])
+def test_sigma2_error_arg_count(proj, expr):
+    _err(proj, _sg(expr), "paths[0].sigma2", "恰好 2 个位置参数")
+
+
+def test_sigma2_error_tempk_without_temperature(proj):
+    m = _sg()
+    del m["datasets"][1]["temperature"]
+    _err(proj, m, "datasets[1].paths[0].sigma2", "tempK")
+
+
+@pytest.mark.parametrize("bad", [0, -3, "300", True])
+def test_sigma2_error_bad_temperature(proj, bad):
+    m = _sg()
+    m["datasets"][0]["temperature"] = bad
+    _err(proj, m, "datasets[0].temperature", "大于 0")
+
+
+@pytest.mark.parametrize("name", ["tempK", "sigma2_debye", "sigma2_eins"])
+def test_sigma2_error_reserved_param(proj, name):
+    m = _sg()
+    m["params"][name] = 1.0
+    _err(proj, m, f"params.{name}", "保留名")
+
+
+@pytest.mark.parametrize("th", [dict(value=300), dict(value=300, min=0), dict(value=300, min=-5), 300.0])
+def test_sigma2_warn_theta_min(proj, th):
+    m = _sg()
+    m["params"]["thD"] = th
+    items = _err(proj, m, "params.thD", "min", level="警告")
+    assert not any(lv == "错误" for lv, _, _ in items)
+
+
+def test_sigma2_no_warn_theta_fixed(proj):
+    m = _sg()
+    m["params"]["thD"] = dict(value=300, vary=False)
+    assert _mm(proj, m) == []
+
+
+def test_sigma2_warn_single_temperature(proj):
+    items = _err(proj, _sg(temps=(100, 100)), "params.thD", "单一温度", level="警告")
+    assert not any(lv == "错误" for lv, _, _ in items)
+
+
+def test_sigma2_warn_single_dataset_old_format(proj):
+    m = _model(temperature=300, params={"s02": 0.8, "thD": dict(value=300, min=50, max=2000)},
+               paths=[{"file": str(FEFF), "sigma2": "sigma2_debye(tempK, thD)"}])
+    (proj / "models").mkdir(exist_ok=True)
+    (proj / "models" / "old.json").write_text(json.dumps(m), encoding="utf-8")
+    items = [(lv, at, x) for lv, at, x in schema.validate(structures=False).items if "old.json" in at]
+    assert any(lv == "警告" and "单一温度" in x for lv, _, x in items), items
+    assert not any(lv == "错误" for lv, _, x in items), items

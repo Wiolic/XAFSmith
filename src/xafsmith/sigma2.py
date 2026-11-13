@@ -58,3 +58,136 @@ def theta_from_sigma2(path_file, kind, T, sigma2, static=0.0):
     if not (np.isfinite(flo) and np.isfinite(fhi)) or flo * fhi > 0:
         return None
     return float(brentq(f, lo, hi, xtol=1e-12, rtol=1e-14))
+
+
+# ------------------------------------------------------------------ 模型 JSON 合法性（B6，6.1-4；schema 与 normalize_model 共用）
+import ast
+import math
+import re
+
+FUNCS = ("sigma2_debye", "sigma2_eins")
+RESERVED = ("tempK",) + FUNCS
+_TEMPK_RE = re.compile(r"\btempK\b")
+PATH_FIELDS = ("N", "s02", "e0", "deltar", "sigma2", "third", "fourth", "ei")
+
+
+def parse_temperature(v, where="temperature"):
+    """temperature（K）：None → None；数字且有限且 > 0 → float；否则 ValueError（双语）。"""
+    if v is None:
+        return None
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0:
+        raise ValueError(f"{where} 应为大于 0 的有限数字（K），实际是 {v!r} / "
+                         f"{where} must be a finite number > 0 (kelvin), got {v!r}")
+    return float(v)
+
+
+def _calls(expr):
+    """表达式里对 sigma2_debye/eins 的调用节点；解析失败返回 []。"""
+    if not isinstance(expr, str) or not any(f in expr for f in FUNCS):
+        return []
+    try:
+        tree = ast.parse(expr, mode="eval")
+    except (SyntaxError, ValueError):
+        return []
+    return [n for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+            and n.func.id in FUNCS]
+
+
+def _tkey(arg, temp):
+    """调用第 1 个参数对应的温度：数字字面量 / tempK（取数据集 temperature）；其他 None（未知）。"""
+    if isinstance(arg, ast.Constant) and isinstance(arg.value, (int, float)) and not isinstance(arg.value, bool):
+        return float(arg.value)
+    if isinstance(arg, ast.Name) and arg.id == "tempK":
+        return temp
+    return None
+
+
+def model_issues(m) -> list:
+    """模型 JSON（旧格式或多数据集，未规范化）→ [(级别 'error'|'warn', 位置, 中文, English)]。
+    只在用到 temperature / tempK / sigma2_debye / sigma2_eins 时才有输出；结构不对的部分跳过（由别处报告）。"""
+    out = []
+    if not isinstance(m, dict):
+        return out
+
+    def add(level, where, zh, en):
+        out.append((level, where, zh, en))
+    multi = isinstance(m.get("datasets"), list)
+    blocks = [(f"datasets[{i}]", d) for i, d in enumerate(m["datasets"]) if isinstance(d, dict)] if multi \
+        else [("", m)]
+    params = m.get("params") if isinstance(m.get("params"), dict) else {}
+    for n in RESERVED:
+        if n in params:
+            add("error", f"params.{n}", f"参数名 {n} 是保留名", f"parameter name {n} is reserved")
+    # 参数表达式与软约束里不得出现 sigma2 模型函数
+    for name, spec in params.items():
+        ex = spec if isinstance(spec, str) else (spec.get("expr") if isinstance(spec, dict) else None)
+        if _calls(ex):
+            add("error", f"params.{name}", "σ² 模型函数只能写在路径的 sigma2 字段里（这里的 feffpath 是最后求值的那条路径，值会悄悄算错）",
+                "sigma2_debye/sigma2_eins may only be used in a path's sigma2 field (here feffpath is the last evaluated path and the value would be silently wrong)")
+    rs = m.get("restraints")
+    for i, r in enumerate(rs if isinstance(rs, list) else []):
+        if isinstance(r, dict) and _calls(r.get("expr")):
+            add("error", f"restraints[{i}].expr", "σ² 模型函数只能写在路径的 sigma2 字段里（这里的 feffpath 是最后求值的那条路径，值会悄悄算错）",
+                "sigma2_debye/sigma2_eins may only be used in a path's sigma2 field (here feffpath is the last evaluated path and the value would be silently wrong)")
+    theta_T = {}          # θ 参数名 -> {已知温度集合, 有无未知}
+    for pre, b in blocks:
+        tw = f"{pre}.temperature" if pre else "temperature"
+        tv = b["temperature"] if "temperature" in b else m.get("temperature")
+        temp = None
+        if tv is not None:
+            try:
+                temp = parse_temperature(tv, tw)
+            except ValueError as ex:
+                zh, en = str(ex).split(" / ", 1)
+                add("error", tw, zh, en)
+        for j, ps in enumerate(b.get("paths") or []):
+            if not isinstance(ps, dict):
+                continue
+            pw = f"{pre}.paths[{j}]" if pre else f"paths[{j}]"
+            for k in PATH_FIELDS:
+                v = ps.get(k)
+                if not isinstance(v, str):
+                    continue
+                if _TEMPK_RE.search(v) and temp is None and tv is None:
+                    add("error", f"{pw}.{k}", "用了 tempK，但该数据集没有 temperature", "uses tempK but the dataset has no temperature")
+                for c in _calls(v):
+                    if k != "sigma2":
+                        add("error", f"{pw}.{k}", "σ² 模型函数只能写在路径的 sigma2 字段里（其他字段里 feffpath 指向最后求值的路径，值会悄悄算错）",
+                            "sigma2_debye/sigma2_eins may only be used in a path's sigma2 field")
+                        continue
+                    if len(c.args) != 2 or c.keywords:
+                        add("error", f"{pw}.{k}", f"{c.func.id} 需要恰好 2 个位置参数 (温度, θ)",
+                            f"{c.func.id} needs exactly 2 positional arguments (temperature, theta)")
+                        continue
+                    th = c.args[1]
+                    if isinstance(th, ast.Name) and th.id in params:
+                        e = theta_T.setdefault(th.id, dict(temps=set(), unknown=False, where=f"{pw}.{k}"))
+                        key = _tkey(c.args[0], temp)
+                        if key is None:
+                            e["unknown"] = True
+                        else:
+                            e["temps"].add(key)
+    for name, e in theta_T.items():
+        spec = params[name]
+        if isinstance(spec, str) or (isinstance(spec, dict) and spec.get("expr")):
+            continue                                   # 表达式参数不是变量
+        varied = isinstance(spec, (int, float)) or spec.get("vary", True)
+        if not varied:
+            continue
+        mn = spec.get("min") if isinstance(spec, dict) else None
+        if not (isinstance(mn, (int, float)) and not isinstance(mn, bool) and mn > 0):
+            add("warn", f"params.{name}", f"θ 参数 {name} 是可变参数但没有大于 0 的 min（larch 把 θ 夹到 1e-5 K，σ² 发散）",
+                f"theta parameter {name} is varied but has no min > 0 (larch clamps theta to 1e-5 K and sigma2 diverges)")
+        if len(e["temps"]) <= 1 and not e["unknown"]:
+            add("warn", f"params.{name}", f"单一温度：θ 参数 {name} 只是 σ² 换了参数化，不提供额外信息；若同时放开静态项则二者不可分",
+                f"single temperature: theta parameter {name} is just a re-parameterisation of sigma2 and adds no information; "
+                "if a static term is also varied the two are inseparable")
+    return out
+
+
+def raise_on_errors(m):
+    """normalize_model 用：有任何 error 级问题 → ValueError（双语，列出全部）。"""
+    errs = [i for i in model_issues(m) if i[0] == "error"]
+    if errs:
+        raise ValueError("; ".join(f"{w}: {zh}" for _, w, zh, _en in errs) + " / "
+                         + "; ".join(f"{w}: {en}" for _, w, _zh, en in errs))
