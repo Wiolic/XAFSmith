@@ -577,6 +577,7 @@ def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
         say(len(ptabs_) == 2 and len(sync_cb) == 1, "联合拟合：两个数据集路径表与“勾选同步”开关")
         if len(ptabs_) == 2 and sync_cb:
             ta, tb = ptabs_
+            ids_ = [id1, id2]
             ci = list(ta.m.df.columns).index("use")
             r0 = 0                       # 演示项目只有一条 FEFF 路径（两个数据集都已勾选）
             sig_b = list(tb.m.df["sigma2"])
@@ -594,6 +595,23 @@ def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
             setuse(tb, r0, True)
             say(bool(ta.m.df.at[r0, "use"]), "勾选同步开：反方向勾选同样同步")
             sync_cb[0].setChecked(False)
+            # C2：σ² 各数据集独立（共用的 ss1 → ss1_<id>；初值复制；再点一次无改动；恢复后不影响后面的联合拟合）
+            ci_s = list(ta.m.df.columns).index("sigma2")
+            s0 = (ta.m.df.at[0, "sigma2"], tb.m.df.at[0, "sigma2"])
+            say(s0[0] == s0[1] and s0[0] != "", f"σ² 独立前：两个数据集共用 {s0[0]}")
+            click(pg, "σ² 各数据集独立")
+            pump(app, 0.3)
+            sa_, sb_ = ta.m.df.at[0, "sigma2"], tb.m.df.at[0, "sigma2"]
+            say({sa_, sb_} == {f"{s0[0]}_{ids_[0]}", f"{s0[0]}_{ids_[1]}"}, f"σ² 独立后：{sa_}、{sb_}")
+            ptab_ = [t_ for t_ in pg.findChildren(W.Table) if {"name", "value", "vary", "min", "max", "expr"} <= set(t_.m.df.columns)]
+            nm_ = set(ptab_[0].m.df["name"]) if ptab_ else set()
+            say({sa_, sb_} <= nm_ and s0[0] not in nm_, "参数表：新参数出现，原共用参数不再被用到而消失")
+            click(pg, "σ² 各数据集独立")
+            pump(app, 0.3)
+            say((ta.m.df.at[0, "sigma2"], tb.m.df.at[0, "sigma2"]) == (sa_, sb_), "σ² 独立：幂等（再点一次无改动）")
+            for t_ in (ta, tb):                       # 恢复共用，后面的联合拟合步骤照旧
+                t_.m.setData(t_.m.index(0, ci_s), s0[0])
+            pump(app, 0.3)
         f2 = run("2 个数据集联合拟合")
         s2 = f2["summ"] if f2 else {}
         say(f2 is not None and s2.get("n_datasets") == 2 and f2.get("multi") and set(f2["curves"]) == {id1, id2},

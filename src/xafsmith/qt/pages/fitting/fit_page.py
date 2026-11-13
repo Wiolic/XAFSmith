@@ -631,12 +631,19 @@ class FitPage(Page):
             c3.add(ptabs[data_k])
             c3.add(msbind_button(data_k))
         else:
-            # C2：序列样品的联合拟合工具——勾选同步
+            # C2：序列样品的联合拟合工具——勾选同步、σ² 各数据集独立
             sync = W.check(T("勾选同步到所有数据集", "Sync ticked paths to all datasets"), bool(self.state.get("sync_use", False)))
             sync.setToolTip(T("开：在任一数据集页勾选 / 取消一条路径，其他数据集里同一路径文件的行同步勾选状态（只同步勾选，不改表达式；没有这一行的数据集跳过）。",
                               "On: ticking / unticking a path in one dataset sets the same path file in the other datasets "
                               "(only the tick, not the expressions; datasets without that row are skipped)."))
             sync.toggled.connect(lambda on: self.state.__setitem__("sync_use", bool(on)))
+            ind_btn = W.button(T("σ² 各数据集独立", "Independent σ² per dataset"),
+                               tip=T("把在 ≥ 2 个数据集中共用的 σ² 参数改成每个数据集一个（名字加 _<数据集 id>，初值 / 范围复制原参数）。"
+                                     "变量数会增加，注意 N_idp。与“使用 σ² 温度模型”互斥。",
+                                     "Turn σ² parameters shared by ≥ 2 datasets into one per dataset (name + _<dataset id>, value / "
+                                     "limits copied). The variable count rises: watch N_idp. Not for the σ² temperature model."))
+            ind_btn.setEnabled(not tcheck.isChecked())
+            tcheck.toggled.connect(lambda on: ind_btn.setEnabled(not on))
             syncing = [False]
 
             def on_use(k, idx):
@@ -661,7 +668,33 @@ class FitPage(Page):
             for k in keys:
                 ptabs[k].m.dataChanged.connect(lambda idx, *_, k=k: on_use(k, idx))
 
-            c3.add(W.hbox(sync, None))
+            def make_independent():
+                from xafsmith import seqtools
+                if tcheck.isChecked():
+                    W.toast(self, T("已勾选“使用 σ² 温度模型”：两者意图相反，请先取消勾选。",
+                                    "“Use a σ² temperature model” is ticked: the two do the opposite; untick it first."), "warn")
+                    return
+                old = self.state.get("partab", pd.DataFrame(columns=seqtools.PARAM_COLS))
+                if "tab" in cur:
+                    t_ = cur["tab"].df()
+                    old = pd.concat([old[~old.name.isin(t_.name)], t_], ignore_index=True)
+                nt, newp, ch = seqtools.sigma2_independent({ids[k]: ptabs[k].df() for k in keys}, old)
+                if not ch:
+                    W.toast(self, T("没有在 ≥ 2 个数据集中共用的 σ² 参数（已勾选的路径）。",
+                                    "No σ² parameter is shared by ≥ 2 datasets (among the ticked paths)."))
+                    return
+                self.state["partab"] = newp
+                for k in keys:
+                    m = ptabs[k].m
+                    ci = list(m.df.columns).index("sigma2")
+                    for r_ in range(len(m.df)):
+                        v_ = nt[ids[k]].at[r_, "sigma2"]
+                        if v_ != m.df.at[r_, "sigma2"]:
+                            m.setData(m.index(r_, ci), v_)
+                W.toast(self, T("σ² 已改为各数据集独立（变量数增加，注意 N_idp）：", "σ² made independent per dataset (more variables: watch N_idp): ")
+                        + "；".join(f"{i_}: {o_}→{n_}" for i_, o_, n_ in ch), "warn")
+            ind_btn.clicked.connect(lambda *_: make_independent())
+            c3.add(W.hbox(sync, ind_btn, None))
             pages_ = []
             for k in keys:
                 ov0 = self.state.get("over_" + ids[k], {})
