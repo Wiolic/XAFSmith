@@ -318,6 +318,18 @@ def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
             w.go("history")
             pump(app, 0.3)
             step("拟合历史显示多数据集拟合", n)
+            # B4：比较卡片（会话里至少有 2 个拟合时出表）
+            hp = w.pages["history"]
+            if len(S.fits) >= 2:
+                n = len(W.ERRORS)
+                click(hp, "比较")                       # 第一个“比较”是 F 检验卡片；第二个在模型比较卡片
+                bs = [b for b in hp.findChildren(QPushButton) if b.text().strip() == "比较" and b.isEnabled()]
+                bs[-1].click()
+                pump(app, 0.3)
+                step("模型比较卡片出表", n)
+                tab = next((t for t in hp.findChildren(W.Table) if "vs" in list(t.m.df.columns)), None)
+                say(tab is not None and len(tab.m.df) == len(S.fits) and "嵌套模型" in texts(hp),
+                    "模型比较表行数等于所选拟合数，并显示嵌套提示")
             w.go("fit")
             # 保存
             n = len(W.ERRORS)
