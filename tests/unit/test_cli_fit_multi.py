@@ -82,3 +82,27 @@ def test_gui_run_model_runs_multi(proj):
         assert sub["summ"]["dataset"] == state.fit_ds_ids(fit)[1] and sub["summ"]["n_idp"] == fit["summ"]["datasets"][1]["n_idp"]
     finally:
         paths.set_root(old)
+
+
+# ------------------------------------------------------------------ B3 R8：软约束走命令行
+CU1 = {"name": "cu_one", "sample": "cu_metal_rt", "kmin": 3, "kmax": 17, "dk": 4, "window": "kaiser",
+       "kweight": 2, "rmin": 1.4, "rmax": 3.0, "fitspace": "r",
+       "params": {"amp": 1.0, "del_e0": 0.0, "sig2": 0.0, "del_r": 0.0},
+       "paths": [{"file": str(FEFF), "label": "Cu-Cu", "s02": "amp", "e0": "del_e0",
+                  "sigma2": "sig2", "deltar": "del_r"}]}
+
+
+def test_fit_restraint_cli_and_ftest(proj):
+    (proj / "models" / "cu_one.json").write_text(json.dumps(CU1), encoding="utf-8")
+    (proj / "models" / "cu_one_r.json").write_text(json.dumps(
+        dict(CU1, name="cu_one_r", restraints=[dict(expr="amp", value=0.9, sigma=0.05)])), encoding="utf-8")
+    r = _cli(proj, "fit", "cu_one_r")
+    assert r.returncode == 0, r.stderr[-2000:]
+    assert "Restraints" in r.stdout
+    df = pd.read_csv(proj / "output" / "fits" / "exafs_fits.csv", encoding="utf-8-sig")
+    rows = df[df["model"] == "cu_one_r"]
+    assert len(rows) == 1 and "restraint_chi2" in df.columns and rows["restraint_chi2"].iloc[0] > 0
+    assert "r1" in json.loads(rows["restraints"].iloc[0])
+    f = _cli(proj, "ftest", "cu_one", "cu_one_r")
+    assert f.returncode == 0, f.stderr[-2000:]
+    assert "软约束不同" in f.stdout
