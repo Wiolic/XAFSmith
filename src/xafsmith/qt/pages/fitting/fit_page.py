@@ -87,24 +87,56 @@ class FitPage(Page):
             add(Banner("info", T("需要：已载入并算出 χ(k) 的数据（载入谱 / χ(k) 与 FT）与 FEFF 计算（FEFF 路径）。",
                                  "Needs data with χ(k) (Load spectra / χ(k) & FT) and a FEFF calculation (FEFF paths).")))
         else:
+            multi = bool(self.state.get("multi"))
             c1 = Card(T("1  数据与 FEFF", "1  Data and FEFF"))
-            data = W.combo(cands, self.state.get("data"))
-            g = S.groups[data.value()]
-            tag = f"_{g.element}{g.edge}"
-            match = [d for d in dirs if tag in str(d.relative_to(paths.FEFF))]
-            fd_key = "fdirs_" + data.value()
-            fdirs = W.MultiSelect(dirs, [Path(x) for x in self.state.get(fd_key, [str(d) for d in match[:1]])],
-                                  T("选择 FEFF 目录（可多选：多物相 / 多位点）", "FEFF folders (several: phases / sites)"),
-                                  fmt=lambda p: str(p.relative_to(paths.ROOT)))
-            data.currentIndexChanged.connect(lambda *_: (self.state.__setitem__("data", data.value()), self.refresh()))
-            fdirs.changed.connect(lambda v: (self.state.__setitem__(fd_key, [str(x) for x in v]), self.refresh()))
-            c1.add(W.field(T("数据", "Data"), data))
-            c1.add(W.field(T("FEFF 目录", "FEFF folders"), fdirs))
-            add(c1)
-            if fdirs.value():
-                self._model_cards(add, data.value(), fdirs.value())
+            seg = W.Segmented([False, True], multi, fmt=lambda v: T("多个数据集联合", "Joint fit of several datasets") if v
+                              else T("单个数据集", "Single dataset"))
+            seg.changed.connect(lambda v: (self.state.__setitem__("multi", bool(v)), self.refresh()))
+            c1.add(W.field(T("拟合方式", "Mode"), seg,
+                           tip=T("联合拟合：几个数据集同时拟合，同名参数共享（如不同温度的样品共用 S0² 与 ΔR）",
+                                 "Joint fit: several datasets fitted simultaneously; parameters with the same name are shared "
+                                 "(e.g. samples at different temperatures share S0² and ΔR)")))
+            if multi:
+                sel0 = [k for k in self.state.get("datas", []) if k in cands] or cands[:2]
+                datas = W.MultiSelect(cands, sel0, T("选择数据集（联合拟合至少 2 个）", "Datasets (at least 2 for a joint fit)"))
+                keys = datas.value()
+                g = S.groups[keys[0]] if keys else None
+                tag = f"_{g.element}{g.edge}" if g is not None else None
+                match = [d for d in dirs if tag and tag in str(d.relative_to(paths.FEFF))]
+                fdirs = W.MultiSelect(dirs, [Path(x) for x in self.state.get("fdirs_multi", [str(d) for d in match[:1]])],
+                                      T("选择 FEFF 目录（所有数据集共用；可多选：多物相 / 多位点）",
+                                        "FEFF folders (shared by all datasets; several: phases / sites)"),
+                                      fmt=lambda p: str(p.relative_to(paths.ROOT)))
+                datas.changed.connect(lambda v: (self.state.__setitem__("datas", list(v)), self.refresh()))
+                fdirs.changed.connect(lambda v: (self.state.__setitem__("fdirs_multi", [str(x) for x in v]), self.refresh()))
+                c1.add(W.field(T("数据（多选）", "Data (several)"), datas))
+                c1.add(W.field(T("FEFF 目录", "FEFF folders"), fdirs))
+                add(c1)
+                if not keys:
+                    add(Banner("info", T("选择至少一个数据集（联合拟合至少 2 个；只选 1 个等同于单数据集拟合）。",
+                                         "Choose at least one dataset (a joint fit needs 2 or more; one dataset equals a single fit).")))
+                elif fdirs.value():
+                    self._model_cards(add, keys, fdirs.value(), True)
+                else:
+                    add(Banner("info", T("选择至少一个 FEFF 目录。", "Choose at least one FEFF folder.")))
             else:
-                add(Banner("info", T("选择至少一个 FEFF 目录。", "Choose at least one FEFF folder.")))
+                data = W.combo(cands, self.state.get("data"))
+                g = S.groups[data.value()]
+                tag = f"_{g.element}{g.edge}"
+                match = [d for d in dirs if tag in str(d.relative_to(paths.FEFF))]
+                fd_key = "fdirs_" + data.value()
+                fdirs = W.MultiSelect(dirs, [Path(x) for x in self.state.get(fd_key, [str(d) for d in match[:1]])],
+                                      T("选择 FEFF 目录（可多选：多物相 / 多位点）", "FEFF folders (several: phases / sites)"),
+                                      fmt=lambda p: str(p.relative_to(paths.ROOT)))
+                data.currentIndexChanged.connect(lambda *_: (self.state.__setitem__("data", data.value()), self.refresh()))
+                fdirs.changed.connect(lambda v: (self.state.__setitem__(fd_key, [str(x) for x in v]), self.refresh()))
+                c1.add(W.field(T("数据", "Data"), data))
+                c1.add(W.field(T("FEFF 目录", "FEFF folders"), fdirs))
+                add(c1)
+                if fdirs.value():
+                    self._model_cards(add, [data.value()], fdirs.value(), False)
+                else:
+                    add(Banner("info", T("选择至少一个 FEFF 目录。", "Choose at least one FEFF folder.")))
         lcol.addStretch(1)
         self._show_result(S.fits[-1] if S.fits else None)
         y = self.state.get("lscroll", 0)
@@ -172,7 +204,8 @@ class FitPage(Page):
                            "A draft stores the data choice, FEFF folders, fit range, path table and parameter table (including your edited "
                            "start values and constraints) in output/gui/drafts/. These settings are also saved automatically when you "
                            "close the app and restored next time."), "faint"))
-        name = W.text(self.state.get("mname_" + str(self.state.get("data", "")), "") or T("草稿", "draft"))
+        mk = "mname_multi" if self.state.get("multi") else "mname_" + str(self.state.get("data", ""))
+        name = W.text(self.state.get(mk, "") or T("草稿", "draft"))
 
         def save():
             n = name.text().strip()
@@ -231,13 +264,24 @@ class FitPage(Page):
         mf = W.combo(models, self.state.get("mf"))
         smp = W.tag(W.MultiSelect([], [], T("样品（可多选：同一模型依次用于每个样品）", "Samples (several: model applied to each)")), "saved_smp")
 
+        hint = W.label(T("这是多数据集模型：样品由模型内 datasets 决定，直接运行一次。",
+                         "This is a multi-dataset model: the samples are set by its datasets; it runs once."), "faint")
+        hint.setVisible(False)
+
         def upd():
             self.state["mf"] = mf.value()
+            multi_ = False
             try:
-                msmp = json.loads((paths.MODELS / mf.value()).read_text(encoding="utf-8-sig")).get("sample", "")
+                md_ = json.loads((paths.MODELS / mf.value()).read_text(encoding="utf-8-sig"))
+                msmp, multi_ = md_.get("sample", ""), "datasets" in md_
             except Exception:
                 logs.log.warning("qt.pages.fitting.upd 出错（已忽略或已提示）", exc_info=True)
                 msmp = ""
+            smp.setEnabled(not multi_)
+            hint.setVisible(multi_)
+            if multi_:
+                smp.set_options([], [])
+                return
             meta_s = list(pl.load_meta().query("use != '0'")["sample"]) if pl.META.exists() else []
             opts = [o for o in dict.fromkeys([msmp] + meta_s + list(S.groups)) if o]
             smp.set_options(opts, [msmp] if msmp in opts else [])
@@ -247,7 +291,7 @@ class FitPage(Page):
         W.bind_task(btn, "fit_saved", "fit")
 
         def go():
-            todo = smp.value() or [None]
+            todo = [None] if not smp.isEnabled() else (smp.value() or [None])
             names = list(todo)
 
             def work(progress):
@@ -267,15 +311,29 @@ class FitPage(Page):
         btn.clicked.connect(go)
         body.add(W.field(T("模型", "Model"), mf))
         body.add(W.hbox(W.field(T("样品", "Samples"), smp), W.vbox(None, btn), spacing=10))
+        body.add(hint)
         cl = W.collapsible(T(f"运行已保存的模型（models/ 中 {len(models)} 个）", f"Run a saved model ({len(models)} in models/)"), body,
                            expanded=self.state.get("saved_open", False))
         cl.findChild(W.QToolButton).toggled.connect(lambda on: self.state.__setitem__("saved_open", on))
         return cl
 
-    def _model_cards(self, add, data_k, fdirs):
-        from xafsmith import feff_wrap as xfeff
+    def _model_cards(self, add, keys, fdirs, multi):
+        """keys：参与拟合的数据（单数据集模式只有 1 个）；multi：联合拟合模式（路径表按数据集分标签页，参数表共享）"""
+        from xafsmith import feff_wrap as xfeff, pipeline as pl
         from xafsmith.common import n_idp
         S = self.S
+        data_k = keys[0]
+        ids = {}                      # 数据 → 数据集 id（pipeline.safe(文件名)，重名加序号）
+        for k in keys:
+            base_ = pl.safe(Path(k).name) or "data"
+            i_, n_ = base_, 2
+            while i_ in ids.values():
+                i_, n_ = f"{base_}_{n_}", n_ + 1
+            ids[k] = i_
+        dsum = "|".join(str(d) for d in fdirs)
+
+        def tkey(k):
+            return "pathtab_" + (ids[k] + "|" if multi else "") + dsum
         allp = pd.concat([xfeff.list_paths(d).assign(dir=str(d.relative_to(paths.ROOT))) for d in fdirs], ignore_index=True)
         # 2 拟合范围
         c2 = Card(T("2  拟合范围", "2  Fit range"))
@@ -289,12 +347,16 @@ class FitPage(Page):
                         (T("拟合空间", "Fit space"), w["space"]), cols=4))
         W.link_range(w["kmin"], w["kmax"], 0.5)          # kmin < kmax、Rmin < Rmax 自动联动
         W.link_range(w["rmin"], w["rmax"], 0.1)
+        if multi:
+            c2.add(W.label(T("这是所有数据集的共同范围；个别数据集要用不同的 k / R 范围，在下面“路径”里该数据集的标签页覆盖。",
+                             "This is the common range for all datasets; to give one dataset a different k / R range, override it "
+                             "on that dataset's tab under “Paths”."), "faint"))
         nid = W.label("", rich=True)
         c2.add(nid)
         add(c2)
+
         # 3 路径
-        key = "pathtab_" + "|".join(str(d) for d in fdirs)
-        if key not in self.state:
+        def default_rows():
             rows, shells = [], []
             for _, r in allp.iterrows():
                 k_ = (r.label, r.nleg)
@@ -305,21 +367,58 @@ class FitPage(Page):
                 rows.append(dict(use=bool(sh == 0), label=f"{r.label}@{r.reff:.3f}", reff=r.reff, degen=r.degen, nleg=r.nleg,
                                  amp_ratio=r.amp_ratio, N=f"{r.degen:g}", s02="s02", e0="e0", deltar=f"dr{sh + 1}",
                                  sigma2=f"ss{sh + 1}", third="", dir=r.dir, file=r.file))
-            self.state[key] = pd.DataFrame(rows)
+            return pd.DataFrame(rows)
+        for k in keys:
+            if tkey(k) not in self.state:
+                src = self.state.get(tkey(keys[0])) if k != keys[0] else None      # 新数据集：复制第一个数据集当前的路径表
+                self.state[tkey(k)] = src.copy() if src is not None else default_rows()
         c3 = Card(T("3  路径", "3  Paths"))
         c3.add(W.label(T("勾选使用；单击单元格即可修改。N 留空 = FEFF 简并度；N、s02、e0、deltar、sigma2 都可以写表达式（如 ss1*1.5）。",
                          "Tick to use; click a cell to edit. Empty N = FEFF degeneracy; N, s02, e0, deltar, sigma2 accept "
                          "expressions (e.g. ss1*1.5)."), "faint"))
-        ptab = W.Table(self.state[key], editable=["use", "label", "N", "s02", "e0", "deltar", "sigma2", "third"],
-                       bools=["use"], max_height=280, click_edit=True)
-        ptab.hide_cols("file")
-        c3.add(ptab)
+        if multi:
+            c3.add(W.label(T("同名参数在数据集之间共享；要各自独立就改名（如 ss1_300K）。",
+                             "Parameters with the same name are shared between datasets; rename to make them independent "
+                             "(e.g. ss1_300K)."), "faint"))
+        ptabs, over = {}, {}
+        for k in keys:
+            ptab = W.Table(self.state[tkey(k)], editable=["use", "label", "N", "s02", "e0", "deltar", "sigma2", "third"],
+                           bools=["use"], max_height=280, click_edit=True)
+            ptab.hide_cols("file")
+            ptabs[k] = ptab
+        if not multi:
+            c3.add(ptabs[data_k])
+        else:
+            pages_ = []
+            for k in keys:
+                ov0 = self.state.get("over_" + ids[k], {})
+                over[k] = {f_: W.text(str(ov0.get(f_, "")), T("同共同范围", "common")) for f_ in ("kmin", "kmax", "rmin", "rmax")}
+                others = [k2 for k2 in keys if k2 != k]
+
+                def copy_to_others(k=k, others=others):
+                    for k2 in others:
+                        self.state[tkey(k2)] = ptabs[k].df().copy()
+                    W.toast(self, T(f"已把 {ids[k]} 的路径表复制到其他 {len(others)} 个数据集",
+                                    f"Copied the path table of {ids[k]} to the other {len(others)} dataset(s)"))
+                    self.refresh()
+                ow = over[k]
+                col = W.vbox(ptabs[k],
+                             W.label(T("覆盖拟合范围（留空 = 用上面“拟合范围”的共同值）",
+                                       "Override the fit range (empty = the common range above)"), "faint"),
+                             W.fields(("kmin", ow["kmin"]), ("kmax", ow["kmax"]), ("Rmin", ow["rmin"]), ("Rmax", ow["rmax"]), cols=4),
+                             *([W.hbox(W.button(T("把本页路径表复制到其他数据集", "Copy this path table to the other datasets"),
+                                                slot=copy_to_others), None)] if others else []))
+                pages_.append((ids[k], col))
+            c3.add(W.tabs(*pages_, state=self.state, key="pathtab_sel"))
         add(c3)
         # 4 参数
         c4 = Card(T("4  参数", "4  Parameters"))
         c4.add(W.label(T("vary 不勾 = 固定；expr 非空 = 约束。value 可输入任意位小数；拟合后可在右侧点“采纳拟合值到参数”。",
                          "Untick vary = fixed; non-empty expr = constrained. Values take any number of decimals; after a fit, "
                          "“Use fitted values as start” copies the results here."), "faint"))
+        if multi:
+            c4.add(W.label(T("一张共享参数表：名字取自所有数据集已勾选的路径。",
+                             "One shared table: names come from the ticked paths of all datasets."), "faint"))
         holder = W.vbox()
         c4.add(holder)
         nv = W.label("", rich=True)
@@ -330,18 +429,22 @@ class FitPage(Page):
         self._ptab = cur
 
         def names_used():
-            used = ptab.df()
-            used = used[used.use.astype(bool)]
-            out = []
-            for _, r in used.iterrows():
-                for col in ("N", "s02", "e0", "deltar", "sigma2", "third"):
-                    for t in idents(r[col]):
-                        if t not in out:
-                            out.append(t)
-            return out, used
+            """（参数名并集, {数据: 已勾选路径表}）"""
+            out, used_by = [], {}
+            for k in keys:
+                used = ptabs[k].df()
+                used = used[used.use.astype(bool)]
+                used_by[k] = used
+                for _, r in used.iterrows():
+                    for col in ("N", "s02", "e0", "deltar", "sigma2", "third"):
+                        for t in idents(r[col]):
+                            if t not in out:
+                                out.append(t)
+            return out, used_by
 
         def rebuild_params():
-            self.state[key] = ptab.df()
+            for k in keys:
+                self.state[tkey(k)] = ptabs[k].df()
             old = self.state.get("partab", pd.DataFrame(columns=["name", "value", "vary", "min", "max", "expr"]))
             if "tab" in cur:
                 t = cur["tab"].df()
@@ -369,30 +472,68 @@ class FitPage(Page):
             cur["tab"] = t
             count()
 
+        def over_vals(k):
+            """该数据集的覆盖范围：({键: 数值}, 无法识别的键)"""
+            vals, bad = {}, []
+            for f_, wd in over[k].items():
+                txt = wd.text().strip()
+                if not txt:
+                    continue
+                try:
+                    vals[f_] = float(txt)
+                except ValueError:
+                    bad.append(f_)
+            return vals, bad
+
+        def eff_range(k):
+            r = {f_: st[f_] for f_ in ("kmin", "kmax", "rmin", "rmax")}
+            if multi:
+                r.update(over_vals(k)[0])
+            return r
+
         def count():
             for k_ in ("kmin", "kmax", "dk", "rmin", "rmax"):
                 st[k_] = w[k_].value()
             st.update(win=w["win"].value(), kws=w["kws"].value(), space=w["space"].value())
-            ni = n_idp(st["kmin"], st["kmax"], st["rmin"], st["rmax"])
-            nid.setText(T(f"N_idp = <b>{ni:.1f}</b>；变量数建议 ≤ N_idp/2 = <b>{ni / 2:.1f}</b>",
-                          f"N_idp = <b>{ni:.1f}</b>; keep variables ≤ N_idp/2 = <b>{ni / 2:.1f}</b>"))
+            if multi:
+                for k in keys:
+                    self.state["over_" + ids[k]] = {f_: wd.text().strip() for f_, wd in over[k].items() if wd.text().strip()}
+                    for f_, wd in over[k].items():
+                        wd.setPlaceholderText(f"{st[f_]:g}")
+                nis = [n_idp(**eff_range(k)) for k in keys]
+                ni = float(sum(nis))
+                nid.setText(T(f"Σ N_idp = <b>{ni:.1f}</b>（各数据集 " + "、".join(f"{ids[k]}: {x:.1f}" for k, x in zip(keys, nis))
+                              + f"）；变量数建议 ≤ Σ N_idp/2 = <b>{ni / 2:.1f}</b>",
+                              f"Σ N_idp = <b>{ni:.1f}</b> (datasets: " + ", ".join(f"{ids[k]}: {x:.1f}" for k, x in zip(keys, nis))
+                              + f"); keep variables ≤ Σ N_idp/2 = <b>{ni / 2:.1f}</b>"))
+            else:
+                ni = n_idp(st["kmin"], st["kmax"], st["rmin"], st["rmax"])
+                nid.setText(T(f"N_idp = <b>{ni:.1f}</b>；变量数建议 ≤ N_idp/2 = <b>{ni / 2:.1f}</b>",
+                              f"N_idp = <b>{ni:.1f}</b>; keep variables ≤ N_idp/2 = <b>{ni / 2:.1f}</b>"))
             if "tab" in cur:
                 t = cur["tab"].df()
                 n = int(((t.vary.astype(bool)) & (t.expr.fillna("").astype(str).str.strip() == "")).sum())
                 col = C["warn"] if n > ni / 2 else C["text2"]
-                nv.setText(f'<span style="color:{col}">' + T(f"变量数 = {n}（N_idp/2 = {ni / 2:.1f}）", f"Variables = {n} (N_idp/2 = {ni / 2:.1f})")
+                nm = "Σ N_idp/2" if multi else "N_idp/2"
+                nv.setText(f'<span style="color:{col}">' + T(f"变量数 = {n}（{nm} = {ni / 2:.1f}）", f"Variables = {n} ({nm} = {ni / 2:.1f})")
                            + "</span>")
-        ptab.edited.connect(rebuild_params)
+        for k in keys:
+            ptabs[k].edited.connect(rebuild_params)
         for k_ in ("kmin", "kmax", "dk", "rmin", "rmax"):
             w[k_].valueChanged.connect(lambda *_: count())
         for k_ in ("win", "space"):
             w[k_].currentIndexChanged.connect(lambda *_: count())
         w["kws"].changed.connect(lambda *_: count())
+        for k in keys:
+            for wd in over.get(k, {}).values():
+                wd.textChanged.connect(lambda *_: count())
         rebuild_params()
         # 拟合按钮栏（固定在左下角，不随左侧滚动）
-        names, used = names_used()
-        mname = W.text(self.state.get("mname_" + data_k, f"{Path(data_k).name}_{len(used)}paths"))
-        mname.textChanged.connect(lambda s: self.state.__setitem__("mname_" + data_k, s))
+        names, used_by = names_used()
+        mkey = "mname_multi" if multi else "mname_" + data_k
+        mname = W.text(self.state.get(mkey, ("+".join(ids[k] for k in keys) + "_joint") if multi
+                                      else f"{Path(data_k).name}_{len(used_by[data_k])}paths"))
+        mname.textChanged.connect(lambda s: self.state.__setitem__(mkey, s))
         btn = W.button(T("拟合", "Fit"), primary=True, icon_name="play", tip="Ctrl+Enter")
         btn.setMinimumWidth(110)
         W.bind_task(btn, "fit", "fit")
@@ -401,10 +542,17 @@ class FitPage(Page):
             if W.task_running(excl="fit"):
                 return
             count()
-            _, used = names_used()
-            if not len(used):
-                W.toast(self, T("至少勾选一条路径", "Tick at least one path"), "warn")
+            _, used_by = names_used()
+            bad_ds = [ids[k] for k in keys if not len(used_by[k])]
+            if bad_ds:
+                W.toast(self, T("至少勾选一条路径" + (f"（数据集 {', '.join(bad_ds)} 没有勾选）" if multi else ""),
+                                "Tick at least one path" + (f" (none ticked for {', '.join(bad_ds)})" if multi else "")), "warn")
                 return
+            for k in keys:
+                if multi and over_vals(k)[1]:
+                    W.toast(self, T(f"数据集 {ids[k]} 的覆盖范围里有无法识别的数字：{', '.join(over_vals(k)[1])}",
+                                    f"Unreadable number in the range override of {ids[k]}: {', '.join(over_vals(k)[1])}"), "warn")
+                    return
             t = cur["tab"].df()
             self.state["partab"] = pd.concat([self.state.get("partab", t.iloc[0:0])[lambda d: ~d.name.isin(t.name)], t],
                                              ignore_index=True)
@@ -416,24 +564,39 @@ class FitPage(Page):
                     params[r["name"]] = {"value": float(r.value), "vary": bool(r.vary),
                                          "min": None if pd.isna(r["min"]) else float(r["min"]),
                                          "max": None if pd.isna(r["max"]) else float(r["max"])}
-            mpaths = []
-            for _, r in used.iterrows():
-                d = dict(file=r.file, label=r.label, s02=r.s02, e0=r.e0, deltar=r.deltar, sigma2=r.sigma2)
-                if str(r.N).strip():
-                    d["N"] = str(r.N)
-                if isinstance(r.third, str) and r.third.strip():
-                    d["third"] = r.third
-                mpaths.append(d)
-            model = dict(name=mname.text(), sample=data_k, kmin=st["kmin"], kmax=st["kmax"], dk=st["dk"], window=st["win"],
-                         kweight=st["kws"] or [2], rmin=st["rmin"], rmax=st["rmax"], fitspace=st["space"], params=params,
-                         paths=mpaths, norm=dict(S.norm_par), bkg=dict(S.bkg_par))
+
+            def mk_paths(used):
+                mpaths = []
+                for _, r in used.iterrows():
+                    d = dict(file=r.file, label=r.label, s02=r.s02, e0=r.e0, deltar=r.deltar, sigma2=r.sigma2)
+                    if str(r.N).strip():
+                        d["N"] = str(r.N)
+                    if isinstance(r.third, str) and r.third.strip():
+                        d["third"] = r.third
+                    mpaths.append(d)
+                return mpaths
+            rng = dict(kmin=st["kmin"], kmax=st["kmax"], dk=st["dk"], window=st["win"], kweight=st["kws"] or [2],
+                       rmin=st["rmin"], rmax=st["rmax"], fitspace=st["space"])
+            if multi:
+                dsl = []
+                for k in keys:
+                    d = dict(id=ids[k], sample=k)
+                    d.update(over_vals(k)[0])
+                    d["paths"] = mk_paths(used_by[k])
+                    dsl.append(d)
+                model = dict(name=mname.text(), params=params, **rng, datasets=dsl, norm=dict(S.norm_par), bkg=dict(S.bkg_par))
+                groups = {ids[k]: S.groups[k] for k in keys}
+            else:
+                model = dict(name=mname.text(), sample=data_k, **rng, params=params, paths=mk_paths(used_by[data_k]),
+                             norm=dict(S.norm_par), bkg=dict(S.bkg_par))
+                groups = S.groups[data_k]
 
             def done(fit):
                 S.fits.append(fit)
                 S.emit("fits")
                 self._show_result(fit)          # 只更新右侧：左侧的设置与滚动位置不变
                 self.ack()
-            W.run_task(self, lambda: run_model(S, model, S.groups[data_k]), done, T("拟合中…", "Fitting…"), btn,
+            W.run_task(self, lambda: run_model(S, model, groups), done, T("拟合中…", "Fitting…"), btn,
                        key="fit", excl="fit")
         btn.clicked.connect(go)
         self._fit_go = go
