@@ -631,6 +631,37 @@ class FitPage(Page):
             c3.add(ptabs[data_k])
             c3.add(msbind_button(data_k))
         else:
+            # C2：序列样品的联合拟合工具——勾选同步
+            sync = W.check(T("勾选同步到所有数据集", "Sync ticked paths to all datasets"), bool(self.state.get("sync_use", False)))
+            sync.setToolTip(T("开：在任一数据集页勾选 / 取消一条路径，其他数据集里同一路径文件的行同步勾选状态（只同步勾选，不改表达式；没有这一行的数据集跳过）。",
+                              "On: ticking / unticking a path in one dataset sets the same path file in the other datasets "
+                              "(only the tick, not the expressions; datasets without that row are skipped)."))
+            sync.toggled.connect(lambda on: self.state.__setitem__("sync_use", bool(on)))
+            syncing = [False]
+
+            def on_use(k, idx):
+                if not sync.isChecked() or syncing[0]:
+                    return
+                m = ptabs[k].m
+                if m.df.columns[idx.column()] != "use":
+                    return
+                from xafsmith import seqtools
+                row = m.df.iloc[idx.row()]
+                hit = seqtools.sync_targets({ids[k_]: ptabs[k_].df() for k_ in keys}, ids[k], (row["dir"], row["file"]),
+                                            bool(row["use"]))
+                by_id = {ids[k_]: k_ for k_ in keys}
+                syncing[0] = True
+                try:
+                    for i_, r_ in hit:
+                        m2 = ptabs[by_id[i_]].m
+                        m2.setData(m2.index(r_, list(m2.df.columns).index("use")),
+                                   Qt.CheckState.Checked if bool(row["use"]) else Qt.CheckState.Unchecked, Qt.ItemDataRole.CheckStateRole)
+                finally:
+                    syncing[0] = False
+            for k in keys:
+                ptabs[k].m.dataChanged.connect(lambda idx, *_, k=k: on_use(k, idx))
+
+            c3.add(W.hbox(sync, None))
             pages_ = []
             for k in keys:
                 ov0 = self.state.get("over_" + ids[k], {})

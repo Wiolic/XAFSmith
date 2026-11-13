@@ -569,6 +569,31 @@ def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
         tabs = [t.tabText(i) for t in pg.findChildren(QTabBar) for i in range(t.count())]
         say(id1 in tabs and id2 in tabs, f"路径卡按数据集分标签页：{tabs}")
         say("Σ N_idp" in texts(pg), "拟合范围显示 Σ N_idp")
+        # C2：路径勾选同步（只同步 use，不动表达式；关着时不同步）
+        from PySide6.QtCore import Qt as _Qt
+        from PySide6.QtWidgets import QCheckBox as _QCB
+        ptabs_ = [t_ for t_ in pg.findChildren(W.Table) if {"use", "label", "dir", "sigma2"} <= set(t_.m.df.columns)]
+        sync_cb = [c_ for c_ in pg.findChildren(_QCB) if c_.text() == "勾选同步到所有数据集"]
+        say(len(ptabs_) == 2 and len(sync_cb) == 1, "联合拟合：两个数据集路径表与“勾选同步”开关")
+        if len(ptabs_) == 2 and sync_cb:
+            ta, tb = ptabs_
+            ci = list(ta.m.df.columns).index("use")
+            r0 = 0                       # 演示项目只有一条 FEFF 路径（两个数据集都已勾选）
+            sig_b = list(tb.m.df["sigma2"])
+
+            def setuse(tab, r_, v_):
+                tab.m.setData(tab.m.index(r_, ci), _Qt.CheckState.Checked if v_ else _Qt.CheckState.Unchecked,
+                              _Qt.ItemDataRole.CheckStateRole)
+            say(bool(ta.m.df.at[r0, "use"]) and bool(tb.m.df.at[r0, "use"]), "同步测试前提：两个数据集的路径都已勾选")
+            setuse(ta, r0, False)
+            say(bool(tb.m.df.at[r0, "use"]), "勾选同步关：另一个数据集不跟着变")
+            setuse(ta, r0, True)
+            sync_cb[0].setChecked(True)
+            setuse(ta, r0, False)
+            say(not tb.m.df.at[r0, "use"] and list(tb.m.df["sigma2"]) == sig_b, "勾选同步开：取消勾选同步到另一个数据集，表达式不变")
+            setuse(tb, r0, True)
+            say(bool(ta.m.df.at[r0, "use"]), "勾选同步开：反方向勾选同样同步")
+            sync_cb[0].setChecked(False)
         f2 = run("2 个数据集联合拟合")
         s2 = f2["summ"] if f2 else {}
         say(f2 is not None and s2.get("n_datasets") == 2 and f2.get("multi") and set(f2["curves"]) == {id1, id2},
