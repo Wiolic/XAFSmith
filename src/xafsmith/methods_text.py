@@ -116,7 +116,8 @@ def _feff_code(model_name):
     f = paths.MODELS / f"{name}.json"
     try:
         m = json.loads(f.read_text(encoding="utf-8-sig"))
-        d = (paths.ROOT / m["paths"][0]["file"]).parent
+        from .fit_exafs import model_path_files
+        d = (paths.ROOT / model_path_files(m)[0]).parent      # 多数据集模型同样取第一条路径
         return feff_info(d)["code"]
     except Exception:
         logs.log.debug("methods_text._feff_code 出错（已忽略或已提示）", exc_info=True)

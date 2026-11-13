@@ -106,11 +106,31 @@ def _spec(model, name):
     return ("free" if p.get("vary", True) else "fixed", p.get("value"), None)
 
 
+def _model_paths(model, row=None):
+    """该结果行对应的模型路径：旧格式 = model["paths"]；多数据集 = 行的 dataset 列（没有则按 sample）所指数据集的 paths。"""
+    if not model:
+        return []
+    if "datasets" not in model:
+        return model.get("paths", [])
+    from .fit_exafs import dataset_of
+    for col in ("dataset", "sample"):
+        key = None if row is None else row.get(col)
+        key = None if key is None or (isinstance(key, float) and key != key) else str(key)   # NaN / 数字 id
+        if key:
+            try:
+                return dataset_of(model, key)["paths"]
+            except (KeyError, ValueError):
+                logs.log.debug("si_text._model_paths 找不到数据集", exc_info=True)
+    return []
+
+
 def _feff_desc(model):
     from .feff_wrap import feff_info
-    if not model or not model.get("paths"):
+    from .fit_exafs import model_path_files
+    files = model_path_files(model) if model else []
+    if not files:
         return None, None
-    d = (paths.ROOT / model["paths"][0]["file"]).parent
+    d = (paths.ROOT / files[0]).parent
     code = "feff6"
     try:
         code = feff_info(d)["code"]
@@ -156,8 +176,8 @@ def table(keys=None):
             continue
         model = _model_json(mname, s)
         params = json.loads(g.iloc[0]["params"]) if isinstance(g.iloc[0]["params"], str) else {}
-        mpaths = {p.get("label"): p for p in (model or {}).get("paths", [])}
         for _, r in g.iterrows():
+            mpaths = {p.get("label"): p for p in _model_paths(model, r)}
             mp = mpaths.get(r["path"]) or next((p for lab, p in mpaths.items() if lab and str(r["path"]).startswith(lab)), None)
             nerr = rerr = serr = None
             if mp:
@@ -276,8 +296,8 @@ def build(keys=None):
                  else (f"ΔE0 was fixed at {e0sp[1]:g} eV." if e0sp and e0sp[0] == "fixed" else ""))
         e0_zh = ("所有路径共用一个能量偏移 ΔE0 并精修。" if e0sp and e0sp[0] == "free"
                  else (f"ΔE0 固定为 {e0sp[1]:g} eV。" if e0sp and e0sp[0] == "fixed" else ""))
-        ptxt_en = "; ".join(_path_txt(p, model, True) for p in (model or {}).get("paths", []))
-        ptxt_zh = "；".join(_path_txt(p, model, False) for p in (model or {}).get("paths", []))
+        ptxt_en = "; ".join(_path_txt(p, model, True) for p in _model_paths(model, r0))
+        ptxt_zh = "；".join(_path_txt(p, model, False) for p in _model_paths(model, r0))
         data_en = (f"{info.get('edge', '')}-edge EXAFS of {', '.join(smp)}"
                    + (f" ({'transmission' if info.get('mode') == 'trans' else 'fluorescence'} mode)" if info.get("mode") else ""))
         data_zh = (f"{'、'.join(smp)} 的 {info.get('edge', '')} 边 EXAFS"

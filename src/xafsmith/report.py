@@ -101,6 +101,10 @@ def plot_fit(curves, summ, kweight=2, rmax=6, out=None, title=""):
            f"χ²_ν={summ['chi2_reduced']:.1f} | N_idp={summ['n_idp']:.1f} | "
            f"变量={summ['nvarys']} | k={summ['kmin']}–{summ['kmax']}, R={summ['rmin']}–{summ['rmax']}, "
            f"kw={summ['kweight']}")
+    if summ.get("joint"):          # 多数据集拟合中的一个数据集（fit_exafs.dataset_view）
+        j = summ["joint"]
+        txt += (f"\n联合拟合 {j['n_datasets']} 个数据集；总 R 因子={j['rfactor']:.4f}，总 N_idp={j['n_idp']:.1f}"
+                "（上一行 R 因子、N_idp 为本数据集，χ²_ν 与变量数为联合值）")
     fig.suptitle(title or summ["sample"])
     fig.text(0.01, 0.005, txt, fontsize=8)
     return _save(fig, out)

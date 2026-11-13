@@ -269,14 +269,29 @@ def cmd_feff(a):
         print(df[["name", "label", "reff", "degen", "nleg", "amp_ratio"]].to_string(index=False))
 
 
-def _run_model(name):
-    from . import paths, pipeline as pl, fit_exafs as fx
+def _load_model(name):
+    from . import paths
     f = paths.model_file(name)
     model = json.loads(f.read_text(encoding="utf-8-sig"))
     model.setdefault("name", f.stem)
+    return model
+
+
+def _run_model(name):
+    """旧格式：(model, Group, res, dset, summ)；多数据集：(model, {id: Group}, res, [dset…], summ)。"""
+    from . import pipeline as pl, fit_exafs as fx
+    model = _load_model(name)
+    if fx.is_multi(model):
+        groups = pl.build_model_groups(model)
+        res, dsets, summ = fx.fit_multi(groups, model)
+        return model, groups, res, dsets, summ
     g, _ = pl.build_sample(model["sample"])
     res, dset, summ = fx.run_fit(g, model)
     return model, g, res, dset, summ
+
+
+def _last_kw(kw):
+    return kw[-1] if isinstance(kw, list) else kw
 
 
 def cmd_fit(a):
@@ -293,17 +308,39 @@ def cmd_fit(a):
     (paths.FITS / f"{base}.fit_report.txt").write_text(rep, encoding="utf-8")
     if not a.nosave:
         fx.write_result_row(summ, paths.FITS_CSV)
-    kw = model["kweight"][-1] if isinstance(model["kweight"], list) else model["kweight"]
-    xrep.plot_fit(fx.model_curves(dset), summ, kweight=kw, out=paths.FIGS / f"{base}_fit.png")
+    if summ.get("multi"):
+        figs = []
+        for d, ds in zip(fx.normalize_model(model)["datasets"], dset):
+            f = paths.FIGS / f"{base}_{pl.safe(d['id'])}_fit.png"
+            xrep.plot_fit(fx.model_curves(ds), fx.dataset_view(summ, d["id"]), kweight=_last_kw(d["kweight"]), out=f)
+            figs.append(paths.rel(f))
+        fig_txt = ", ".join(str(f) for f in figs)
+    else:
+        xrep.plot_fit(fx.model_curves(dset), summ, kweight=_last_kw(model["kweight"]),
+                      out=paths.FIGS / f"{base}_fit.png")
+        fig_txt = f"{paths.rel(paths.FIGS)}/{base}_fit.png"
     write_params(paths.FITS / f"{base}.params.json", model, "xafsmith fit")
     print(f"\n摘要: R={summ['rfactor']:.4f}  χ²_ν={summ['chi2_reduced']:.2f}  "
           f"N_idp={summ['n_idp']:.1f}  nvarys={summ['nvarys']}")
-    print(f"→ {paths.rel(paths.FITS)}/{base}.fit_report.txt, {paths.rel(paths.FITS_CSV)}, "
-          f"{paths.rel(paths.FIGS)}/{base}_fit.png")
+    if summ.get("multi"):
+        print(f"联合拟合 {summ['n_datasets']} 个数据集（上一行为合计值）：")
+        for d in summ["datasets"]:
+            print(f"  {d['id']}: 样品 {d['sample']}  N_idp={d['n_idp']:.1f}  R={d['rfactor']:.4f}  "
+                  f"χ² 占比={d['chi2_share']:.2f}")
+    print(f"→ {paths.rel(paths.FITS)}/{base}.fit_report.txt, {paths.rel(paths.FITS_CSV)}, {fig_txt}")
+
+
+def _fit_ranges(model):
+    from . import fit_exafs as fx
+    return [tuple(str(d[k]) for k in ("sample", "kmin", "kmax", "rmin", "rmax", "kweight", "fitspace"))
+            for d in fx.normalize_model(model)["datasets"]]
 
 
 def cmd_ftest(a):
     from . import fit_exafs as fx
+    if _fit_ranges(_load_model(a.small)) != _fit_ranges(_load_model(a.large)):
+        print("两个模型的数据或拟合范围不同，F 检验不适用 / the two models use different data or fit ranges: "
+              "the F-test does not apply")
     r1 = _run_model(a.small)[2]
     r2 = _run_model(a.large)[2]
     print(json.dumps(fx.hamilton_test(r1, r2), ensure_ascii=False, indent=2))
@@ -344,6 +381,9 @@ def cmd_plan(a):
 
 def cmd_robust(a):
     from . import paths, fit_exafs as fx
+    if fx.is_multi(_load_model(a.model)):
+        sys.exit("多数据集模型暂不支持稳健性检查（计划在 B2 之后） / "
+                 "robustness checks are not yet supported for multi-dataset models (planned after B2)")
     model, g, res, dset, summ = _run_model(a.model)
     tab, ver = fx.robustness(g, model, progress=lambda f, n: print(f"  {n}"))
     base = summ["model"].replace("/", "_")
@@ -402,9 +442,18 @@ def cmd_update(a):
 def cmd_diagnose(a):
     from . import fit_exafs as fx
     model, g, res, dset, summ = _run_model(a.model)
-    kw = model["kweight"][-1] if isinstance(model["kweight"], list) else model["kweight"]
-    dg = fx.diagnose(fx.model_curves(dset), model, e0=getattr(g, "e0", None), kweight=kw)
     print(f"R 因子 {summ['rfactor']:.4f}  χ²_ν {summ['chi2_reduced']:.2f}  变量 {summ['nvarys']} / N_idp {summ['n_idp']:.1f}")
+    if summ.get("multi"):
+        for d, ds in zip(fx.normalize_model(model)["datasets"], dset):
+            print(f"\n===== 数据集 {d['id']}（样品 {d['sample']}） =====")
+            _print_diag(fx.diagnose(fx.model_curves(ds), d, e0=getattr(g[d["id"]], "e0", None),
+                                    kweight=_last_kw(d["kweight"])))
+        return
+    _print_diag(fx.diagnose(fx.model_curves(dset), model, e0=getattr(g, "e0", None),
+                            kweight=_last_kw(model["kweight"])))
+
+
+def _print_diag(dg):
     print(f"窗口内残差 RMS {dg['resid_R']:.4f}   白噪声估计 {dg['noise_R']:.4f}   残差/噪声 {dg['ratio']:.1f}")
     print("\nk 分段残差：\n" + dg["k_segments"].round(3).to_string(index=False))
     print("\nR 分段局部失配：\n" + dg["r_segments"].round(3).to_string(index=False))
@@ -430,8 +479,20 @@ def cmd_figure(a):
     if a.kind == "fit":
         if not a.model:
             sys.exit("--kind fit 需要 --model <模型名>")
-        model, g, res, dset, summ = _run_model(a.model)
-        fig, cap = pf.fit(fx.model_curves(dset), summ, size, kweight=a.kweight, rmax=a.rmax, model=model)
+        m0 = _load_model(a.model)
+        if fx.is_multi(m0):
+            dl = fx.normalize_model(m0)["datasets"]
+            ids = [d["id"] for d in dl]
+            if a.dataset not in ids:
+                sys.exit(f"多数据集模型需要 --dataset ID，可选：{', '.join(ids)} / "
+                         f"a multi-dataset model needs --dataset ID, one of: {', '.join(ids)}")
+            model, g, res, dset, summ = _run_model(a.model)
+            i = ids.index(a.dataset)
+            fig, cap = pf.fit(fx.model_curves(dset[i]), fx.dataset_view(summ, a.dataset), size,
+                              kweight=a.kweight, rmax=a.rmax, model=dl[i])
+        else:
+            model, g, res, dset, summ = _run_model(a.model)
+            fig, cap = pf.fit(fx.model_curves(dset), summ, size, kweight=a.kweight, rmax=a.rmax, model=model)
     else:
         if not a.samples:
             sys.exit("需要 --samples 样品1 样品2 …")
@@ -547,6 +608,7 @@ def build_parser():
     p = sp.add_parser("figure", help="期刊出图 → output/figs/journal/")
     p.add_argument("--kind", required=True, choices=["xanes", "deriv", "chik", "chir", "fit"])
     p.add_argument("--samples", nargs="+"); p.add_argument("--model", help="--kind fit 时的模型名")
+    p.add_argument("--dataset", help="--kind fit 且为多数据集模型时：数据集 id")
     p.add_argument("--size", default="single", help="single / 1.5 / double / slide")
     p.add_argument("--kweight", type=int, default=2); p.add_argument("--rmax", type=float, default=6.0)
     p.add_argument("--emin", type=float, default=-20); p.add_argument("--emax", type=float, default=60)

@@ -314,6 +314,11 @@ def fit(curves, summ, size="双栏 178 mm", kweight=2, rmax=6.0, model=None):
            f"R = {summ['rmin']}–{summ['rmax']} Å (shaded), k-weights {summ['kweight']}, "
            f"R-factor = {summ['rfactor']:.4f}, reduced χ² = {summ['chi2_reduced']:.1f}, "
            f"N_idp = {summ['n_idp']:.1f}, {summ['nvarys']} variables; R axis not phase-corrected.")
+    if summ.get("joint"):          # 多数据集拟合中的一个数据集（fit_exafs.dataset_view）
+        j = summ["joint"]
+        cap += (f" Joint fit of {j['n_datasets']} datasets with shared parameters: R-factor and N_idp above are for "
+                f"this dataset; reduced χ² and the number of variables are for the joint fit "
+                f"(total R-factor = {j['rfactor']:.4f}, total N_idp = {j['n_idp']:.1f}).")
     return fig, cap
 
 

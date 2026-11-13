@@ -1,0 +1,81 @@
+"""B1 T9：多数据集模型走命令行与界面入口。
+
+演示项目复制到 tmp_path，写一个 2 数据集模型（同一 cu_metal_rt，路径用 feffcu01.dat 绝对路径）：
+  xafsmith fit 退出码 0、每个数据集一张图、CSV 有 dataset 列且两个数据集各一行；
+  xafsmith robust 给出“暂不支持”且退出码非 0；
+  界面 state.run_model 抛出双语提示（界面在 B2 提供）。
+CLI 在子进程里运行（项目目录须在导入 xafsmith.paths 之前设定）。
+"""
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+TESTS = Path(__file__).resolve().parents[1]
+DEMO = TESTS / "data" / "demo_project"
+FEFF = TESTS / "data" / "benchmark" / "feffcu01.dat"
+
+
+def _path(sig):
+    return {"file": str(FEFF), "label": "Cu-Cu", "s02": "amp", "e0": "del_e0", "deltar": "del_r", "sigma2": sig}
+
+
+MODEL = {"name": "cu_twin", "kmin": 3, "kmax": 17, "dk": 4, "window": "kaiser", "kweight": 2,
+         "rmin": 1.4, "rmax": 3.0, "fitspace": "r",
+         "params": {"amp": 1.0, "del_e0": 0.0, "del_r": 0.0, "ssA": 0.005, "ssB": 0.005},
+         "datasets": [{"id": "A", "sample": "cu_metal_rt", "paths": [_path("ssA")]},
+                      {"id": "B", "sample": "cu_metal_rt", "kmax": 14, "paths": [_path("ssB")]}]}
+
+
+@pytest.fixture(scope="module")
+def proj(tmp_path_factory):
+    d = tmp_path_factory.mktemp("demo") / "demo_project"
+    shutil.copytree(DEMO, d)
+    (d / "models").mkdir(exist_ok=True)
+    (d / "models" / "cu_twin.json").write_text(json.dumps(MODEL, ensure_ascii=False), encoding="utf-8")
+    return d
+
+
+def _cli(proj, *args):
+    env = dict(os.environ, PYTHONIOENCODING="utf-8", XAFSMITH_NO_RECENT="1")
+    return subprocess.run([sys.executable, "-m", "xafsmith.cli", "--project", str(proj), *args],
+                          capture_output=True, text=True, encoding="utf-8", env=env, timeout=300)
+
+
+def test_fit_multi_cli(proj):
+    r = _cli(proj, "fit", "cu_twin")
+    assert r.returncode == 0, r.stderr[-2000:]
+    assert "联合拟合 2 个数据集" in r.stdout
+    for i in ("A", "B"):
+        assert (proj / "output" / "figs" / f"cu_twin_{i}_fit.png").is_file()
+    df = pd.read_csv(proj / "output" / "fits" / "exafs_fits.csv", encoding="utf-8-sig")
+    rows = df[df["model"] == "cu_twin"]
+    assert "dataset" in df.columns
+    assert sorted(rows["dataset"]) == ["A", "B"]
+    assert set(rows[rows["dataset"] == "B"]["k_range"]) == {"3-14"}
+
+
+def test_robust_refuses_multi(proj):
+    r = _cli(proj, "robust", "cu_twin")
+    assert r.returncode != 0
+    assert "暂不支持" in r.stderr + r.stdout
+
+
+def test_gui_run_model_refuses_multi(proj):
+    from xafsmith import paths
+    from xafsmith.qt import state
+    old = paths.ROOT
+    paths.set_root(proj)
+    try:
+        m = state.load_model("cu_twin.json", sample="cu_metal_rt")     # 不替换样品、不报缺 sample
+        assert "datasets" in m and "sample" not in m
+        with pytest.raises(ValueError, match="B2") as e:
+            state.run_model(None, m)
+        assert "xafsmith fit" in str(e.value)
+    finally:
+        paths.set_root(old)

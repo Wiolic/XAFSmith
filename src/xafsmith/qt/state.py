@@ -261,9 +261,16 @@ def now():
     return datetime.datetime.now().strftime("%H:%M:%S")
 
 
+MULTI_MSG = ("多数据集模型的界面在 v1.2 拟合页提供（B2）；目前请用命令行 xafsmith fit 模型名 / "
+             "the GUI for multi-dataset models comes with the v1.2 fit page (B2); for now use the command line: "
+             "xafsmith fit <model>")
+
+
 def run_model(S, model, group=None):
     """运行一个模型（dict），返回会话中的拟合记录（不保存文件）"""
     from xafsmith import fit_exafs as xfit, pipeline as pl
+    if xfit.is_multi(model):
+        raise ValueError(MULTI_MSG)
     g = group
     if g is None:
         try:
@@ -278,6 +285,8 @@ def run_model(S, model, group=None):
 def load_model(mf, sample=None):
     m = json.loads((paths.MODELS / mf).read_text(encoding="utf-8-sig"))
     m.setdefault("name", Path(mf).stem)
+    if "datasets" in m:            # 多数据集：不替换样品、不要求顶层 sample（运行时由 run_model 给出提示）
+        return m
     old = m.get("sample")
     if sample and sample != old:
         m["sample"] = sample

@@ -327,6 +327,22 @@ def build_sample(sample: str, cfg: dict | None = None, meta: pd.DataFrame | None
     return g, rep
 
 
+def build_model_groups(model: dict, cfg: dict | None = None, meta: pd.DataFrame | None = None,
+                       calib: dict | None = None) -> dict:
+    """多数据集模型（旧格式也可）→ {数据集 id: Group}。每个不同的样品只建一次；同一样品的多个数据集共用同一 Group
+    （安全：larch feffit_dataset 复制 k、χ，不改 Group）。"""
+    from . import fit_exafs as fx
+    cfg = cfg or load_config()
+    meta = meta if meta is not None else load_meta()
+    calib = calib if calib is not None else load_calib()
+    built, out = {}, {}
+    for d in fx.normalize_model(model)["datasets"]:
+        if d["sample"] not in built:
+            built[d["sample"]] = build_sample(d["sample"], cfg, meta, calib)[0]
+        out[d["id"]] = built[d["sample"]]
+    return out
+
+
 def process_all(cfg: dict | None = None, meta: pd.DataFrame | None = None, edge_keys: list[str] | None = None,
                 make_figs: bool = True, progress: Callable[[float, str], None] | None = None) -> tuple[pd.DataFrame, dict]:
     """处理全部样品。progress(f, 名称)：可选，每个样品开始前调用（同时是取消点）；取消时已写出的样品文件保留。"""
