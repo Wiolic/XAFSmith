@@ -207,6 +207,67 @@ def restraint_checks(app, w, S, P, k1, fdir):
         pg.refresh()
 
 
+def sigma2_checks(app, w, S, P, k1, fdir):
+    """B6：拟合页温度字段与 σ² 温度模型。温度空 → 模型无 temperature 键；写温度 + σ² 写成 sigma2_debye(tempK, thD1)
+    → 模型记录 temperature、摘要路径行有 temperature / sigma2_model / theta_param、thD1 默认带 min 50 / max 2000；非法温度不拟合。"""
+    pg = P["fit"]
+    w.go("fit")
+    st = pg.state
+    st.update(multi=False, data=k1)
+    st["fdirs_" + k1] = [str(PROJ / fdir)]
+    for k in [k for k in st if k.startswith("temp_")]:
+        st.pop(k)
+    pg.refresh()
+    pump(app)
+    n0 = len(S.fits)
+    try:
+        def temp_edit():
+            return next((e for e in pg.findChildren(W.QLineEdit) if e.placeholderText() in ("不写", "not set")), None)
+
+        def path_tab():
+            return next((t for t in pg.findChildren(W.Table) if {"use", "sigma2"} <= set(t.m.df.columns)), None)
+        te, pt = temp_edit(), path_tab()
+        say(te is not None and pt is not None, "拟合页有温度输入框")
+        if te is None or pt is None:
+            return
+        n = len(W.ERRORS)
+        click(pg, "拟合")
+        wait(app)
+        step("σ² 模型 · 无温度拟合", n)
+        say(len(S.fits) == n0 + 1 and "temperature" not in S.fits[-1]["model"]
+            and "sigma2_model" not in S.fits[-1]["summ"]["paths"][0], "温度为空：模型无 temperature 键、摘要路径行无 σ² 模型字段")
+        ci = list(pt.m.df.columns).index("sigma2")
+        pt.m.setData(pt.m.index(0, ci), "sigma2_debye(tempK, thD1)")
+        pump(app, 0.2)
+        te = temp_edit()
+        te.setText("abc")
+        n1 = len(S.fits)
+        click(pg, "拟合")
+        pump(app, 0.3)
+        say(len(S.fits) == n1, "非法温度：不拟合")
+        te.setText("150")
+        pump(app, 0.1)
+        pt2 = next((t for t in pg.findChildren(W.Table) if "vary" in t.m.df.columns), None)
+        row = pt2.m.df[pt2.m.df.name == "thD1"] if pt2 is not None else []
+        say(len(row) == 1 and float(row.iloc[0]["value"]) == 300.0 and float(row.iloc[0]["min"]) == 50.0
+            and float(row.iloc[0]["max"]) == 2000.0, "sigma2_debye(tempK, thD1)：参数表自动出现 thD1（300 K，范围 50–2000）、tempK 不是参数")
+        say(len(pt2.m.df[pt2.m.df.name.isin(["tempK", "sigma2_debye"])]) == 0, "tempK 与函数名不进参数表")
+        n = len(W.ERRORS)
+        click(pg, "拟合")
+        wait(app)
+        step("σ² 模型 · 温度 150 K 拟合", n)
+        f = S.fits[-1] if len(S.fits) == n1 + 1 else None
+        pr = f["summ"]["paths"][0] if f else {}
+        say(f is not None and f["model"].get("temperature") == 150.0 and pr.get("temperature") == 150.0
+            and pr.get("sigma2_model") == "debye" and pr.get("theta_param") == "thD1",
+            "写了温度：模型记录 temperature=150，摘要路径行 temperature / sigma2_model / theta_param")
+    finally:
+        for k in [k for k in st if k.startswith("temp_")]:
+            st.pop(k)
+        S.fits[:] = S.fits[:n0]
+        pg.refresh()
+
+
 def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
     """B2：拟合页多数据集联合拟合（k1、k2：两条已载入的谱；fdir：FEFF 目录，相对项目根）。
     alias=True：k2 是 k1 的副本（演示项目只有一条 Cu 谱），不做命令行重跑对照。
@@ -770,6 +831,7 @@ def demo_suite(app, w, S, P):
         multi_fit_checks(app, w, S, P, "cu_metal_rt", "cu_b2copy", "output/feff/_b2test_Cu_CuK",
                          rng=dict(kmin=3, kmax=17, dk=4, win="kaiser", kws=[2], rmin=1.4, rmax=3.0, space="r"), alias=True)
         restraint_checks(app, w, S, P, "cu_metal_rt", "output/feff/_b2test_Cu_CuK")
+        sigma2_checks(app, w, S, P, "cu_metal_rt", "output/feff/_b2test_Cu_CuK")
     finally:
         (fd / "feff0001.dat").unlink(missing_ok=True)
         fd.rmdir()

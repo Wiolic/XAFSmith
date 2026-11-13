@@ -462,13 +462,21 @@ class FitPage(Page):
             c3.add(W.label(T("同名参数在数据集之间共享；要各自独立就改名（如 ss1_300K）。",
                              "Parameters with the same name are shared between datasets; rename to make them independent "
                              "(e.g. ss1_300K)."), "faint"))
-        ptabs, over = {}, {}
+        ptabs, over, temps = {}, {}, {}
         for k in keys:
+            # B6：温度（K），空 = 模型里不写 temperature；σ² 模型（sigma2_debye / sigma2_eins）与 tempK 用它
+            temps[k] = W.text(str(self.state.get("temp_" + ids[k], "")), T("不写", "not set"))
+            temps[k].setMaximumWidth(120)
+            temps[k].setToolTip(T("测量温度（K）。σ² 写成 sigma2_debye(tempK, thD) 时，tempK 取这里的值；空 = 模型里不写 temperature。",
+                                  "Measurement temperature (K). In sigma2_debye(tempK, thD), tempK takes this value; empty = no "
+                                  "temperature in the model."))
+            temps[k].textChanged.connect(lambda s_, k=k: self.state.__setitem__("temp_" + ids[k], s_.strip()))
             ptab = W.Table(self.state[tkey(k)], editable=["use", "label", "N", "s02", "e0", "deltar", "sigma2", "third"],
                            bools=["use"], max_height=280, click_edit=True)
             ptab.hide_cols("file")
             ptabs[k] = ptab
         if not multi:
+            c3.add(W.fields((T("温度 (K)", "Temperature (K)"), temps[data_k]), cols=4))
             c3.add(ptabs[data_k])
         else:
             pages_ = []
@@ -484,7 +492,8 @@ class FitPage(Page):
                                     f"Copied the path table of {ids[k]} to the other {len(others)} dataset(s)"))
                     self.refresh()
                 ow = over[k]
-                col = W.vbox(ptabs[k],
+                col = W.vbox(W.fields((T("温度 (K)", "Temperature (K)"), temps[k]), cols=4),
+                             ptabs[k],
                              W.label(T("覆盖拟合范围（留空 = 用上面“拟合范围”的共同值）",
                                        "Override the fit range (empty = the common range above)"), "faint"),
                              W.fields(("kmin", ow["kmin"]), ("kmax", ow["kmax"]), ("Rmin", ow["rmin"]), ("Rmax", ow["rmax"]), cols=4),
@@ -539,7 +548,9 @@ class FitPage(Page):
                 if n in set(old.name):
                     rows.append(old[old.name == n].iloc[0].to_dict())
                 else:
-                    v, vary, lo, hi = defaults.get(n, (0.003, True, 0.0, 0.05) if n.startswith("ss") else
+                    v, vary, lo, hi = defaults.get(n, (300.0, True, 50.0, 2000.0) if n.startswith(("thD", "thE")) else
+                                                   (0.0, True, None, None) if n.startswith("ss0_") else
+                                                   (0.003, True, 0.0, 0.05) if n.startswith("ss") else
                                                    (0.0, True, -0.5, 0.5) if n.startswith("dr") else (1.0, True, None, None))
                     rows.append(dict(name=n, value=v, vary=vary, min=lo, max=hi, expr=""))
             df = pd.DataFrame(rows, columns=["name", "value", "vary", "min", "max", "expr"])
@@ -651,6 +662,20 @@ class FitPage(Page):
             restraints = self._restraints_from_table(rcur)
             if restraints is False:
                 return
+            tvals = {}
+            for k in keys:
+                txt = temps[k].text().strip()
+                if not txt:
+                    continue
+                try:
+                    tv = float(txt)
+                    if not (tv > 0 and tv < float("inf")):
+                        raise ValueError
+                except ValueError:
+                    W.toast(self, T(f"数据集 {ids[k]} 的温度应是大于 0 的数字（K）：{txt!r}",
+                                    f"Temperature of {ids[k]} must be a number > 0 (K): {txt!r}"), "warn")
+                    return
+                tvals[k] = tv
 
             def mk_paths(used):
                 mpaths = []
@@ -670,6 +695,8 @@ class FitPage(Page):
                 for k in keys:
                     d = dict(id=ids[k], sample=k)
                     d.update(over_vals(k)[0])
+                    if k in tvals:
+                        d["temperature"] = tvals[k]
                     d["paths"] = mk_paths(used_by[k])
                     dsl.append(d)
                 model = dict(name=mname.text(), params=params, **rng, datasets=dsl, norm=dict(S.norm_par), bkg=dict(S.bkg_par), **extra)
@@ -677,6 +704,8 @@ class FitPage(Page):
             else:
                 model = dict(name=mname.text(), sample=data_k, **rng, params=params, paths=mk_paths(used_by[data_k]),
                              norm=dict(S.norm_par), bkg=dict(S.bkg_par), **extra)
+                if data_k in tvals:
+                    model["temperature"] = tvals[data_k]
                 groups = S.groups[data_k]
 
             def done(fit):
