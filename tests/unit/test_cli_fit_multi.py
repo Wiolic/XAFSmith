@@ -66,7 +66,8 @@ def test_robust_refuses_multi(proj):
     assert "暂不支持" in r.stderr + r.stdout
 
 
-def test_gui_run_model_refuses_multi(proj):
+def test_gui_run_model_runs_multi(proj):
+    """B2：GUI 的 run_model 能直接运行多数据集模型（组按项目配置建，与命令行一致）"""
     from xafsmith import paths
     from xafsmith.qt import state
     old = paths.ROOT
@@ -74,8 +75,10 @@ def test_gui_run_model_refuses_multi(proj):
     try:
         m = state.load_model("cu_twin.json", sample="cu_metal_rt")     # 不替换样品、不报缺 sample
         assert "datasets" in m and "sample" not in m
-        with pytest.raises(ValueError, match="B2") as e:
-            state.run_model(None, m)
-        assert "xafsmith fit" in str(e.value)
+        fit = state.run_model(None, m)
+        assert fit["multi"] and fit["summ"]["n_datasets"] == 2 and len(fit["curves"]) == 2
+        assert state.fit_ds_ids(fit) == [d["id"] for d in fit["summ"]["datasets"]]
+        sub = state.fit_dataset(fit, state.fit_ds_ids(fit)[1])
+        assert sub["summ"]["dataset"] == state.fit_ds_ids(fit)[1] and sub["summ"]["n_idp"] == fit["summ"]["datasets"][1]["n_idp"]
     finally:
         paths.set_root(old)

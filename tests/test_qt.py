@@ -265,11 +265,12 @@ def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
                 dif = max(abs(sc["params"][k]["value"] - v["value"]) / max(abs(v["value"]), 1e-12) for k, v in gp.items())
                 say(dif < 1e-10, f"GUI 联合拟合与 xafsmith fit 重跑：参数最大相对差 {dif:.2e}")
         # 覆盖范围：第 2 个数据集用不同的 kmax
-        st["over_" + id2] = {"kmax": "12"}
+        kmo = float(st["range"]["kmax"]) - 1.5
+        st["over_" + id2] = {"kmax": f"{kmo:g}"}
         pg.refresh()
         f3 = run("第 2 个数据集覆盖 kmax")
-        say(f3 is not None and f2 is not None and f3["summ"]["datasets"][1]["kmax"] == 12.0
-            and f3["summ"]["datasets"][0]["kmax"] != 12.0 and f3["summ"]["n_idp"] < f2["summ"]["n_idp"],
+        say(f3 is not None and f2 is not None and f3["summ"]["datasets"][1]["kmax"] == kmo
+            and f3["summ"]["datasets"][0]["kmax"] == st["range"]["kmax"] and f3["summ"]["n_idp"] < f2["summ"]["n_idp"],
             "覆盖范围：" + ("无结果" if f3 is None else f"kmax {[d['kmax'] for d in f3['summ']['datasets']]}，Σ N_idp {f3['summ']['n_idp']:.2f}"))
         # 草稿：多数据集设置能存能恢复
         dr = session.save_draft("_b2test", S, P)
@@ -482,7 +483,9 @@ def irtaox_suite(app, w, S, P):
     wait(app)
     step("已保存模型用于多个样品", n)
     say([f["summ"]["sample"] for f in S.fits[n1:]] == ["IrTa-50", "IrTa-100"], f"多样品运行：{[f['summ']['sample'] for f in S.fits[n1:]]}")
-    multi_fit_checks(app, w, S, P, "IrO2", "IrTa-50", "output/feff/IrO2_IrL3", rng=dict(pg.state["range"]))
+    from xafsmith.qt.state import feff_dirs
+    d_ir = [x for x in feff_dirs() if "IrO2_IrL3" in str(x) and "_feff8" not in str(x)][0]
+    multi_fit_checks(app, w, S, P, "IrO2", "IrCoOx_OCP", str(d_ir.relative_to(PROJ)), rng=dict(pg.state["range"]))
     if not ARGS.quick:
         pg.state["mf"] = "IrO2_1shell_ArtemisCompare.json"
         pg.refresh()
