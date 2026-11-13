@@ -108,6 +108,25 @@ def _mode_txt(modes, lang):
     return _fmt_list([m.get(x, (x, x))[0 if lang == "zh" else 1] for x in modes], "、" if lang == "zh" else " and ")
 
 
+def _restraint_items(models):
+    """B3：这些模型里的软约束，去重后 [(expr, value, sigma)]；模型找不到或格式错误则跳过。"""
+    import json
+    from .fit_exafs import normalize_model
+    out = []
+    for name in dict.fromkeys(models):
+        f = paths.MODELS / f"{str(name).split('@')[0].split('[')[0]}.json"
+        try:
+            rs = normalize_model(json.loads(f.read_text(encoding="utf-8-sig")))["restraints"]
+        except Exception:
+            logs.log.debug("methods_text._restraint_items 出错（已忽略或已提示）", exc_info=True)
+            continue
+        for r in rs:
+            t = (r["expr"], r["value"], r["sigma"])
+            if t not in out:
+                out.append(t)
+    return out
+
+
 def _feff_code(model_name):
     """由 models/<模型>.json 的路径目录判断 FEFF 版本（feff6 / feff8）；找不到模型时返回 feff6。"""
     import json
@@ -211,6 +230,14 @@ def build(samples=None):
             en.append(f"The amplitude reduction factor for the {e['element']} {e['edge']}-edge, S0² = {s0}{err}, was "
                       f"obtained from a reference compound of known structure"
                       + (" and fixed in the sample fits." if fixed else "."))
+        rs = _restraint_items(fits["model"])
+        if rs:
+            lst = "; ".join(f"{e} = {v:g} ± {s:g}" for e, v, s in rs)
+            zh.append(f"部分拟合加入软约束（restraint）：{lst}。约束项 (expr − value)²/σ² 乘以无约束拟合的 χ²_ν 后加入 χ²，"
+                      "σ 与报告的参数误差同一尺度；软约束不计入 N_idp。")
+            en.append(f"Soft restraints were applied in some fits: {lst}. The restraint term (expr − value)²/σ² was "
+                      "multiplied by the reduced χ² of the unrestrained fit before being added to χ², so that σ is on "
+                      "the scale of the reported uncertainties; restraints were not counted in N_idp.")
         zh.append("参数误差由协方差矩阵得到（已按约化 χ² 修正）。")
         en.append("Uncertainties were estimated from the covariance matrix scaled by the reduced χ².")
     lcf = f["lcf"]

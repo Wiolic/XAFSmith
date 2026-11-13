@@ -243,6 +243,34 @@ def _path_txt(mp, model, en):
     return f"{lab} ({'; '.join(parts)})" if en else f"{lab}（{'；'.join(parts)}）"
 
 
+def _restraint_txt(model, row):
+    """B3：软约束（先验与拟合后偏离）的英/中文说明；没有软约束返回 ("", "")。偏离取自 CSV 的 restraints 列。"""
+    if not model:
+        return "", ""
+    try:
+        from .fit_exafs import normalize_model
+        rs = normalize_model(model)["restraints"]
+    except Exception:
+        logs.log.debug("si_text._restraint_txt 出错（已忽略或已提示）", exc_info=True)
+        return "", ""
+    if not rs:
+        return "", ""
+    try:
+        fitted = json.loads(row["restraints"]) if isinstance(row.get("restraints"), str) else {}
+    except Exception:
+        fitted = {}
+    en, zh = [], []
+    for r in rs:
+        f = fitted.get(r["name"])
+        tail_en = f" (fitted {f[0]:.4g}, deviation {f[3]:+.1f}σ)" if f else ""
+        tail_zh = f"（拟合值 {f[0]:.4g}，偏离 {f[3]:+.1f}σ）" if f else ""
+        en.append(f"{r['expr']} = {r['value']:g} ± {r['sigma']:g}{tail_en}")
+        zh.append(f"{r['expr']} = {r['value']:g} ± {r['sigma']:g}{tail_zh}")
+    return (f"Soft restraints (restraint term (expr − value)²/σ², multiplied by the reduced χ² of the unrestrained "
+            f"fit; not counted in N_idp): {'; '.join(en)}. ",
+            f"软约束（约束项 (expr − value)²/σ² 乘以无约束拟合的 χ²_ν；不计入 N_idp）：{'；'.join(zh)}。")
+
+
 def build(keys=None):
     """返回 dict(zh=文本, en=文本, table=DataFrame)"""
     from . import __version__
@@ -296,6 +324,7 @@ def build(keys=None):
                  else (f"ΔE0 was fixed at {e0sp[1]:g} eV." if e0sp and e0sp[0] == "fixed" else ""))
         e0_zh = ("所有路径共用一个能量偏移 ΔE0 并精修。" if e0sp and e0sp[0] == "free"
                  else (f"ΔE0 固定为 {e0sp[1]:g} eV。" if e0sp and e0sp[0] == "fixed" else ""))
+        rs_en, rs_zh = _restraint_txt(model, r0)
         ptxt_en = "; ".join(_path_txt(p, model, True) for p in _model_paths(model, r0))
         ptxt_zh = "；".join(_path_txt(p, model, False) for p in _model_paths(model, r0))
         data_en = (f"{info.get('edge', '')}-edge EXAFS of {', '.join(smp)}"
@@ -309,6 +338,7 @@ def build(keys=None):
             f"(not phase-corrected). The number of independent points was {rng(nidp)} and the number of variables {rng(nvar)}. "
             f"{s0_en} {e0_en} "
             + (f"Paths included: {ptxt_en}. Parameters sharing a name were constrained to be equal. " if ptxt_en else "")
+            + rs_en
             + "Uncertainties were estimated from the covariance matrix scaled by the square root of the reduced χ²; "
               "uncertainties of constrained quantities were propagated from the refined variables. "
               "Fit results are listed in Table S[n].")
@@ -317,6 +347,7 @@ def build(keys=None):
             f"{struct or '【结构】'} 晶体结构计算。{_kw_txt(kw, False)}，k = {kmin}–{kmax} Å⁻¹（{win} 窗，dk = {dk} Å⁻¹），"
             f"R = {rmin}–{rmax} Å（未相移校正）。独立点数 {rng(nidp)}，变量数 {rng(nvar)}。{s0_zh}{e0_zh}"
             + (f"包含的路径：{ptxt_zh}。同名参数约束为相等。" if ptxt_zh else "")
+            + rs_zh
             + "参数误差由协方差矩阵得到并按约化 χ² 的平方根修正，受约束量的误差由精修变量传递。拟合结果见表 S[n]。")
     tail_en = (f"Data processing and fitting were performed with XAFSmith {__version__} "
                f"(https://github.com/Wiolic/XAFSmith); FEFF6 [Zabinsky 1995]"
