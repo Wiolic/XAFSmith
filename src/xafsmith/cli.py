@@ -364,6 +364,43 @@ def cmd_fit(a):
     print(f"→ {paths.rel(paths.FITS)}/{base}.fit_report.txt, {paths.rel(paths.FITS_CSV)}, {fig_txt}")
 
 
+def cmd_trend(a):
+    """C2：联合拟合 → 趋势表（N、R、σ²、ΔE0 及 1σ 误差、边位置）；不加 --nosave 时写 CSV、PNG 与 params.json。"""
+    from . import paths, pipeline as pl, fit_exafs as fx, pubfig, trend as tr
+    model = _load_model(a.model)
+    if not fx.is_multi(model) or len(model["datasets"]) < 2:
+        sys.exit(f"模型 {model['name']} 不是 ≥2 个数据集的联合拟合模型，趋势表需要序列数据 / "
+                 f"model {model['name']} is not a joint fit of ≥2 datasets; the trend table needs a series")
+    panels = [x.strip() for x in a.panels.split(",") if x.strip()]
+    bad = [x for x in panels if x not in pubfig.TREND_PANELS]
+    if bad or not panels:
+        sys.exit(f"--panels 只能取 {','.join(pubfig.TREND_PANELS)}（逗号分隔） / --panels takes {','.join(pubfig.TREND_PANELS)}")
+    _model, groups, _res, _dsets, summ = _run_model(a.model)
+    meta, proc = tr.load_project_tables()
+    table = tr.trend_table(summ, model, meta, proc)
+    for n in table.attrs["seq_notes"]:
+        print("提示:", n)
+    if "E0" in panels and not table["E0_edge"].notna().any():
+        print("提示: process_summary.csv 里没有这些样品的 E0，边位置面板略去")
+        panels = [x for x in panels if x != "E0"] or ["N"]
+    print(f"序列变量：{tr.SEQ_LABELS[table.attrs['seq_source']]}（来源 {table.attrs['seq_source']}）")
+    print(table.drop(columns=["seq_source"]).to_string(index=False))
+    for n in table.attrs["n_composite"]:
+        print(f"注意: 路径 {n} 的 N 为复合表达式，未给误差")
+    if a.nosave:
+        return
+    import matplotlib.pyplot as plt
+    base = pl.safe(model["name"])
+    csv = tr.save_trend(table, base, model["name"], "xafsmith trend")
+    paths.FIGS.mkdir(parents=True, exist_ok=True)
+    fig, cap = pubfig.trend(table, panels=panels, xlabel=a.seq_label, model=model["name"])
+    png = paths.FIGS / f"{base}_trend.png"
+    fig.savefig(png, dpi=300)
+    plt.close(fig)
+    print(f"\n→ {paths.rel(csv)}, {paths.rel(png)}, {paths.rel(csv.with_name(base + '_trend.params.json'))}")
+    print(cap)
+
+
 def cmd_ftest(a):
     from . import fit_exafs as fx
     for msg in fx.ftest_blockers(_load_model(a.small), _load_model(a.large)):
@@ -696,6 +733,11 @@ def build_parser():
     p.set_defaults(f=cmd_feff)
     p = sp.add_parser("fit", help="EXAFS 拟合"); p.add_argument("model"); p.add_argument("--nosave", action="store_true")
     p.set_defaults(f=cmd_fit)
+    p = sp.add_parser("trend", help="联合拟合序列 → 趋势表与趋势图（N、R、σ²、ΔE0、边位置）")
+    p.add_argument("model"); p.add_argument("--seq-label", default=None, help="横轴标题（缺省：按序列来源）")
+    p.add_argument("--panels", default="N,R,sigma2,E0", help="面板，逗号分隔：N,R,sigma2,dE0,E0（缺省 N,R,sigma2,E0）")
+    p.add_argument("--nosave", action="store_true", help="只打印，不写文件")
+    p.set_defaults(f=cmd_trend)
     p = sp.add_parser("ftest", help="F 检验"); p.add_argument("small"); p.add_argument("large")
     p.set_defaults(f=cmd_ftest)
     p = sp.add_parser("compare", help="多模型比较表"); p.add_argument("models", nargs="+")

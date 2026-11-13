@@ -113,3 +113,29 @@ def test_fit_restraint_cli_and_ftest(proj):
         si = _cli(proj, "si", "--lang", lang)
         assert si.returncode == 0, si.stderr[-1500:]
         assert word in si.stdout and "amp = 0.9 ± 0.05" in si.stdout and "σ" in si.stdout
+
+
+# ------------------------------------------------------------------ C2：xafsmith trend
+def test_trend_cli_prints_and_saves(proj):
+    r = _cli(proj, "trend", "cu_twin", "--seq-label", "Reduced time")
+    assert r.returncode == 0, r.stderr[-2000:]
+    assert "来源 time" in r.stdout                           # 演示项目的 meta.csv 没有 seq 列，有 time → 以小时为序列变量
+    assert "N_err" in r.stdout and "shared_sigma2" in r.stdout
+    assert "Reduced time" in r.stdout                        # 图注里的横轴标题
+    t = pd.read_csv(proj / "output" / "fits" / "cu_twin_trend.csv", encoding="utf-8-sig")
+    assert list(t["dataset"]) == ["A", "B"] and "dE0_err" in t.columns
+    assert (proj / "output" / "fits" / "cu_twin_trend.params.json").is_file()
+    assert (proj / "output" / "figs" / "cu_twin_trend.png").stat().st_size > 5000
+
+
+def test_trend_cli_nosave_and_errors(proj):
+    for f in ("cu_twin_trend.csv", "cu_twin_trend.params.json"):
+        (proj / "output" / "fits" / f).unlink(missing_ok=True)
+    r = _cli(proj, "trend", "cu_twin", "--nosave", "--panels", "R,sigma2")
+    assert r.returncode == 0, r.stderr[-2000:]
+    assert not (proj / "output" / "fits" / "cu_twin_trend.csv").exists()
+    bad = _cli(proj, "trend", "cu_twin", "--panels", "R,nope")
+    assert bad.returncode != 0 and "--panels" in bad.stderr + bad.stdout
+    (proj / "models" / "cu_one_t.json").write_text(json.dumps(dict(CU1, name="cu_one_t")), encoding="utf-8")
+    one = _cli(proj, "trend", "cu_one_t")
+    assert one.returncode != 0 and "联合拟合" in one.stderr + one.stdout
