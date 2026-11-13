@@ -117,7 +117,8 @@ Click **Save parameters**.
 
 1. On **EXAFS fitting** choose one sample as **Data**, with the same paths and ranges as the standard; in **4 Parameters** set **s02's value to the step-7 result and untick vary** (fixed). **Fit** → check → **Save result**.
 2. At the top of the left column of **EXAFS fitting** open **Run a saved model** → choose this sample model → select **all samples** → **Run**. Results go to **Fit history**.
-3. Second shell: fit once with the extra path, then **Fit history** → select the fits without and with the shell → **F-test**. Only **p < 0.05** lets you say the shell is present.
+3. Second shell: fit once with the extra path, then **Fit history** → select the fits without and with the shell → **F-test**. Only **p < 0.05** lets you say the shell is present. To compare three or more models use the **Model comparison** card in **Fit history** (tick the fits → **Compare**).
+4. Samples that should share parameters (e.g. N and R shared across temperatures of one sample): at the top of card 1 switch “Mode” to **Joint fit of several datasets**, select several **Data**, one path table per dataset; parameters with the same name are shared. With an independent prior (e.g. S0² ± error from the standard) add a **restraint** below the parameter table. Read the “joint fits” tab of the fit guide (top right) first.
 
 ### Step 9 — Export (2 min)
 
@@ -193,7 +194,7 @@ The AI runs commands such as `xafsmith qc`, `process`, `feff`, `fit`, `diagnose`
 | What to check | Where |
 |---|---|
 | The AI's fit models; rerun, fit diagnosis, robustness | top of the left column of **EXAFS fitting** → **Run a saved model** |
-| Model comparison, F-test | **Fit history** |
+| Model comparison table, F-test | **Fit history** |
 | Deglitch ranges and reasons | bottom of **Quality check** |
 | Processing parameters | **Calibrate & process → Processing parameters** |
 | Figures, report, methods paragraph | **Figure export**, **Report export**, **Methods export**, or the project's `output` folder |
