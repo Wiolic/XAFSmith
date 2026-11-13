@@ -96,23 +96,28 @@ def _norm_expr(s) -> str:
     return re.sub(r"\s+", "", str(s or ""))
 
 
+_MATH = {f: getattr(math, f) for f in ("sqrt", "sin", "cos", "tan", "exp", "log", "log10")}
+_EQ_RTOL = 1e-3          # 建议系数按 :.4g 舍入（相对误差 ≤ 5e-4）；在此之内算“一致”，保留用户原式（Opus 验收定）
+
+
 def equivalent(a, b) -> bool:
-    """两个表达式在随机取值下数值相同（只允许名字、数字、四则与括号、函数调用）→ True；无法判断 → 比较去空白后的文本。"""
+    """两个表达式在随机取值下数值相同（相对差 ≤ _EQ_RTOL）→ True。允许名字、数字、四则、括号与 sqrt 等初等函数；
+    含其他函数调用（σ² 温度模型等）只比较去空白后的文本。"""
     if _norm_expr(a) == _norm_expr(b):
         return True
     try:
         ta, tb = ast.parse(str(a), mode="eval"), ast.parse(str(b), mode="eval")
-        names = sorted({n.id for t in (ta, tb) for n in ast.walk(t) if isinstance(n, ast.Name)})
         for t in (ta, tb):
             for n in ast.walk(t):
-                if isinstance(n, ast.Call):
-                    return False                              # 含函数调用（σ² 温度模型等）不数值比较
+                if isinstance(n, ast.Call) and not (isinstance(n.func, ast.Name) and n.func.id in _MATH):
+                    return False
+        names = sorted({n.id for t in (ta, tb) for n in ast.walk(t) if isinstance(n, ast.Name)} - set(_MATH))
         rng = random.Random(12345)
         for _ in range(3):
             env = {n: rng.uniform(0.5, 2.0) for n in names}
-            va = eval(compile(ta, "<a>", "eval"), {"__builtins__": {}}, env)
-            vb = eval(compile(tb, "<b>", "eval"), {"__builtins__": {}}, env)
-            if abs(va - vb) > 1e-9 * max(1.0, abs(va)):
+            va = eval(compile(ta, "<a>", "eval"), {"__builtins__": {}, **_MATH}, env)
+            vb = eval(compile(tb, "<b>", "eval"), {"__builtins__": {}, **_MATH}, env)
+            if abs(va - vb) > _EQ_RTOL * max(abs(va), abs(vb), 1e-12):
                 return False
         return True
     except Exception:

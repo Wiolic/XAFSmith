@@ -161,6 +161,9 @@ def test_equivalent():
     assert mb.equivalent("2*dr1", "dr1*2")
     assert not mb.equivalent("ss1 + ss2/2", "0.5*ss1 + 0.25*ss2")
     assert mb.equivalent(" ssT", "ssT")
+    assert mb.equivalent("dr1*(1+sqrt(2)/2)", "1.707*dr1")        # 舍入到 4 位有效数字之内算一致，保留原式
+    assert not mb.equivalent("2*ss1", "1.457*ss1")
+    assert not mb.equivalent("sigma2_debye(tempK, thD)", "sigma2_debye(tempK, thD2)")
 
 
 def test_path_atoms_reads_feff():
