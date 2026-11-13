@@ -263,7 +263,7 @@ Always measure the **elemental reference** (metal foil or powder) in the same se
 
 If you use XAFSmith in a publication, please cite this repository (**Cite this repository** on the right of the GitHub page):
 
-*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 1.1.0. https://github.com/Wiolic/XAFSmith*
+*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 1.2.0. https://github.com/Wiolic/XAFSmith*
 
 and the programs it builds on:
 - Larch: M. Newville, *J. Phys.: Conf. Ser.* **430**, 012007 (2013).

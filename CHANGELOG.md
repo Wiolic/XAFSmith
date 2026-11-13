@@ -4,7 +4,7 @@
 [语义化版本](https://semver.org/lang/zh-CN/)。
 All notable changes are recorded here (format: Keep a Changelog; versioning: SemVer).
 
-## [未发布 / Unreleased]
+## [1.2.0] — 2026-11-13
 
 ### 新增 / Added
 - 多模型比较：`xafsmith compare M1 M2 […]` 与拟合历史页“模型比较表”卡片，按变量数升序列出 R 因子、χ²_ν、χ²、变量数、N_idp、软约束个数与相邻模型的 F 检验（调用原 Hamilton 检验，数值不变）；数据或拟合范围不同、软约束不同、变量数相同时不做 F 检验并写明原因；`ftest` 的两条提示抽成 `ftest_blockers`，输出逐字不变，F 检验卡片也显示同样的警告。F 检验只对嵌套模型有效，软件不检查嵌套关系。
