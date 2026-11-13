@@ -49,7 +49,7 @@ class FitPage(Page):
         self.header(T("先在标样上确定 S0²，样品中固定；加壳层要通过 F 检验。变量数 ≤ N_idp/2。",
                       "Determine S0² on the standard and fix it for samples; added shells must pass the F-test. Variables ≤ N_idp/2."),
                     actions=[W.button(T("注意事项与“拟合得好”的标准", "Before you fit · what is a good fit"), icon_name="help",
-                                      slot=lambda: show_fit_guide(self))])
+                                      slot=lambda: show_fit_guide(self, 2 if self.state.get("multi") else None))])
         sp = QSplitter(Qt.Orientation.Horizontal)
         sp.setChildrenCollapsible(False)
         sp.setHandleWidth(10)

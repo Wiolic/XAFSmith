@@ -16,8 +16,12 @@ All notable changes are recorded here (format: Keep a Changelog; versioning: Sem
 - 基准测试：Fe K 边 LCF（公开 FeO / Fe2O3 / Fe3C 端点合成混合物还原比例）与边位置–价态标定。
   Benchmarks: Fe K-edge LCF recovery on synthetic mixtures and edge-position valence calibration.
 - XAFS处理规范：混合物报告价态用半高点 E_half，不用一阶导数最大值。Processing rules: use E_half, not E0_deriv, for mixed-valence samples.
+- 拟合注意事项窗口改为三个标签页：拟合前（新增数据检查、k 上限、荧光自吸收、同一模型比较、换 FEFF 版本重定 ΔE0 等）、拟合得好的标准（新增 F 检验报告规则、误差来源、模型无关指标、三类陈述）、多数据集联合拟合（何时用、怎么设、共享什么、统计与三类 F 检验）。
+  The fit guide window now has three tabs: before fitting, what is a good fit, and joint fits (updated and extended content).
 
 ### 修复 / Fixed
+- 下拉多选（拟合页的数据与 FEFF 目录、方法导出的拟合选择）勾一项就关闭，现在关闭列表后才更新页面；多数据集拟合的“稳健性”页把上方拟合图挤扁；多数据集拟合的质量检查把共享变量数与单个数据集的 N_idp 比较（现与合计 N_idp 比较）。
+  Multi-select lists no longer close after each tick; the joint-fit Robustness tab no longer squeezes the plot; joint-fit quality checks compare variables with the summed N_idp.
 - `methods_text` 判断 FEFF 版本时兼容多数据集模型（否则会静默回退成 feff6）。
   methods_text now finds the FEFF code for multi-dataset models.
 - k–E 换算常数统一为与 Larch 相同的 2mₑ/ħ²（scipy CODATA）；原 `common.ETOK` 与 Larch 差 5×10⁻⁷，另有三处写死 0.2625（.prj 导出的 kmax、毛刺能量显示、干扰边默认范围）。影响 ≤ 0.03%。

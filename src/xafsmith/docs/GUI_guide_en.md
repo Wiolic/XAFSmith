@@ -288,7 +288,7 @@ The table below lists the loaded spectra and their calibration status. You can a
 | Left column (scrolls on its own) | ① Data and FEFF ② Fit range ③ Paths ④ Parameters; “Run a saved model” at the top |
 | Bottom of the left column (pinned) | **Model name** and **Fit**; **Ctrl+Enter** also fits |
 | Right column | The latest fit: numbers and k- / R-space plots; tabs below: Parameters, Paths, Quality, Diagnosis, Robustness, Full report |
-| Top right | **Before you fit · what is a good fit** (separate window) |
+| Top right | **Before you fit · what is a good fit** (separate window with three tabs: before fitting, what is a good fit, joint fits; opens on the third tab in joint mode) |
 
 Drag the divider between the columns to resize them. A fit updates only the right column; the left keeps its settings and scroll position.
 

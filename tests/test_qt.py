@@ -460,6 +460,11 @@ def irtaox_suite(app, w, S, P):
     show_wavelet_guide(pg)
     pump(app)
     say({"fit_guide", "wt_guide"} <= set(W._INFO), "注意事项、小波说明：独立窗口")
+    gd = W._INFO.get("fit_guide")
+    gt = [gd.tabs.tabText(i) for i in range(gd.tabs.count())] if gd is not None and gd.tabs is not None else []
+    say(gt == ["拟合前", "拟合得好的标准", "多数据集联合拟合"], f"注意事项窗口三个标签页：{gt}")
+    show_fit_guide(pg, 2)
+    say(gd is not None and gd.tabs.currentIndex() == 2, "注意事项：可直接打开“多数据集联合拟合”页")
     for d_ in list(W._INFO.values()):
         d_.close()
 
