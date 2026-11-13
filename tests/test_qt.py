@@ -179,6 +179,20 @@ def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
         wait(app)
         step(label, n)
         return S.fits[-1] if len(S.fits) == n0 + 1 else None
+    # 数据 / FEFF 目录多选：勾选时不重建页面（否则列表关掉），关闭列表后提交一次
+    ms = W.MultiSelect(["a", "b", "c"], ["a"])
+    got = []
+    ms.committed.connect(got.append)
+    ms.click()
+    pump(app, 0.2)
+    pop = [c for c in ms.children() if isinstance(c, W.QFrame)][-1]
+    lw = pop.findChild(W.QListWidget)
+    for i in (1, 2):
+        lw.item(i).setCheckState(W.Qt.CheckState.Checked)
+    say(pop.isVisible() and got == [], "多选：勾选时列表保持打开、不提交")
+    pop.hide()
+    pump(app, 0.2)
+    say(got == [["a", "b", "c"]], f"多选：关闭列表后提交一次 {got}")
     try:
         # 单数据集（对照）
         single = run("多数据集 · 先做单数据集拟合（对照）")
@@ -225,6 +239,18 @@ def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
             cb = [c for c in fv.findChildren(QComboBox) if c.count() == 2 and c.itemText(1) == id2][0]
             cb.setCurrentIndex(0)
             pump(app, 0.5)
+            # 稳健性页只有一条提示：标签页高度只跟当前页（曾取各页最大值并把上方拟合图挤扁）
+            from PySide6.QtWidgets import QTabWidget
+            fv = pg.findChildren(FitView)[-1]
+            ft = [t for t in fv.findChildren(QTabWidget) if any("稳健" in t.tabText(i) for i in range(t.count()))][0]
+            hh = {}
+            for i in range(ft.count()):
+                if ft.tabText(i) in ("参数", "稳健性"):
+                    ft.setCurrentIndex(i)
+                    pump(app, 0.3)
+                    hh[ft.tabText(i)] = ft.heightForWidth(ft.width())
+            ft.setCurrentIndex(0)
+            say(hh.get("稳健性", 1e9) < hh.get("参数", 0), f"多数据集稳健性页只占自身高度（低于参数页）：{hh}")
             # 历史页
             n = len(W.ERRORS)
             w.go("history")
