@@ -43,12 +43,54 @@ class HistoryPage(Page):
             self.state.update(a=a.value(), b=b.value())
             r = xfit.hamilton_test(S.fits[a.value()]["result"], S.fits[b.value()]["result"])
             W._clear_layout(out.layout())
+            why = xfit.ftest_blockers(S.fits[a.value()]["model"], S.fits[b.value()]["model"])
+            if why:
+                out.layout().addWidget(Banner("warn", "\n".join(why)))
             out.layout().addWidget(W.Table(pd.DataFrame([{"key": k, "value": str(v)} for k, v in r.items()])))
         ft.add(W.hbox(W.field(T("简单模型", "Simpler model"), a), W.field(T("复杂模型", "More complex model"), b),
                       W.vbox(None, W.button(T("比较", "Compare"), primary=True, slot=go)), spacing=12))
         ft.add(out)
         self.add(ft)
+        self.add(self._compare_card(idx))
         view = W.combo(idx, self.state.get("view", len(S.fits) - 1), fmt=lambda i: fit_label(S.fits[i]))
         view.currentIndexChanged.connect(lambda *_: (self.state.__setitem__("view", view.value()), self.refresh()))
         self.add(W.hbox(W.label(T("查看拟合", "View fit"), "h3"), view, None))
         self.add(FitView(self, S.fits[view.value()], f"h{view.value()}"))
+
+    def _compare_card(self, idx):
+        """多模型比较表（B4）：F、p 由 hamilton_test 给出，嵌套关系不检查。"""
+        from xafsmith import fit_exafs as xfit, paths
+        S = self.S
+        card = Card(T("模型比较表", "Model comparison"))
+        chks = [W.check(fit_label(S.fits[i]), True) for i in idx]
+        for c in chks:
+            card.add(c)
+        out = W.vbox()
+        last = {}
+
+        def go():
+            sel = [i for i, c in zip(idx, chks) if c.isChecked()]
+            W._clear_layout(out.layout())
+            last.clear()
+            if len(sel) < 2:
+                out.layout().addWidget(Banner("warn", T("至少选择 2 个拟合。", "Select at least 2 fits.")))
+                return
+            entries = [dict(name=S.fits[i]["summ"]["model"], model=S.fits[i]["model"], result=S.fits[i]["result"],
+                            summ=S.fits[i]["summ"]) for i in sel]
+            df = xfit.compare_models(entries)
+            last["df"] = df
+            out.layout().addWidget(W.Table(df, max_height=260))
+            out.layout().addWidget(Banner("info", T(*xfit.COMPARE_NOTE.split(" / ", 1))))
+
+        def save():
+            if "df" not in last:
+                W.toast(self, T("请先点“比较”", "Press Compare first"), "warn")
+                return
+            f = paths.FITS / "model_compare.csv"
+            f.parent.mkdir(parents=True, exist_ok=True)
+            last["df"].to_csv(f, index=False, encoding="utf-8-sig")
+            W.toast(self, T(f"已保存 {paths.rel(f)}", f"Saved {paths.rel(f)}"))
+        card.add(W.hbox(W.button(T("比较", "Compare"), primary=True, slot=go),
+                        W.button(T("保存为 CSV", "Save as CSV"), icon_name="save", slot=save), None))
+        card.add(out)
+        return card
