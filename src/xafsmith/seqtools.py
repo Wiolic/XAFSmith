@@ -58,14 +58,17 @@ def sigma2_independent(tables: dict, params: pd.DataFrame):
         for n in dict.fromkeys(per[i]):
             count[n] = count.get(n, 0) + 1
     # 被别的参数的 expr 引用的名字不改（如 ss2 = ss1*1.2：改掉 ss1 后它从参数表消失，ss2 的表达式就找不到它）
-    in_expr = {n for e in (params["expr"] if len(params) and "expr" in params else []) for n in param_names(e)}
-    shared = [n for n in dict.fromkeys(n for i in ids for n in per[i]) if count[n] >= 2 and n not in in_expr]
-    taken = set(params["name"]) if len(params) else set()
+    in_paths = set()                                   # 路径表（已勾选与未勾选）里出现的参数名
     for i in ids:
         for col in PATH_COLS:
             if col in tables[i]:
                 for v in tables[i][col]:
-                    taken.update(param_names(v))
+                    in_paths.update(param_names(v))
+    # 只看仍被路径用到的参数行：拟合页的参数表状态会保留已不用的旧行，旧行的 expr 不应阻止改名
+    live = params[params["name"].isin(in_paths)] if len(params) and "expr" in params else params.iloc[0:0]
+    in_expr = {n for e in (live["expr"] if len(live) else []) for n in param_names(e)}
+    shared = [n for n in dict.fromkeys(n for i in ids for n in per[i]) if count[n] >= 2 and n not in in_expr]
+    taken = (set(params["name"]) if len(params) else set()) | in_paths    # 撞名仍避开旧行：重建参数表时同名旧行会被取用
     new_tables = {i: tables[i].copy() for i in ids}
     new_rows, changes = [], []
     for i in ids:

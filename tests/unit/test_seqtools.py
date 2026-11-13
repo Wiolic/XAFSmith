@@ -137,3 +137,12 @@ def test_independent_skips_names_used_in_other_param_expr():
     nt, _, ch = st.sigma2_independent(t, p)
     assert {c[1] for c in ch} == {"ss2"}
     assert nt["A"].at[0, "sigma2"] == "ss1" and nt["A"].at[1, "sigma2"] == "ss2_A"
+
+
+def test_independent_ignores_stale_param_rows():
+    # 参数表状态里留着已不用的 ss2（expr = ss1*1.2）：不应阻止 ss1 改名
+    t = {"A": _tab("ss1"), "B": _tab("ss1")}
+    p = _par("ss1", "ss2")
+    p.loc[1, "expr"] = "ss1*1.2"
+    _, _, ch = st.sigma2_independent(t, p)
+    assert {c[1] for c in ch} == {"ss1"}
