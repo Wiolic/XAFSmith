@@ -314,6 +314,67 @@ def sigma2_checks(app, w, S, P, k1, fdir):
         pg.refresh()
 
 
+def msbind_checks(app, w, S, P, k1, fdir):
+    """B5：路径表有 note 列；“多重散射绑定…”按钮（单数据集）→ 对话框：取消不改任何东西、应用只改勾选行的
+    deltar / sigma2 / note；note 随模型保存、拟合照常（演示项目只有一条 nleg=2 的 Cu 路径文件：建议用 suggest 的替身，几何计算在单元测试里）。"""
+    from xafsmith import msbind
+    from xafsmith.qt.pages.fitting import msbind_dialog as md
+    pg = P["fit"]
+    w.go("fit")
+    st = pg.state
+    st.update(multi=False, data=k1)
+    st["fdirs_" + k1] = [str(PROJ / fdir)]
+    st.pop("partab", None)
+    for k in [k for k in st if k.startswith("pathtab_")]:
+        st.pop(k)
+    pg.refresh()
+    pump(app)
+
+    def path_tab():
+        return next((t for t in pg.findChildren(W.Table) if {"use", "sigma2", "note"} <= set(t.m.df.columns)), None)
+    pt = path_tab()
+    say(pt is not None and "note" in pt.m.df.columns, "路径表有 note 列")
+    b = next((b for b in pg.findChildren(W.QPushButton) if "多重散射绑定" in b.text() or "Multiple-scattering binding" in b.text()), None)
+    say(b is not None, "路径卡有“多重散射绑定…”按钮")
+    if b is None or pt is None:
+        return
+    fake = [dict(index=0, label="Cu-Cu", deltar="2*dr1", sigma2="0.5*ss1", basis_deltar="x", basis_sigma2="y", exact=False,
+                 exact_sigma2=False, problem="", sigma2_problem="", note="msbind: test note")]
+    orig_s, orig_x = msbind.suggest, md.MsBindDialog.exec
+    msbind.suggest = lambda rows, root=None: fake
+    decision = {}
+
+    def fake_exec(self):
+        decision["spec"] = self.spec()
+        decision["rows"] = len(self.df)
+        return decision["go"]
+    md.MsBindDialog.exec = fake_exec
+    try:
+        before = path_tab().df()
+        decision["go"] = 0
+        b.click()
+        pump(app, 0.3)
+        say(path_tab().df().equals(before), "取消：路径表逐格不变")
+        decision["go"] = 1
+        b.click()
+        pump(app, 0.5)
+        row = path_tab().df().iloc[0]
+        say(decision["rows"] == 1 and row["deltar"] == "2*dr1" and row["sigma2"] == "0.5*ss1" and row["note"] == "msbind: test note"
+            and row["N"] == before.iloc[0]["N"] and row["s02"] == before.iloc[0]["s02"] and row["e0"] == before.iloc[0]["e0"],
+            "应用：只改 deltar / sigma2 / note，N / s02 / e0 不变")
+        n0, n = len(S.fits), len(W.ERRORS)
+        click(pg, "拟合")
+        wait(app)
+        step("多重散射绑定 · 拟合", n)
+        md_ = S.fits[-1]["model"] if len(S.fits) == n0 + 1 else {}
+        p0 = (md_.get("paths") or [{}])[0]
+        say(p0.get("note") == "msbind: test note" and p0.get("deltar") == "2*dr1", "note 写进拟合记录的模型，拟合照常运行")
+    finally:
+        msbind.suggest, md.MsBindDialog.exec = orig_s, orig_x
+        for k in [k for k in st if k.startswith("pathtab_")]:
+            st.pop(k)
+
+
 def sigma2_dialog_checks(app, w, S, P, k1, k2, fdir):
     """B6 ⑧：“σ² 模型…”对话框。单数据集：写表达式 + 建 θ / 静态项参数（缺省 50–2000 K、静态项无下限）；
     联合拟合：应用到所有数据集的同一壳层，各数据集温度进模型，联合拟合能跑。k2 是 k1 的副本（演示项目只有一条 Cu 谱）。"""
@@ -1004,6 +1065,7 @@ def demo_suite(app, w, S, P):
         restraint_checks(app, w, S, P, "cu_metal_rt", "output/feff/_b2test_Cu_CuK")
         sigma2_checks(app, w, S, P, "cu_metal_rt", "output/feff/_b2test_Cu_CuK")
         sigma2_dialog_checks(app, w, S, P, "cu_metal_rt", "cu_b6copy", "output/feff/_b2test_Cu_CuK")
+        msbind_checks(app, w, S, P, "cu_metal_rt", "output/feff/_b2test_Cu_CuK")
     finally:
         (fd / "feff0001.dat").unlink(missing_ok=True)
         fd.rmdir()

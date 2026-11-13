@@ -535,6 +535,44 @@ class FitPage(Page):
                                 "σ² model written. This dataset has no temperature yet: fill in “Temperature (K)”, "
                                 "otherwise the fit cannot run."), "warn")
 
+        def edit_msbind(k):
+            """B5：“多重散射绑定…”——只给建议；点“应用”才改本数据集路径表的 deltar / sigma2 / note 单元格。"""
+            from xafsmith import msbind
+            from .msbind_dialog import MsBindDialog
+            df = ptabs[k].df()
+            rows_ = df.to_dict("records")
+            try:
+                sugg = msbind.suggest(rows_)
+            except Exception as ex:
+                W.toast(self, T(f"无法计算多重散射绑定：{ex}", f"Cannot compute the multiple-scattering binding: {ex}"), "err")
+                return
+            dlg_ = MsBindDialog(self, rows_, sugg)
+            if not dlg_.exec():
+                return
+            spec_ = dlg_.spec()
+            if not spec_:
+                W.toast(self, T("没有需要改动的行", "No rows to change"))
+                return
+            m = ptabs[k].m
+            cols_ = list(m.df.columns)
+            for sp_ in spec_:
+                for col_, val_ in (("deltar", sp_["deltar"]), ("sigma2", sp_["sigma2"])):
+                    if val_ is not None:
+                        m.setData(m.index(sp_["index"], cols_.index(col_)), val_)
+                m.setData(m.index(sp_["index"], cols_.index("note")), sp_["note"])
+            W.toast(self, T("多重散射绑定已写入路径表：", "Multiple-scattering binding written to the path table: ")
+                    + "；".join(f"{sp_['label']}（" + "+".join(c_ for c_, v_ in (("deltar", sp_["deltar"]), ("sigma2", sp_["sigma2"]))
+                                                           if v_ is not None) + "）" for sp_ in spec_))
+            QTimer.singleShot(0, self.refresh)
+
+        def msbind_button(k):
+            b_ = W.button(T("多重散射绑定…", "Multiple-scattering binding…"),
+                          tip=T("按 FEFF 路径几何，给已勾选的多重散射路径建议 deltar / sigma2 表达式（只给建议，点“应用”才改表）",
+                                "Suggest deltar / sigma2 expressions for the ticked multiple-scattering paths from the FEFF "
+                                "geometry (suggestions only; the table changes only when you click Apply)"))
+            b_.clicked.connect(lambda *_: edit_msbind(k))
+            return W.hbox(b_, None)
+
         ptabs, over, temps = {}, {}, {}
         for k in keys:
             # B6：温度（K），空 = 模型里不写 temperature；σ² 模型（sigma2_debye / sigma2_eins）与 tempK 用它
@@ -591,6 +629,7 @@ class FitPage(Page):
         if not multi:
             c3.add(trows[data_k])
             c3.add(ptabs[data_k])
+            c3.add(msbind_button(data_k))
         else:
             pages_ = []
             for k in keys:
@@ -607,6 +646,7 @@ class FitPage(Page):
                 ow = over[k]
                 col = W.vbox(trows[k],
                              ptabs[k],
+                             msbind_button(k),
                              W.label(T("覆盖拟合范围（留空 = 用上面“拟合范围”的共同值）",
                                        "Override the fit range (empty = the common range above)"), "faint"),
                              W.fields(("kmin", ow["kmin"]), ("kmax", ow["kmax"]), ("Rmin", ow["rmin"]), ("Rmax", ow["rmax"]), cols=4),
