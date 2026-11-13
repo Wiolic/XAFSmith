@@ -145,6 +145,68 @@ def copy_register_check(app, w):
         w.open_project(str(PROJ))
 
 
+def restraint_checks(app, w, S, P, k1, fdir):
+    """B3：拟合页软约束表。空表 → 模型无 restraints 键；添加一行 → 拟合 → 结果区有软约束表；草稿保存再读回表内容相同。"""
+    import numpy as np
+    import pandas as pd
+    from xafsmith.qt import session
+    pg = P["fit"]
+    w.go("fit")
+    st = pg.state
+    st.update(multi=False, data=k1)
+    st["fdirs_" + k1] = [str(PROJ / fdir)]
+    st.pop("restraints", None)
+    pg.refresh()
+    pump(app)
+    n0, n = len(S.fits), len(W.ERRORS)
+    click(pg, "拟合")
+    wait(app)
+    step("软约束 · 空表拟合", n)
+    f0 = S.fits[-1] if len(S.fits) == n0 + 1 else None
+    say(f0 is not None and "restraints" not in f0["model"] and "restraints" not in f0["summ"],
+        "空软约束表：模型无 restraints 键、摘要无软约束键")
+    cols = ["name", "expr", "value", "sigma", "note"]
+    click(pg, "添加一行")
+    pump(app)
+    tab = next((t for t in pg.findChildren(W.Table) if list(t.m.df.columns) == cols), None)
+    say(tab is not None and len(tab.m.df) == 1, "添加一行：软约束表出现 1 行")
+    if tab is None:
+        return
+    for j, v in enumerate(["s02prior", "s02", "0.80", "0.01", "test note"]):
+        tab.m.setData(tab.m.index(0, j), v)
+    n = len(W.ERRORS)
+    click(pg, "拟合")
+    wait(app)
+    step("软约束 · 带约束拟合", n)
+    f1 = S.fits[-1] if len(S.fits) == n0 + 2 else None
+    rs = (f1 or {}).get("summ", {}).get("restraints") or []
+    say(f1 is not None and f1["model"].get("restraints") == [dict(expr="s02", value=0.8, sigma=0.01, name="s02prior",
+                                                                    note="test note")]
+        and len(rs) == 1 and np.isfinite(rs[0]["pull"]) and "软约束" in texts(pg),
+        "带软约束拟合：模型记录软约束，结果区有软约束表" + ("" if not rs else f"（pull {rs[0]['pull']:+.2f}σ）"))
+    # 草稿：软约束表能存能恢复
+    dr = session.save_draft("_b3test", S, P)
+    try:
+        snap = session.load_draft(dr)
+        before = st["restraints"].copy()
+        st.pop("restraints")
+        session.apply_pages(snap, dict(P), only=("fit",))
+        got = st.get("restraints")
+        say(isinstance(got, pd.DataFrame) and got.astype(object).fillna("").astype(str).to_numpy().tolist()
+            == before.astype(object).fillna("").astype(str).to_numpy().tolist(), "草稿：软约束表保存并恢复")
+        # 非法 sigma：toast 警告、不拟合
+        tab.m.setData(tab.m.index(0, 3), "0")
+        n1 = len(S.fits)
+        click(pg, "拟合")
+        pump(app, 0.3)
+        say(len(S.fits) == n1, "sigma ≤ 0：不拟合")
+    finally:
+        Path(dr).unlink(missing_ok=True)
+        st.pop("restraints", None)
+        S.fits[:] = S.fits[:n0]
+        pg.refresh()
+
+
 def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
     """B2：拟合页多数据集联合拟合（k1、k2：两条已载入的谱；fdir：FEFF 目录，相对项目根）。
     alias=True：k2 是 k1 的副本（演示项目只有一条 Cu 谱），不做命令行重跑对照。
@@ -695,6 +757,7 @@ def demo_suite(app, w, S, P):
     try:
         multi_fit_checks(app, w, S, P, "cu_metal_rt", "cu_b2copy", "output/feff/_b2test_Cu_CuK",
                          rng=dict(kmin=3, kmax=17, dk=4, win="kaiser", kws=[2], rmin=1.4, rmax=3.0, space="r"), alias=True)
+        restraint_checks(app, w, S, P, "cu_metal_rt", "output/feff/_b2test_Cu_CuK")
     finally:
         (fd / "feff0001.dat").unlink(missing_ok=True)
         fd.rmdir()

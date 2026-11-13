@@ -317,6 +317,88 @@ class FitPage(Page):
         cl.findChild(W.QToolButton).toggled.connect(lambda on: self.state.__setitem__("saved_open", on))
         return cl
 
+    _RCOLS = ["name", "expr", "value", "sigma", "note"]
+
+    def _restraint_section(self, card):
+        """B3：软约束（restraint）表，单数据集与多数据集共用；状态存 self.state["restraints"]（草稿随页面状态保存）。"""
+        card.add(W.label(T("软约束（restraint，可选）", "Restraints (optional)"), "h3"))
+        card.add(W.label(T("把参数拉向先验值：在 χ² 中加入 ((expr − value)/σ)² × χ²_ν(无约束)。σ 按报告误差的尺度填，"
+                           "例如标样拟合的 S0² = 0.816 ± 0.05。expr 是参数表达式（如 s02 或 ss1 − ss2）；只在有独立先验时使用。",
+                           "Pulls parameters towards a prior value: adds ((expr − value)/σ)² × χ²_ν(unrestrained) to χ². "
+                           "Give σ on the scale of the reported errors, e.g. S0² = 0.816 ± 0.05 from a standard fit. expr is a "
+                           "parameter expression (e.g. s02 or ss1 − ss2); use it only with an independent prior."), "faint"))
+        df = self.state.get("restraints")
+        if not isinstance(df, pd.DataFrame) or list(df.columns) != self._RCOLS:
+            df = pd.DataFrame({"name": pd.Series([], dtype=object), "expr": pd.Series([], dtype=object),
+                               "value": pd.Series([], dtype=float), "sigma": pd.Series([], dtype=float),
+                               "note": pd.Series([], dtype=object)})
+        for c_ in ("name", "expr", "note"):
+            df[c_] = df[c_].fillna("").astype(object)
+        for c_ in ("value", "sigma"):
+            df[c_] = pd.to_numeric(df[c_], errors="coerce").astype(float)
+        self.state["restraints"] = df
+        cur = {}
+        holder = W.vbox()
+        card.add(holder)
+
+        def build(df_):
+            W._clear_layout(holder.layout())
+            if len(df_):
+                t = W.Table(df_, editable=self._RCOLS, max_height=200, decimals=6)
+                t.edited.connect(lambda: self.state.__setitem__("restraints", t.df()))
+                holder.layout().addWidget(t)
+                cur["tab"] = t
+            else:
+                cur.pop("tab", None)
+
+        def add_row():
+            d = self._restraints_df(cur)
+            d.loc[len(d)] = dict(name="", expr="", value=float("nan"), sigma=float("nan"), note="")
+            d["value"], d["sigma"] = d["value"].astype(float), d["sigma"].astype(float)
+            self.state["restraints"] = d
+            build(d)
+
+        def del_row():
+            t = cur.get("tab")
+            if t is None:
+                return
+            rows = sorted({i.row() for i in t.selectionModel().selectedRows()} |
+                          ({t.currentIndex().row()} if t.currentIndex().isValid() else set()))
+            d = self._restraints_df(cur)
+            d = d.drop(index=[r for r in rows if r < len(d)]).reset_index(drop=True)
+            self.state["restraints"] = d
+            build(d)
+        build(df)
+        card.add(W.hbox(W.button(T("添加一行", "Add a row"), slot=add_row),
+                        W.button(T("删除选中行", "Delete selected row"), slot=del_row), None, spacing=6))
+        return cur
+
+    def _restraints_df(self, cur):
+        t = cur.get("tab")
+        return t.df() if t is not None else self.state["restraints"].copy()
+
+    def _restraints_from_table(self, cur):
+        """表 → 模型 restraints 列表（expr 为空的行忽略）；value / sigma 不是数字或 sigma ≤ 0 → toast 并返回 False。"""
+        import math
+        d = self._restraints_df(cur)
+        self.state["restraints"] = d
+        out = []
+        for i, r in d.iterrows():
+            if not str(r["expr"]).strip():
+                continue
+            ok = all(isinstance(r[k], (int, float)) and math.isfinite(float(r[k])) for k in ("value", "sigma"))
+            if not ok or float(r["sigma"]) <= 0:
+                W.toast(self, T(f"软约束第 {i + 1} 行：value 与 sigma 必须是数字，且 sigma > 0",
+                                f"Restraint row {i + 1}: value and sigma must be numbers with sigma > 0"), "warn")
+                return False
+            item = dict(expr=str(r["expr"]).strip(), value=float(r["value"]), sigma=float(r["sigma"]))
+            if str(r["name"]).strip():
+                item["name"] = str(r["name"]).strip()
+            if str(r["note"]).strip():
+                item["note"] = str(r["note"]).strip()
+            out.append(item)
+        return out
+
     def _model_cards(self, add, keys, fdirs, multi):
         """keys：参与拟合的数据（单数据集模式只有 1 个）；multi：联合拟合模式（路径表按数据集分标签页，参数表共享）"""
         from xafsmith import feff_wrap as xfeff, pipeline as pl
@@ -423,6 +505,7 @@ class FitPage(Page):
         c4.add(holder)
         nv = W.label("", rich=True)
         c4.add(nv)
+        rcur = self._restraint_section(c4)
         add(c4)
         defaults = {"s02": (0.85, True, 0.3, 1.5), "e0": (0.0, True, -15, 15)}
         cur = {}
@@ -565,6 +648,10 @@ class FitPage(Page):
                                          "min": None if pd.isna(r["min"]) else float(r["min"]),
                                          "max": None if pd.isna(r["max"]) else float(r["max"])}
 
+            restraints = self._restraints_from_table(rcur)
+            if restraints is False:
+                return
+
             def mk_paths(used):
                 mpaths = []
                 for _, r in used.iterrows():
@@ -577,6 +664,7 @@ class FitPage(Page):
                 return mpaths
             rng = dict(kmin=st["kmin"], kmax=st["kmax"], dk=st["dk"], window=st["win"], kweight=st["kws"] or [2],
                        rmin=st["rmin"], rmax=st["rmax"], fitspace=st["space"])
+            extra = dict(restraints=restraints) if restraints else {}        # 表为空 → 模型不写 restraints 键
             if multi:
                 dsl = []
                 for k in keys:
@@ -584,11 +672,11 @@ class FitPage(Page):
                     d.update(over_vals(k)[0])
                     d["paths"] = mk_paths(used_by[k])
                     dsl.append(d)
-                model = dict(name=mname.text(), params=params, **rng, datasets=dsl, norm=dict(S.norm_par), bkg=dict(S.bkg_par))
+                model = dict(name=mname.text(), params=params, **rng, datasets=dsl, norm=dict(S.norm_par), bkg=dict(S.bkg_par), **extra)
                 groups = {ids[k]: S.groups[k] for k in keys}
             else:
                 model = dict(name=mname.text(), sample=data_k, **rng, params=params, paths=mk_paths(used_by[data_k]),
-                             norm=dict(S.norm_par), bkg=dict(S.bkg_par))
+                             norm=dict(S.norm_par), bkg=dict(S.bkg_par), **extra)
                 groups = S.groups[data_k]
 
             def done(fit):

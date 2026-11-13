@@ -121,6 +121,24 @@ class FitView(QWidget):
         pt = pd.DataFrame([{T("参数", "Parameter"): k, T("值", "Value"): v["value"], T("误差", "Error"): v["stderr"],
                             T("变化", "Vary"): v["vary"], T("表达式", "Expr"): v["expr"]} for k, v in s["params"].items()])
         p_tab = W.vbox(W.Table(pt, max_height=420))
+        if s0.get("restraints"):          # B3：软约束表（偏离 > 2σ 的行用警告色另行标出）
+            rs = s0["restraints"]
+            rt = pd.DataFrame([{T("名称", "Name"): r["name"], "expr": r["expr"],
+                                T("先验 value ± σ", "Prior value ± σ"): f"{r['value']:g} ± {r['sigma']:g}",
+                                T("拟合值", "Fitted"): r["fitted"], T("偏离 (σ)", "Pull (σ)"): r["pull"]} for r in rs])
+            p_tab.layout().addWidget(W.label(T("软约束", "Restraints"), "h3"))
+            p_tab.layout().addWidget(W.Table(rt, max_height=200, decimals=5))
+            for r in rs:
+                if abs(r["pull"]) > 2:
+                    p_tab.layout().addWidget(W.label(
+                        f'<span style="color:{C["warn"]};font-weight:700">⚠</span>&nbsp;' +
+                        T(f"{r['name']}（{r['expr']}）偏离先验 {r['pull']:+.1f}σ",
+                          f"{r['name']} ({r['expr']}) deviates {r['pull']:+.1f}σ from the prior"), rich=True))
+            p_tab.layout().addWidget(W.label(
+                T(f"χ² = χ²_数据 {s0['chi2_data']:.3f} + 软约束 {s0['restraint_chi2']:.3f}"
+                  f"（c0 = 无约束 χ²_ν = {s0['restraint_c0']:.3f}）",
+                  f"χ² = χ²_data {s0['chi2_data']:.3f} + restraints {s0['restraint_chi2']:.3f} "
+                  f"(c0 = unrestrained χ²_ν = {s0['restraint_c0']:.3f})"), "faint"))
         path_tab = W.vbox(W.Table(pd.DataFrame(s["paths"]), max_height=420))
         q = self._quality()
         nwarn = sum(1 for st_, _ in self._checks if st_ is False)
