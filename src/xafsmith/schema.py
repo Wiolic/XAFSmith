@@ -293,6 +293,114 @@ def check_preedge(rep, cfg, meta):
                  "缩小边前范围使其避开，或在 overrides 为这些样品单独设置；样品不含该元素时改 elements_in_sample")
 
 
+MODEL_REQUIRED_MULTI = ["name", "params", "datasets"]
+_DS_INHERIT = ("kmin", "kmax", "dk", "window", "kweight", "rmin", "rmax", "fitspace")
+
+
+def _check_ranges(rep, where, m):
+    """范围、kweight、window（旧格式与多数据集的每个数据集共用；旧格式提示文字与位置与 v1.1 相同）。"""
+    for k in ("kmin", "kmax", "rmin", "rmax"):
+        if k in m and not _isnum(m[k]):
+            rep.err(f"{where} {k}", f"应为数字，实际是 {m[k]!r}")
+        elif _isnum(m.get(k)) and m[k] < 0:
+            rep.err(f"{where} {k}", "不能为负")
+    for lo, hi in (("kmin", "kmax"), ("rmin", "rmax")):
+        if _isnum(m.get(lo)) and _isnum(m.get(hi)) and m[lo] >= m[hi]:
+            rep.err(f"{where} {lo}/{hi}", f"{lo} 应小于 {hi}")
+    if "kweight" in m and not _isnum_or_list(m["kweight"]):
+        rep.err(f"{where} kweight", f"应为数字或数字列表，实际是 {m['kweight']!r}")
+    if "window" in m and not _window_ok(m["window"]):
+        rep.err(f"{where} window", f"窗函数 {m['window']!r} 无法识别")
+
+
+def _valid_range(m):
+    rng = [m.get(k) for k in ("kmin", "kmax", "rmin", "rmax")]
+    return rng if all(_isnum(v) for v in rng) and rng[0] < rng[1] and rng[2] < rng[3] else None
+
+
+def _check_paths(rep, where, m, klim, samples):
+    """k 上限、paths 结构、样品是否登记、FEFF 文件是否存在（同上，共用）。"""
+    # 模型不写吸收边：样品只在一个吸收边登记时才能确定对照哪个上限
+    mk = [v for (s, _ek), v in klim.items() if s == m.get("sample")]
+    if _isnum(m.get("kmax")) and len(mk) == 1 and m["kmax"] > mk[0][0] + 0.05:
+        kl, why, _ = mk[0]
+        rep.warn(f"{where} kmax", f"kmax = {m['kmax']} 超过可用上限 {kl:.2f} Å⁻¹（{why}）")
+    if not isinstance(m.get("paths", []), list) or not m.get("paths", [1]):
+        rep.err(f"{where} paths", "应是非空数组")
+    for j, pth in enumerate(m.get("paths", []) if isinstance(m.get("paths", []), list) else []):
+        if not isinstance(pth, dict) or "file" not in pth:
+            rep.err(f"{where} paths[{j}]", "每条路径需要 file 字段")
+    if samples and m.get("sample") not in samples:
+        rep.warn(where, f"样品 {m.get('sample')} 不在 meta.csv 中")
+    missing = [p["file"] for p in (m.get("paths", []) if isinstance(m.get("paths", []), list) else [])
+               if isinstance(p, dict) and "file" in p and not paths.resolve(p["file"]).exists()]
+    if missing:
+        rep.warn(where, f"{len(missing)} 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 {missing[0]}")
+
+
+def _check_multi(rep, at, m, klim, samples):
+    """多数据集模型（有 datasets 键）。数据标准 4.1。"""
+    for k in MODEL_REQUIRED_MULTI:
+        if k not in m:
+            rep.err(at, f"缺少字段 {k}")
+    for k in ("sample", "paths"):
+        if k in m:
+            rep.err(f"{at} {k}", f"多数据集模型不得有顶层 {k}（写进 datasets[i]），否则旧代码会误读")
+    if "params" in m and not isinstance(m["params"], dict):
+        rep.err(f"{at} params", "应是对象 {名称: 初值或 {value, vary, min, max, expr}}")
+    dl = m.get("datasets")
+    if not isinstance(dl, list) or not dl:
+        rep.err(f"{at} datasets", "应是非空数组")
+        return
+    ids, ni_tot, all_ok, fsp, by_sample = set(), 0.0, True, set(), {}
+    for i, d in enumerate(dl):
+        if not isinstance(d, dict):
+            rep.err(f"{at} datasets[{i}]", "应是对象 { sample, paths, … }")
+            all_ok = False
+            continue
+        did = d.get("id", d.get("sample"))
+        where = f"{at} datasets[{i}]({did})"
+        for k in ("sample", "paths"):
+            if k not in d:
+                rep.err(where, f"缺少字段 {k}")
+        if "id" in d and (not isinstance(d["id"], str) or not d["id"].strip()):
+            rep.err(f"{where} id", "不能为空")
+        elif did is not None:
+            if did in ids:
+                rep.err(f"{where} id", f"id {did} 重复（缺省 id = sample）")
+            ids.add(did)
+        if "epsilon_k" in d and not (_isnum(d["epsilon_k"]) and d["epsilon_k"] > 0):
+            rep.err(f"{where} epsilon_k", f"应为正数，实际是 {d['epsilon_k']!r}")
+        blk = {k: d[k] if k in d else m[k] for k in _DS_INHERIT if k in d or k in m}
+        blk.update(sample=d.get("sample"), paths=d.get("paths", []))
+        miss = [k for k in ("kmin", "kmax", "rmin", "rmax", "kweight") if k not in blk]
+        if miss:
+            rep.err(where, f"缺少 {', '.join(miss)}（数据集与顶层都没有）")
+        _check_ranges(rep, where, blk)
+        rng = _valid_range(blk)
+        if rng:
+            ni_tot += n_idp(*rng)
+        else:
+            all_ok = False
+        fsp.add(blk.get("fitspace", "r"))
+        if d.get("sample") is not None:
+            by_sample.setdefault(d["sample"], []).append(str(did))
+        _check_paths(rep, where, blk, klim, samples)
+    if all_ok and isinstance(m.get("params"), dict):
+        nv = count_varied(m["params"])
+        if nv >= ni_tot:
+            rep.err(f"{at} params", f"变量数 {nv} ≥ Σ N_idp = {ni_tot:.1f}（2ΔkΔR/π，全部数据集合计），拟合欠定")
+        elif nv > ni_tot / 2:
+            rep.warn(f"{at} params", f"变量数 {nv} > Σ N_idp/2 = {ni_tot / 2:.1f}（2ΔkΔR/π，全部数据集合计），超出处理规范"
+                                     "（XAFS 处理规范：变量数不多于 N_idp 的一半，最好 ≤ N_idp − 3），结果可靠性低")
+    for smp, lst in by_sample.items():
+        if len(lst) > 1:
+            rep.warn(f"{at} datasets", f"样品 {smp} 在数据集 {'、'.join(lst)} 中重复使用：同一数据计入两次，误差会被低估")
+    if len(fsp) > 1:
+        rep.warn(f"{at} datasets", f"各数据集 fitspace 不同（{'、'.join(sorted(map(str, fsp)))}）：合计 R 因子把不同空间的"
+                                   "残差相加，难以解释")
+
+
 def check_models(rep, meta, klim=None):
     samples = set(meta["sample"]) if meta is not None else set()
     klim = klim or {}
@@ -309,21 +417,13 @@ def check_models(rep, meta, klim=None):
         if not isinstance(m, dict):
             rep.err(at, "顶层应是对象 { … }")
             continue
+        if "datasets" in m:
+            _check_multi(rep, at, m, klim, samples)
+            continue
         for k in MODEL_REQUIRED:
             if k not in m:
                 rep.err(at, f"缺少字段 {k}")
-        for k in ("kmin", "kmax", "rmin", "rmax"):
-            if k in m and not _isnum(m[k]):
-                rep.err(f"{at} {k}", f"应为数字，实际是 {m[k]!r}")
-            elif _isnum(m.get(k)) and m[k] < 0:
-                rep.err(f"{at} {k}", "不能为负")
-        for lo, hi in (("kmin", "kmax"), ("rmin", "rmax")):
-            if _isnum(m.get(lo)) and _isnum(m.get(hi)) and m[lo] >= m[hi]:
-                rep.err(f"{at} {lo}/{hi}", f"{lo} 应小于 {hi}")
-        if "kweight" in m and not _isnum_or_list(m["kweight"]):
-            rep.err(f"{at} kweight", f"应为数字或数字列表，实际是 {m['kweight']!r}")
-        if "window" in m and not _window_ok(m["window"]):
-            rep.err(f"{at} window", f"窗函数 {m['window']!r} 无法识别")
+        _check_ranges(rep, at, m)
         rng = [m.get(k) for k in ("kmin", "kmax", "rmin", "rmax")]
         if "params" in m and not isinstance(m["params"], dict):
             rep.err(f"{at} params", "应是对象 {名称: 初值或 {value, vary, min, max, expr}}")
@@ -334,22 +434,7 @@ def check_models(rep, meta, klim=None):
             elif nv > ni / 2:
                 rep.warn(f"{at} params", f"变量数 {nv} > N_idp/2 = {ni / 2:.1f}（2ΔkΔR/π），超出处理规范"
                                          "（XAFS 处理规范：变量数不多于 N_idp 的一半，最好 ≤ N_idp − 3），结果可靠性低")
-        # 模型不写吸收边：样品只在一个吸收边登记时才能确定对照哪个上限
-        mk = [v for (s, _ek), v in klim.items() if s == m.get("sample")]
-        if _isnum(m.get("kmax")) and len(mk) == 1 and m["kmax"] > mk[0][0] + 0.05:
-            kl, why, _ = mk[0]
-            rep.warn(f"{at} kmax", f"kmax = {m['kmax']} 超过可用上限 {kl:.2f} Å⁻¹（{why}）")
-        if not isinstance(m.get("paths", []), list) or not m.get("paths", [1]):
-            rep.err(f"{at} paths", "应是非空数组")
-        for j, pth in enumerate(m.get("paths", []) if isinstance(m.get("paths", []), list) else []):
-            if not isinstance(pth, dict) or "file" not in pth:
-                rep.err(f"{at} paths[{j}]", "每条路径需要 file 字段")
-        if samples and m.get("sample") not in samples:
-            rep.warn(at, f"样品 {m.get('sample')} 不在 meta.csv 中")
-        missing = [p["file"] for p in m.get("paths", []) if isinstance(p, dict) and "file" in p
-                   and not paths.resolve(p["file"]).exists()]
-        if missing:
-            rep.warn(at, f"{len(missing)} 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 {missing[0]}")
+        _check_paths(rep, at, m, klim, samples)
 
 
 def check_structures(rep):

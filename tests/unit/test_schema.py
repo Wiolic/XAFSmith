@@ -118,3 +118,71 @@ def test_time_gap_accepts_all_meta_time_formats():
     assert abs(time_gap_hours("2001-06-26T21:00:00", "2001-06-26T22:30:00") - 1.5) < 1e-9     # XDI
     assert abs(time_gap_hours("Tue Jun 26 21:00:00 2001", "Tue Jun 26 22:30:00 2001") - 1.5) < 1e-9   # .xmu
     assert time_gap_hours("乱写", "2026/5/1 9:00:00") is None
+
+
+# ------------------------------------------------------------------ B1 T8：多数据集模型
+FEFF = Path(__file__).resolve().parents[1] / "data" / "benchmark" / "feffcu01.dat"
+
+
+def _multi(**kw):
+    p = lambda s: [{"file": str(FEFF), "s02": "amp", "e0": "e0", "deltar": "dr", "sigma2": s}]  # noqa: E731
+    m = dict(name="mm", kmin=3, kmax=14, rmin=1.4, rmax=3.0, kweight=2, window="kaiser", dk=4,
+             params={"amp": 1.0, "e0": 0.0, "dr": 0.0, "ssA": 0.005, "ssB": 0.005},
+             datasets=[dict(id="A", sample="cu_metal_rt", paths=p("ssA")),
+                       dict(id="B", sample="cu_rt01", kmax=13, paths=p("ssB"))])
+    m.update(kw)
+    return m
+
+
+def _mm(proj, model):
+    (proj / "models").mkdir(exist_ok=True)
+    (proj / "models" / "mm.json").write_text(json.dumps(model, ensure_ascii=False), encoding="utf-8")
+    return [(lv, at, m) for lv, at, m in schema.validate(structures=False).items if "mm.json" in at]
+
+
+def test_multi_valid_model_clean(proj):
+    assert _mm(proj, _multi()) == []
+
+
+def _ds(m, i, **kw):
+    m["datasets"][i].update(kw)
+    return m
+
+
+@pytest.mark.parametrize("model,where,text", [
+    (_multi(datasets=[]), "datasets", "非空数组"),
+    (_multi(datasets=[1]), "datasets[0]", "应是对象"),
+    ({k: v for k, v in _multi().items() if k != "params"}, "mm.json", "缺少字段 params"),
+    (_multi(sample="cu_metal_rt"), "mm.json sample", "不得有顶层 sample"),
+    (_multi(paths=[]), "mm.json paths", "不得有顶层 paths"),
+    ({**_multi(), "datasets": [{"id": "A", "paths": [{"file": str(FEFF)}]}]}, "datasets[0](A)", "缺少字段 sample"),
+    ({**_multi(), "datasets": [{"id": "A", "sample": "cu_metal_rt"}]}, "datasets[0](A)", "缺少字段 paths"),
+    ({k: v for k, v in _multi().items() if k != "rmax"}, "datasets[0](A)", "缺少 rmax"),
+    (_ds(_multi(), 1, kmin=15), "datasets[1](B) kmin/kmax", "kmin 应小于 kmax"),
+    (_ds(_multi(), 1, rmin=-1), "datasets[1](B) rmin", "不能为负"),
+    (_ds(_multi(), 1, kmax="x"), "datasets[1](B) kmax", "应为数字"),
+    (_ds(_multi(), 1, kweight="k2"), "datasets[1](B) kweight", "数字或数字列表"),
+    (_ds(_multi(), 1, window="hamming2"), "datasets[1](B) window", "窗函数"),
+    (_ds(_multi(), 1, paths=[{}]), "datasets[1](B) paths[0]", "file"),
+    (_ds(_multi(), 1, id="A"), "datasets[1](A) id", "重复"),
+    (_ds(_multi(), 1, id=""), "datasets[1]() id", "不能为空"),
+    (_ds(_multi(), 1, epsilon_k=0), "datasets[1](B) epsilon_k", "正数"),
+    (_multi(params={f"p{i}": 0.1 for i in range(25)}), "mm.json params", "Σ N_idp"),
+])
+def test_multi_errors(proj, model, where, text):
+    items = _mm(proj, model)
+    assert any(lv == "错误" and at.endswith(where) and text in m for lv, at, m in items), items
+
+
+@pytest.mark.parametrize("model,where,text", [
+    (_multi(params={f"p{i}": 0.1 for i in range(12)}), "mm.json params", "全部数据集合计"),
+    (_ds(_multi(), 1, sample="cu_metal_rt", id="B"), "mm.json datasets", "重复使用"),
+    (_ds(_multi(), 1, fitspace="k"), "mm.json datasets", "fitspace 不同"),
+    (_ds(_multi(), 1, sample="nope"), "datasets[1](B)", "不在 meta.csv"),
+    (_ds(_multi(), 1, paths=[{"file": "output/feff/none/feff0001.dat"}]), "datasets[1](B)", "FEFF 路径文件不存在"),
+    (_ds(_multi(), 0, kmax=30), "datasets[0](A) kmax", "超过可用上限"),
+])
+def test_multi_warnings(proj, model, where, text):
+    items = _mm(proj, model)
+    assert any(lv == "警告" and at.endswith(where) and text in m for lv, at, m in items), items
+    assert not any(lv == "错误" for lv, _, _ in items), items
