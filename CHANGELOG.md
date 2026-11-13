@@ -30,6 +30,10 @@ All notable changes are recorded here (format: Keep a Changelog; versioning: Sem
   methods_text now finds the FEFF code for multi-dataset models.
 - k–E 换算常数统一为与 Larch 相同的 2mₑ/ħ²（scipy CODATA）；原 `common.ETOK` 与 Larch 差 5×10⁻⁷，另有三处写死 0.2625（.prj 导出的 kmax、毛刺能量显示、干扰边默认范围）。影响 ≤ 0.03%。
   The k–E constant now matches Larch exactly (it differed by 5e-7, and three places hard-coded 0.2625).
+- 旧格式（单数据集）模型的路径 N 改用与多数据集相同的参考 S0²：路径的 `s02` 字段若就是一个参数名，N = 振幅 / 该参数；否则仍用全局 S0²（参数 s02 / amp / s0_2 / S02）。此前旧格式总用全局 S0²，同一模型两种格式的 N 不同；只影响给路径单独写了振幅参数名（且不是 s02）的模型。
+  Old-format models now use the same S0² reference for path N as multi-dataset models (the path's own amplitude parameter when its `s02` is a parameter name).
+- 拟合历史页“模型比较”保存 CSV 时同时写 `model_compare.params.json`（与 `xafsmith compare` 相同）。
+  Saving the GUI model comparison also writes model_compare.params.json.
 
 ## [1.1.0] — 2026-11-12
 
