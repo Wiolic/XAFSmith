@@ -107,8 +107,8 @@ class FitPage(Page):
                                       T("选择 FEFF 目录（所有数据集共用；可多选：多物相 / 多位点）",
                                         "FEFF folders (shared by all datasets; several: phases / sites)"),
                                       fmt=lambda p: str(p.relative_to(paths.ROOT)))
-                datas.changed.connect(lambda v: (self.state.__setitem__("datas", list(v)), self.refresh()))
-                fdirs.changed.connect(lambda v: (self.state.__setitem__("fdirs_multi", [str(x) for x in v]), self.refresh()))
+                datas.committed.connect(lambda v: (self.state.__setitem__("datas", list(v)), self.refresh()))
+                fdirs.committed.connect(lambda v: (self.state.__setitem__("fdirs_multi", [str(x) for x in v]), self.refresh()))
                 c1.add(W.field(T("数据（多选）", "Data (several)"), datas))
                 c1.add(W.field(T("FEFF 目录", "FEFF folders"), fdirs))
                 add(c1)
@@ -129,7 +129,7 @@ class FitPage(Page):
                                       T("选择 FEFF 目录（可多选：多物相 / 多位点）", "FEFF folders (several: phases / sites)"),
                                       fmt=lambda p: str(p.relative_to(paths.ROOT)))
                 data.currentIndexChanged.connect(lambda *_: (self.state.__setitem__("data", data.value()), self.refresh()))
-                fdirs.changed.connect(lambda v: (self.state.__setitem__(fd_key, [str(x) for x in v]), self.refresh()))
+                fdirs.committed.connect(lambda v: (self.state.__setitem__(fd_key, [str(x) for x in v]), self.refresh()))
                 c1.add(W.field(T("数据", "Data"), data))
                 c1.add(W.field(T("FEFF 目录", "FEFF folders"), fdirs))
                 add(c1)

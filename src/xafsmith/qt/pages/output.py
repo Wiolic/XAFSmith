@@ -152,7 +152,7 @@ class MethodsPage(Page):
             return card
         sel = W.MultiSelect(keys, [k for k in self.state.get("sel", keys[-1:]) if k in keys], T("选择拟合", "Choose fits"),
                             fmt=lambda x: x.replace("|", " — "))
-        sel.changed.connect(lambda v: (self.state.__setitem__("sel", v), self.refresh()))
+        sel.committed.connect(lambda v: (self.state.__setitem__("sel", v), self.refresh()))
         card.add(W.field(T("拟合", "Fits"), sel))
         if not sel.value():
             return card

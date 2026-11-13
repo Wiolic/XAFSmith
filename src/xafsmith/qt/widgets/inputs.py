@@ -171,9 +171,25 @@ class Segmented(QWidget):
         return self._v
 
 
+class _Popup(QFrame):
+    """弹出框：关闭（隐藏）时回调一次"""
+    def __init__(self, parent, on_hide):
+        super().__init__(parent, Qt.WindowType.Popup)
+        self._on_hide = on_hide
+
+    def hideEvent(self, e):
+        super().hideEvent(e)
+        cb, self._on_hide = self._on_hide, None
+        if cb is not None:
+            QTimer.singleShot(0, cb)      # 等弹出框完全关闭后再通知（接收方可能重建页面）
+
+
 class MultiSelect(QPushButton):
-    """多选：点击弹出可勾选列表（带搜索、全选、清空）"""
+    """多选：点击弹出可勾选列表（带搜索、全选、清空）。
+    changed(list)：每勾一项都发出；committed(list)：弹出列表关闭且选择有变化时发出一次——
+    选择变化后要重建页面的地方连 committed，否则重建会把列表关掉，只能一次勾一项。"""
     changed = Signal(list)
+    committed = Signal(list)
 
     def __init__(self, options, selected=(), placeholder=None, fmt=None, max_sel=None):
         super().__init__()
@@ -212,6 +228,7 @@ class MultiSelect(QPushButton):
         self._update_text()
         if emit:
             self.changed.emit(self.value())
+            self.committed.emit(self.value())
 
     def _update_text(self):
         if not self.sel:
@@ -229,7 +246,8 @@ class MultiSelect(QPushButton):
         self._update_text()
 
     def _popup(self):
-        pop = QFrame(self, Qt.WindowType.Popup)
+        before = list(self.sel)
+        pop = _Popup(self, lambda: self.sel != before and self.committed.emit(self.value()))
         pop.setObjectName("card")
         lay = QVBoxLayout(pop)
         lay.setContentsMargins(8, 8, 8, 8)
