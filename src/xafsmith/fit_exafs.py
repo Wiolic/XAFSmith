@@ -89,21 +89,255 @@ def build_paths(model, root=None):
     return paths
 
 
-def run_fit(data, model: dict, root=None) -> tuple:
-    """data: 已做 autobk 的 Group（含 k, chi）。返回 (result, dataset, summary dict)"""
+# ------------------------------------------------------------------ 模型规范化（B1：多数据集）
+_RANGE_KEYS = ("kmin", "kmax", "rmin", "rmax", "kweight")
+_FIT_KEYS = ("kmin", "kmax", "dk", "window", "kweight", "rmin", "rmax", "fitspace")
+_BUILTIN = dict(dk=1, window="hanning", fitspace="r")     # 与 v1.1 run_fit 的默认相同
+
+
+def is_multi(model: dict) -> bool:
+    """有 datasets 键 = 多数据集模型；没有 = 旧格式（单数据集）。"""
+    return "datasets" in model
+
+
+def normalize_model(model: dict) -> dict:
+    """把旧格式或多数据集模型统一成
+    {name, params, multi, datasets: [{id, sample, kmin, kmax, dk, window, kweight, rmin, rmax, fitspace, epsilon_k, paths}]}。
+    纯函数（深拷贝，不改输入）。取值顺序：数据集自己的值 → 顶层值 → 内置默认。缺必填 → ValueError。"""
+    import copy
+    m = copy.deepcopy(model)
+    out = dict(name=m.get("name", ""), params=m.get("params", {}), multi=is_multi(m), datasets=[])
+    if not out["multi"]:
+        ds = dict(id=m.get("sample") or "data", sample=m.get("sample", ""))
+        for k in _FIT_KEYS:
+            ds[k] = m.get(k, _BUILTIN.get(k, 2 if k == "kweight" else None))   # kweight 缺省 2（v1.1）
+        miss = [k for k in _RANGE_KEYS if ds[k] is None]
+        if miss:
+            raise ValueError(f"模型缺少 {', '.join(miss)} / model is missing {', '.join(miss)}")
+        ds["epsilon_k"] = None                      # 旧格式从不传 epsilon_k（与 v1.1 相同）
+        ds["paths"] = m.get("paths", [])
+        out["datasets"].append(ds)
+        return out
+    dl = m["datasets"]
+    if not isinstance(dl, list) or not dl:
+        raise ValueError("datasets 必须是非空数组 / datasets must be a non-empty array")
+    for k in ("sample", "paths"):
+        if k in m:
+            raise ValueError(f"多数据集模型不得有顶层 {k}（写进 datasets[i]） / "
+                             f"a multi-dataset model must not have a top-level '{k}' (put it in datasets[i])")
+    seen = set()
+    for i, d in enumerate(dl):
+        if not isinstance(d, dict):
+            raise ValueError(f"datasets[{i}] 不是对象 / datasets[{i}] is not an object")
+        for k in ("sample", "paths"):
+            if not d.get(k):
+                raise ValueError(f"datasets[{i}].{k} 缺失或为空 / datasets[{i}].{k} is missing or empty")
+        ds = dict(id=d.get("id", d["sample"]), sample=d["sample"])
+        if not isinstance(ds["id"], str) or not ds["id"]:
+            raise ValueError(f"datasets[{i}].id 为空 / datasets[{i}].id is empty")
+        if ds["id"] in seen:
+            raise ValueError(f"datasets[{i}].id 重复：{ds['id']} / duplicate datasets[{i}].id: {ds['id']}")
+        seen.add(ds["id"])
+        for k in _FIT_KEYS:
+            ds[k] = d[k] if k in d else m.get(k, _BUILTIN.get(k))
+        miss = [k for k in _RANGE_KEYS if ds[k] is None]
+        if miss:
+            raise ValueError(f"datasets[{i}].{'/'.join(miss)} 缺失（数据集与顶层都没有） / "
+                             f"datasets[{i}].{'/'.join(miss)} missing (neither in the dataset nor at top level)")
+        ds["epsilon_k"] = d.get("epsilon_k")
+        ds["paths"] = d["paths"]
+        out["datasets"].append(ds)
+    return out
+
+
+def dataset_of(model: dict, key: str) -> dict:
+    """按 id 或样品名取规范化后的数据集；旧格式返回唯一的数据集。"""
+    nm = normalize_model(model)
+    if not nm["multi"]:
+        return nm["datasets"][0]
+    for f in ("id", "sample"):
+        for d in nm["datasets"]:
+            if d[f] == key:
+                return d
+    raise KeyError(f"模型 {nm['name']} 中没有数据集 {key} / no dataset {key} in model {nm['name']}")
+
+
+def model_path_files(model: dict) -> list[str]:
+    """全部数据集的路径文件（不要求模型完整，供 methods_text / si_text 用）。"""
+    blocks = model.get("datasets") if is_multi(model) else [model]
+    return [p["file"] for b in (blocks or []) if isinstance(b, dict)
+            for p in (b.get("paths") or []) if isinstance(p, dict) and "file" in p]
+
+
+# ------------------------------------------------------------------ 拟合
+def _fit_core(groups: list, nm: dict, root=None) -> tuple:
+    """groups 与 nm["datasets"] 一一对应。调用顺序与 v1.1 run_fit 相同（逐位一致的前提）。返回 (res, dsets)。"""
     from larch.fitting import param_group
     from larch.xafs import feffit_transform, feffit_dataset, feffit
-    pars = param_group(**{k: _mkparam(k, v) for k, v in model["params"].items()})
-    paths = build_paths(model, root)
-    kw = model.get("kweight", 2)
-    trans = feffit_transform(kmin=model["kmin"], kmax=model["kmax"], dk=model.get("dk", 1),
-                             window=model.get("window", "hanning"), kweight=kw,
-                             rmin=model["rmin"], rmax=model["rmax"],
-                             fitspace=model.get("fitspace", "r"))
-    dset = feffit_dataset(data=data, pathlist=list(paths.values()), transform=trans)
-    res = feffit(pars, dset)
+    pars = param_group(**{k: _mkparam(k, v) for k, v in nm["params"].items()})
+    dsets = []
+    for data, d in zip(groups, nm["datasets"]):
+        paths = build_paths(d, root)              # 每个数据集各自的 FeffPathGroup（larch 会写 path.dataset）
+        trans = feffit_transform(kmin=d["kmin"], kmax=d["kmax"], dk=d["dk"],
+                                 window=d["window"], kweight=d["kweight"],
+                                 rmin=d["rmin"], rmax=d["rmax"],
+                                 fitspace=d["fitspace"])
+        kw = {} if d["epsilon_k"] is None else dict(epsilon_k=d["epsilon_k"])
+        dsets.append(feffit_dataset(data=data, pathlist=list(paths.values()), transform=trans, **kw))
+    res = feffit(pars, dsets)
+    return res, dsets
+
+
+def run_fit(data, model: dict, root=None) -> tuple:
+    """data: 已做 autobk 的 Group（含 k, chi）。返回 (result, dataset, summary dict)。只接受旧格式（单数据集）模型。"""
+    if is_multi(model):
+        raise ValueError("多数据集模型请用 fit_multi / xafsmith fit / "
+                         "use fit_multi / xafsmith fit for a multi-dataset model")
+    nm = normalize_model(model)
+    res, ds = _fit_core([data], nm, root)
     summ = summarize(res, model, data)
-    return res, dset, summ
+    return res, ds[0], summ
+
+
+def fit_multi(groups, model: dict, root=None) -> tuple:
+    """多数据集同时拟合。groups: {数据集 id: Group}；旧格式模型也接受（1 个数据集，id = sample）。
+    返回 (result, [dataset…], 多数据集形状的 summary)。不修改传入的 Group。"""
+    nm = normalize_model(model)
+    miss = [d["id"] for d in nm["datasets"] if d["id"] not in groups]
+    if miss:
+        raise KeyError(f"缺少数据集的数据：{', '.join(miss)} / no data for dataset(s): {', '.join(miss)}")
+    res, dsets = _fit_core([groups[d["id"]] for d in nm["datasets"]], nm, root)
+    return res, dsets, summarize_multi(res, nm, groups)
+
+
+def _param_table(res, user):
+    """与 summarize 中参数表的代码相同（summarize 本身保持 v1.1 原样）。"""
+    pars = {}
+    for name, p in res.params.items():
+        if name not in user:
+            continue
+        pars[name] = dict(value=float(p.value), stderr=None if p.stderr is None else float(p.stderr),
+                          vary=bool(p.vary), expr=p.expr)
+    return pars
+
+
+def _dataset_stats(res):
+    """逐数据集残差平方和（用最终参数重算；依赖 larch 私有 _residual，T5 检查其与合计值一致）。
+
+    _residual → ff2chi → create_path_params 会把路径参数重新 add 进传入的 Parameters（stderr 丢失），
+    并把 path.params 指向它 → 用 res.params 的深拷贝计算，算完把每条路径的 params 指回 res.params，res 不受影响。"""
+    import copy
+    saved = [(p, p.params) for ds in res.datasets for p in ds.paths.values()]
+    pc = copy.deepcopy(res.params)
+    num, den, npts = [], [], []
+    try:
+        for ds in res.datasets:
+            r = ds._residual(pc)
+            d = ds._residual(pc, data_only=True)
+            num.append(float((r ** 2).sum()))
+            den.append(float((d ** 2).sum()))
+            npts.append(len(r))
+    finally:
+        for p, prm in saved:
+            p.params = prm
+    return num, den, npts
+
+
+def summarize_multi(res, nm: dict, groups=None) -> dict:
+    """多数据集拟合摘要。合计值（n_idp、rfactor、chi2、chi2_reduced）取 larch；逐数据集统计在 datasets 里。
+    逐数据集不报 χ²_ν（变量共享，无法分摊）；chi2_share、chi2_per_idp 用来看哪个数据集失配大。"""
+    dl = nm["datasets"]
+    samples = list(dict.fromkeys(d["sample"] for d in dl))
+    nform = [n_idp(d["kmin"], d["kmax"], d["rmin"], d["rmax"]) for d in dl]
+    out = dict(model=nm.get("name", ""), multi=True, n_datasets=len(dl), sample="+".join(samples),
+               n_idp=float(res.n_independent), n_idp_formula=float(sum(nform)), nvarys=int(res.nvarys),
+               rfactor=float(res.rfactor), chi2=float(res.chi_square), chi2_reduced=float(res.chi2_reduced))
+    user = set(nm.get("params", {}))
+    out["params"] = _param_table(res, user)
+    num, den, npts = _dataset_stats(res)
+    ntot, ptot = float(res.n_independent), float(sum(npts))
+    rows = []
+    for d, ds, nf, a, b, n in zip(dl, res.datasets, nform, num, den, npts):
+        c2 = a * ntot / ptot
+        rows.append(dict(id=d["id"], sample=d["sample"], kmin=d["kmin"], kmax=d["kmax"], rmin=d["rmin"],
+                         rmax=d["rmax"], dk=d["dk"], window=d["window"], kweight=str(d["kweight"]),
+                         fitspace=d["fitspace"], n_idp=float(ds.n_idp), n_idp_formula=nf, npts=int(n),
+                         rfactor=a / b if b > 0 else float("nan"), chi2=c2,
+                         chi2_share=c2 / out["chi2"] if out["chi2"] > 0 else float("nan"),
+                         chi2_per_idp=c2 / float(ds.n_idp), resid2_per_point=a / n if n else float("nan")))
+    out["datasets"] = rows
+    warn = []
+    if res.nvarys > res.n_independent / 2:
+        warn.append(f"变量数 {res.nvarys} > N_idp/2 = {res.n_independent / 2:.1f}（全部数据集合计）")
+    for name, p in res.params.items():
+        if name not in user:
+            continue
+        if "e0" in name.lower() and p.vary and abs(p.value) > 10:
+            warn.append(f"{name}={p.value:.1f} eV 超出 ±10 eV，检查 E0 定义或模型")
+        if ("ss" in name.lower() or "sig" in name.lower()) and p.value < 0:
+            warn.append(f"{name}={p.value:.4f} < 0，非物理")
+    for s in samples:
+        ids = [d["id"] for d in dl if d["sample"] == s]
+        if len(ids) > 1:
+            warn.append(f"样品 {s} 在数据集 {'、'.join(ids)} 中重复使用：同一数据计入两次，误差会被低估")
+    if len(rows) > 1:
+        # 失配比较用“每个拟合点的残差平方均值”（残差已除以 ε）：与 k 权重个数、ΔR 无关。
+        # 不用 χ²/N_idp：k 权重 [1,2,3] 使拟合点数 ×3 而 N_idp 不变，两个都在噪声水平的数据集比值中位数约 3、最大约 10（误报）。
+        cp = [r["resid2_per_point"] for r in rows]
+        hi, lo = int(np.argmax(cp)), int(np.argmin(cp))
+        if cp[lo] > 0 and cp[hi] / cp[lo] > 4:
+            a, b = rows[hi]["id"], rows[lo]["id"]
+            warn.append(f"数据集 {a} 每个拟合点的残差（以噪声 ε 为单位）平方均值是 {b} 的 {cp[hi] / cp[lo]:.1f} 倍（失配）："
+                        f"误差按合计 χ²_ν 统一缩放，{a} 的失配会放大所有参数（包括只属于 {b} 的参数）的误差；"
+                        f"先检查 {a} 的模型、k/R 范围或 ε_k")
+    out["warnings"] = warn
+    # 每条路径：N 的参考 S0² 用该路径自己的振幅参数（若它就是一个参数名），否则同旧格式
+    s02g = _s02val(res)
+    prows = []
+    for d, ds in zip(dl, res.datasets):
+        specs = d["paths"]
+        if len(specs) != len(ds.paths):        # larch 按 label 存路径，label 冲突时会少路径 → 不能按位置对应
+            specs = [{}] * len(ds.paths)        # 退回旧格式的参考 S0²
+        for spec, path in zip(specs, ds.paths.values()):
+            v = path.path_paramvals()
+
+            def err(pn, path=path):
+                p = path.params.get(path.pathpar_name(pn)) if path.params else None
+                return None if p is None or p.stderr is None else float(p.stderr)
+            aname = spec.get("s02", "s02")
+            s02ref = res.params[aname].value if aname in res.params else s02g
+            amp = float(path.degen) * float(v["s02"])
+            prows.append(dict(path=path.label, reff=float(path.reff), degen=float(path.degen),
+                              N=amp / max(s02ref, 1e-9), amp=amp,
+                              R=float(path.reff + v["deltar"]), R_err=err("deltar"),
+                              sigma2=float(v["sigma2"]), sigma2_err=err("sigma2"),
+                              e0=float(v["e0"]), e0_err=err("e0"), deltar=float(v["deltar"]),
+                              dataset=d["id"]))
+    out["paths"] = prows
+    return out
+
+
+def dataset_view(summ: dict, ds_id: str) -> dict:
+    """把多数据集摘要切成旧形状的单数据集摘要（作图、诊断、质量检查复用）。
+    n_idp / n_idp_formula / rfactor 取该数据集；nvarys / chi2 / chi2_reduced / params / warnings 取联合值。"""
+    if not summ.get("multi"):
+        return summ
+    row = next((r for r in summ["datasets"] if r["id"] == ds_id), None)
+    if row is None:
+        raise KeyError(f"没有数据集 {ds_id} / no dataset {ds_id}")
+    return dict(model=f"{summ['model']}[{ds_id}]", sample=row["sample"], dataset=ds_id,
+                kmin=row["kmin"], kmax=row["kmax"], rmin=row["rmin"], rmax=row["rmax"],
+                kweight=row["kweight"], fitspace=row["fitspace"],
+                n_idp=row["n_idp"], n_idp_formula=row["n_idp_formula"], nvarys=summ["nvarys"],
+                rfactor=row["rfactor"], chi2=summ["chi2"], chi2_reduced=summ["chi2_reduced"],
+                params=summ["params"], warnings=summ["warnings"],
+                paths=[p for p in summ["paths"] if p.get("dataset") == ds_id],
+                joint=dict(n_datasets=summ["n_datasets"], rfactor=summ["rfactor"], n_idp=summ["n_idp"]))
+
+
+def model_curves_all(dsets, nm) -> dict:
+    """{数据集 id: model_curves(ds)}"""
+    return {d["id"]: model_curves(ds) for d, ds in zip(nm["datasets"], dsets)}
 
 
 def summarize(res, model, data=None):
@@ -170,6 +404,8 @@ def write_result_row(summ, csv=None):
     from .paths import FITS_CSV
     csv = Path(csv or FITS_CSV)
     csv.parent.mkdir(parents=True, exist_ok=True)
+    if summ.get("multi"):
+        return _write_multi_rows(summ, csv)
     rows = []
     s02 = summ["params"].get("s02", {}).get("value", np.nan)
     for p in summ["paths"]:
@@ -187,6 +423,32 @@ def write_result_row(summ, csv=None):
     csv = Path(csv)
     csv.parent.mkdir(parents=True, exist_ok=True)
     from .common import append_csv
+    append_csv(df, csv)
+    return df
+
+
+def _write_multi_rows(summ, csv):
+    """多数据集：每条路径一行；sample / k_range / R_range / kweight 取该行所属数据集，
+    rfactor / chi2_reduced / n_idp / nvarys 为联合值；另有 dataset、n_datasets、rfactor_dataset、n_idp_dataset、chi2_share。"""
+    from .common import append_csv
+    s02 = summ["params"].get("s02", {}).get("value", np.nan)
+    by_id = {r["id"]: r for r in summ["datasets"]}
+    rows = []
+    for p in summ["paths"]:
+        d = by_id[p["dataset"]]
+        rows.append(dict(sample=d["sample"], model=summ["model"], path=p["path"],
+                         N=round(p["N"], 3), R=round(p["R"], 4), sigma2=round(p["sigma2"], 5),
+                         dE0=round(p["e0"], 2), S02=s02, rfactor=summ["rfactor"],
+                         chi2_reduced=summ["chi2_reduced"], n_idp=summ["n_idp"],
+                         nvarys=summ["nvarys"],
+                         k_range=f"{d['kmin']}-{d['kmax']}",
+                         R_range=f"{d['rmin']}-{d['rmax']}", kweight=d["kweight"],
+                         params=json.dumps({k: [v["value"], v["stderr"]]
+                                            for k, v in summ["params"].items()},
+                                           ensure_ascii=False),
+                         dataset=d["id"], n_datasets=summ["n_datasets"], rfactor_dataset=d["rfactor"],
+                         n_idp_dataset=d["n_idp"], chi2_share=d["chi2_share"]))
+    df = pd.DataFrame(rows)
     append_csv(df, csv)
     return df
 
@@ -229,6 +491,9 @@ def robustness(data, model: dict, root=None, variants=None,
     verdict 每个变量一行：基准值、基准误差、各条件下的最小/最大值、离散度（标准差）、
     离散度/基准误差（> 1 记为“不稳”，即参数随拟合条件的变化超过统计误差）。
     """
+    if is_multi(model):            # 不静默降级：下面逐条件 try/except 会把每个条件都变成“错误”行
+        raise ValueError("多数据集模型暂不支持稳健性检查（计划在 B2 之后） / "
+                         "robustness checks are not yet supported for multi-dataset models (planned after B2)")
     variants = variants or robustness_variants(model)
     rows = []
     for i, (name, change) in enumerate(variants):
