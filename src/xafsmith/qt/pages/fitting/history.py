@@ -60,6 +60,7 @@ class HistoryPage(Page):
     def _compare_card(self, idx):
         """多模型比较表（B4）：F、p 由 hamilton_test 给出，嵌套关系不检查。"""
         from xafsmith import fit_exafs as xfit, paths
+        from xafsmith.common import write_params
         S = self.S
         card = Card(T("模型比较表", "Model comparison"))
         chks = [W.check(fit_label(S.fits[i]), True) for i in idx]
@@ -79,6 +80,7 @@ class HistoryPage(Page):
                             summ=S.fits[i]["summ"]) for i in sel]
             df = xfit.compare_models(entries)
             last["df"] = df
+            last["models"] = [e["name"] for e in entries]
             out.layout().addWidget(W.Table(df, max_height=260))
             out.layout().addWidget(Banner("info", T(*xfit.COMPARE_NOTE.split(" / ", 1))))
 
@@ -89,6 +91,7 @@ class HistoryPage(Page):
             f = paths.FITS / "model_compare.csv"
             f.parent.mkdir(parents=True, exist_ok=True)
             last["df"].to_csv(f, index=False, encoding="utf-8-sig")
+            write_params(f.with_suffix(".params.json"), {"models": list(last["models"])}, "GUI model comparison")
             W.toast(self, T(f"已保存 {paths.rel(f)}", f"Saved {paths.rel(f)}"))
         card.add(W.hbox(W.button(T("比较", "Compare"), primary=True, slot=go),
                         W.button(T("保存为 CSV", "Save as CSV"), icon_name="save", slot=save), None))
