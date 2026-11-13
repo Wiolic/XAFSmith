@@ -279,13 +279,16 @@ def prose_browser(html=None, markdown=None, size=11.0, search_paths=None, bg=Non
 _INFO = {}
 
 
-def info_window(parent, key, title, html, size=(760, 760)):
-    """独立的说明窗口（不阻塞主窗口，可一边看一边操作）；同一个 key 只开一个"""
+def info_window(parent, key, title, html, size=(760, 760), tab=None):
+    """独立的说明窗口（不阻塞主窗口，可一边看一边操作）；同一个 key 只开一个。
+    html 为字符串 = 一页；为 [(标签名, html), ...] = 分标签页，tab 指定打开时显示第几页（窗口已开时切到该页）"""
     from PySide6.QtWidgets import QDialog
     old = _INFO.get(key)
     if old is not None:
         try:
             old.show()
+            if tab is not None and getattr(old, "tabs", None) is not None:
+                old.tabs.setCurrentIndex(tab)
             old.raise_()
             old.activateWindow()
             return old
@@ -304,7 +307,19 @@ def info_window(parent, key, title, html, size=(760, 760)):
     h.setObjectName("h1")
     h.setContentsMargins(SP['xl'], SP['lg'], SP['xl'], 0)
     v.addWidget(h)
-    v.addWidget(prose_browser(html=html), 1)
+    dlg.tabs = None
+    if isinstance(html, str):
+        v.addWidget(prose_browser(html=html), 1)
+    else:
+        from PySide6.QtWidgets import QTabWidget
+        tw = QTabWidget()
+        tw.setDocumentMode(True)
+        for name, page in html:
+            tw.addTab(prose_browser(html=page), name)
+        if tab is not None:
+            tw.setCurrentIndex(tab)
+        v.addWidget(tw, 1)
+        dlg.tabs = tw
     _INFO[key] = dlg
     dlg.destroyed.connect(lambda *_: _INFO.pop(key, None))
     if top is not None:
