@@ -4,6 +4,30 @@
 [语义化版本](https://semver.org/lang/zh-CN/)。
 All notable changes are recorded here (format: Keep a Changelog; versioning: SemVer).
 
+## [1.3.0] — 2026-11-14
+
+### 新增 / Added
+- 多重散射绑定向导：`msbind` 模块、`xafsmith msbind 模型名 [--dataset ID] [--out 新模型]`、拟合页 **多重散射绑定…** 按钮与对话框：按 FEFF 路径几何给已勾选的多重散射路径建议 `deltar` / `sigma2` 表达式并写明依据（ΔR 按腿：共线精确 / 等价键 / 键角不变；σ² 独立键近似），点“应用”才改表；`--out` 另存新模型、不覆盖。路径新增可选字段 `note`。
+  Multiple-scattering binding wizard (`msbind`, `xafsmith msbind`, fit-page dialog): suggests deltar / sigma2 expressions for multiple-scattering paths from the FEFF geometry, with the basis; nothing changes until Apply. Optional path field `note`.
+- σ² 的 Debye / Einstein 温度模型：路径 σ² 可写 `sigma2_debye(tempK, θ)` / `sigma2_eins(tempK, θ)`，数据集字段 `temperature`（数据标准 4.3）；`xafsmith sigma2`（σ²(T) 表、由 σ² 反算 θ）；拟合页“使用 σ² 温度模型”勾选、每个数据集的温度与 **σ² 模型…** 对话框；结果区 **σ²(T)** 图；7 条校验与 Einstein 用于多重散射时的警告。
+  Debye / Einstein σ² temperature models (`sigma2_debye` / `sigma2_eins`, dataset `temperature`, `xafsmith sigma2`, fit-page switch and dialog, σ²(T) plot, validation).
+- 序列趋势与联合拟合序列工具：`trend` 模块与 `xafsmith trend 联合模型 [--seq-label] [--panels] [--nosave]`；联合拟合结果区 **趋势** 页与图片导出页 **趋势图**（N、R、σ²、ΔE0 与实测边位置随序列变量变化，1σ 误差棒，固定 N 不画误差棒，共享参数在页面与图注中标明）；Origin 工程导出误差棒（X / Y / yErr 列，线 + 符号）；`output/fits/<模型>_trend.csv`（保存联合拟合时也写）；meta.csv 可选列 `seq`（横轴：seq → 测量时间 → 数据集顺序，不混用）；拟合页 **勾选同步到所有数据集** 开关与 **σ² 各数据集独立** 按钮（`ss1` → `ss1_<数据集 id>`）。
+  Series trends for joint fits: `trend` module and `xafsmith trend`; a Trend tab and a Trend figure (N, R, σ², ΔE0 and edge position vs. the series variable with 1σ error bars; fixed N without bars; shared parameters marked); error bars in the Origin export; `<model>_trend.csv`; optional meta.csv column `seq`; fit-page switch to sync ticked paths and a one-click “Independent σ² per dataset”.
+- 文档：《多样品联合拟合指南》/ “Joint fitting of a series”（帮助页可达）；基础讲义 7.1 讲解 σ²；图形界面使用指南、数据标准、命令行速查、ARCHITECTURE 同步更新。
+  Docs: a step-by-step guide to joint fitting of a sample series (on the help page); σ² section in the XAFS basics; GUI guides, data standard, CLI cheat sheet and ARCHITECTURE updated.
+
+### 修复 / Fixed
+- larch 的 σ² 函数在一个拟合里有几条路径时共用一条路径的几何（悄悄算错）：`build_paths` 现按每条路径的几何展开 `sigma2_debye/eins`，与 larch 对单条路径的直接计算逐位相同。
+  larch's σ² functions shared one path's geometry when several paths used them (silently wrong); they are now expanded per path geometry, bit-identical to larch's single-path result.
+- `msbind.equivalent` 对含 `sqrt` 等函数的表达式误判；建议值的 `:.4g` 取整不再改写用户原有的等价表达式。
+  `msbind.equivalent` misjudged expressions with `sqrt`; the user's exact equivalent expression is kept.
+
+### 说明 / Notes
+- 已有模型的拟合数值与 `exafs_fits.csv` 的列不变（IrO2 回归 S0² 0.816、ΔE0 8.93）。
+  Existing fit results and `exafs_fits.csv` columns are unchanged.
+- Origin 工程中误差棒的线宽与端帽宽尚未按统一样式设置（使用 Origin 缺省）；打包版未做冒烟测试。
+  Error-bar line and cap widths in the Origin project still use Origin's defaults; the frozen build was not smoke-tested.
+
 ## [1.2.0] — 2026-11-13
 
 ### 新增 / Added
