@@ -156,6 +156,7 @@ def test_per_dataset_stats():
     before = {i: {k: np.array(v, copy=True) for k, v in c.items()} for i, c in fx.model_curves_all(dsets, nm).items()}
     s = fx.summarize_multi(res, nm, groups)
     after = fx.model_curves_all(dsets, nm)
+    assert "restraint_share" not in s               # B3: no extra key without restraints
     rows = s["datasets"]
     num, den, _ = fx._dataset_stats(res)
     print(f"\nT5: n_idp {[r['n_idp'] for r in rows]} 合计 {s['n_idp']}  chi2_i {[r['chi2'] for r in rows]} 合计 {s['chi2']}"

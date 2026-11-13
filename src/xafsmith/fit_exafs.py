@@ -212,10 +212,10 @@ def model_path_files(model: dict) -> list[str]:
 
 
 # ------------------------------------------------------------------ 拟合
-def _fit_core(groups: list, nm: dict, root=None) -> tuple:
-    """groups 与 nm["datasets"] 一一对应。调用顺序与 v1.1 run_fit 相同（逐位一致的前提）。返回 (res, dsets)。"""
+def _build(groups: list, nm: dict, root=None) -> tuple:
+    """建参数组与各数据集（每次调用都新建 Group 与路径对象；顺序与 v1.1 run_fit 相同）。"""
     from larch.fitting import param_group
-    from larch.xafs import feffit_transform, feffit_dataset, feffit
+    from larch.xafs import feffit_transform, feffit_dataset
     pars = param_group(**{k: _mkparam(k, v) for k, v in nm["params"].items()})
     dsets = []
     for data, d in zip(groups, nm["datasets"]):
@@ -226,7 +226,27 @@ def _fit_core(groups: list, nm: dict, root=None) -> tuple:
                                  fitspace=d["fitspace"])
         kw = {} if d["epsilon_k"] is None else dict(epsilon_k=d["epsilon_k"])
         dsets.append(feffit_dataset(data=data, pathlist=list(paths.values()), transform=trans, **kw))
-    res = feffit(pars, dsets)
+    return pars, dsets
+
+
+def _fit_core(groups: list, nm: dict, root=None) -> tuple:
+    """groups 与 nm["datasets"] 一一对应。调用顺序与 v1.1 run_fit 相同（逐位一致的前提）。返回 (res, dsets)。
+    B3：nm["restraints"] 为空 → 只走 larch feffit（与 B3 之前逐位相同）；非空 → 先无约束预拟合得 c0，再走带软约束的驱动。"""
+    from larch.xafs import feffit
+    pars, dsets = _build(groups, nm, root)
+    restraints = nm.get("restraints") or []
+    if not restraints:
+        res = feffit(pars, dsets)
+        return res, dsets
+    res0 = feffit(pars, dsets)
+    c0 = float(res0.chi2_reduced)
+    if not np.isfinite(c0) or c0 <= 0:
+        raise ValueError("无约束预拟合的 χ²_ν 无效（变量数 ≥ N_idp？），无法确定软约束权重 / "
+                         "the unrestrained pre-fit has an invalid χ²_ν (variables ≥ N_idp?); "
+                         "cannot set the restraint weight")
+    from ._feffit_restrained import feffit_restrained
+    pars, dsets = _build(groups, nm, root)        # 新的 Group 与路径对象，不复用预拟合的
+    res = feffit_restrained(pars, dsets, restraints, c0)
     return res, dsets
 
 
@@ -238,6 +258,7 @@ def run_fit(data, model: dict, root=None) -> tuple:
     nm = normalize_model(model)
     res, ds = _fit_core([data], nm, root)
     summ = summarize(res, model, data)
+    _add_restraints(summ, res)
     return res, ds[0], summ
 
 
@@ -250,6 +271,27 @@ def fit_multi(groups, model: dict, root=None) -> tuple:
         raise KeyError(f"缺少数据集的数据：{', '.join(miss)} / no data for dataset(s): {', '.join(miss)}")
     res, dsets = _fit_core([groups[d["id"]] for d in nm["datasets"]], nm, root)
     return res, dsets, summarize_multi(res, nm, groups)
+
+
+PULL_WARN = 2.0       # B3：|pull| 超过它给警告（设计档定，约 95% 双侧）
+
+
+def _restraint_summary(res) -> dict:
+    """B3：软约束的摘要键（res 来自 feffit_restrained）。"""
+    return dict(restraints=[dict(r) for r in res.restraints], restraint_chi2=float(res.restraint_chi2),
+                restraint_c0=float(res.restraint_c0), chi2_data=float(res.chi2_data))
+
+
+def _add_restraints(summ: dict, res) -> dict:
+    """B3：有软约束时在摘要里加键并追加警告；没有则原样返回（不多任何键）。"""
+    if not getattr(res, "restraints", None):
+        return summ
+    summ.update(_restraint_summary(res))
+    for r in summ["restraints"]:
+        if abs(r["pull"]) > PULL_WARN:
+            summ["warnings"].append(f"软约束 {r['name']}（{r['expr']}）偏离先验 {r['pull']:+.1f}σ："
+                                    "数据与先验值矛盾，检查先验来源或模型")
+    return summ
 
 
 def _param_table(res, user):
@@ -309,6 +351,8 @@ def summarize_multi(res, nm: dict, groups=None) -> dict:
                          chi2_per_idp=c2 / float(ds.n_idp), resid2_per_point=a / n if n else float("nan")))
     out["datasets"] = rows
     warn = []
+    if getattr(res, "restraints", None):       # B3：chi2_share 的分母是含约束的总 χ² → Σchi2_share + restraint_share = 1
+        out["restraint_share"] = float(res.restraint_chi2) / out["chi2"] if out["chi2"] > 0 else float("nan")
     if res.nvarys > res.n_independent / 2:
         warn.append(f"变量数 {res.nvarys} > N_idp/2 = {res.n_independent / 2:.1f}（全部数据集合计）")
     for name, p in res.params.items():
@@ -356,6 +400,7 @@ def summarize_multi(res, nm: dict, groups=None) -> dict:
                               e0=float(v["e0"]), e0_err=err("e0"), deltar=float(v["deltar"]),
                               dataset=d["id"]))
     out["paths"] = prows
+    _add_restraints(out, res)
     return out
 
 
@@ -367,7 +412,8 @@ def dataset_view(summ: dict, ds_id: str) -> dict:
     row = next((r for r in summ["datasets"] if r["id"] == ds_id), None)
     if row is None:
         raise KeyError(f"没有数据集 {ds_id} / no dataset {ds_id}")
-    return dict(model=f"{summ['model']}[{ds_id}]", sample=row["sample"], dataset=ds_id,
+    extra = {k: summ[k] for k in ("restraints", "restraint_chi2", "restraint_c0", "chi2_data") if k in summ}
+    return dict(extra, model=f"{summ['model']}[{ds_id}]", sample=row["sample"], dataset=ds_id,
                 kmin=row["kmin"], kmax=row["kmax"], rmin=row["rmin"], rmax=row["rmax"],
                 kweight=row["kweight"], fitspace=row["fitspace"],
                 n_idp=row["n_idp"], n_idp_formula=row["n_idp_formula"], nvarys=summ["nvarys"],
@@ -438,7 +484,19 @@ def _s02val(res):
 
 def report_text(res) -> str:
     from larch.xafs import feffit_report
-    return feffit_report(res)
+    txt = feffit_report(res)
+    rs = getattr(res, "restraints", None)
+    if not rs:
+        return txt
+    L = ["", "[[Restraints / 软约束]]",
+         f"   c0 (unrestrained chi2_reduced) = {res.restraint_c0:.6g}",
+         "   term = c0 * ((expr - value)/sigma)^2"]
+    for r in rs:
+        L.append(f"   {r['name']}: {r['expr']}  prior {r['value']:.6g} +/- {r['sigma']:.6g}  "
+                 f"fitted {r['fitted']:.6g}  pull {r['pull']:+.3f}  c0*t^2 = {r['chi2']:.6g}")
+    L.append(f"   chi_square = chi2_data + restraint_chi2 = {res.chi2_data:.6g} + {res.restraint_chi2:.6g}"
+             f" = {res.chi_square:.6g}")
+    return txt.rstrip("\n") + "\n" + "\n".join(L) + "\n"
 
 
 def write_result_row(summ, csv=None):
@@ -461,12 +519,23 @@ def write_result_row(summ, csv=None):
                          params=json.dumps({k: [v["value"], v["stderr"]]
                                             for k, v in summ["params"].items()},
                                            ensure_ascii=False)))
+    _csv_restraint_cols(rows, summ)
     df = pd.DataFrame(rows)
     csv = Path(csv)
     csv.parent.mkdir(parents=True, exist_ok=True)
     from .common import append_csv
     append_csv(df, csv)
     return df
+
+
+def _csv_restraint_cols(rows, summ):
+    """B3：有软约束时加列 restraint_chi2、restraint_c0、restraints（JSON {name: [拟合值, 先验值, sigma, pull]}）。"""
+    if not summ.get("restraints"):
+        return
+    js = json.dumps({r["name"]: [r["fitted"], r["value"], r["sigma"], r["pull"]] for r in summ["restraints"]},
+                    ensure_ascii=False)
+    for row in rows:
+        row.update(restraint_chi2=summ["restraint_chi2"], restraint_c0=summ["restraint_c0"], restraints=js)
 
 
 def _write_multi_rows(summ, csv):
@@ -490,6 +559,7 @@ def _write_multi_rows(summ, csv):
                                            ensure_ascii=False),
                          dataset=d["id"], n_datasets=summ["n_datasets"], rfactor_dataset=d["rfactor"],
                          n_idp_dataset=d["n_idp"], chi2_share=d["chi2_share"]))
+    _csv_restraint_cols(rows, summ)
     df = pd.DataFrame(rows)
     append_csv(df, csv)
     return df
