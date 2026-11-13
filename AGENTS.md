@@ -7,8 +7,8 @@
 - **科学规范**（处理与拟合原则）：`src/xafsmith/docs/XAFS处理规范.md`
 - **软件结构**：`ARCHITECTURE.md`；**参与开发**：`CONTRIBUTING.md`；**发布流程**：`docs/dev/RELEASING.md`
 
-## 代码结构（v1.2）
-- 计算层（不依赖 Qt，可单元测试、CLI 与 GUI 共用）：`io` + `readers/`（格式插件表：每种格式一个 reader，`read_any` 统一入口；**不要再直接调用 `read_bsrf`**）、`calib`、`normalize`、`autobk`、`ft`、`fit_exafs`（单 / 多数据集拟合 `run_fit` / `fit_multi`、`normalize_model`、软约束驱动 `_feffit_restrained.py` 是 larch feffit 的副本，升级 larch 时看 `test_restrained_empty_bitwise`；`compare_models`）、`fit_lcf`、`xanes`、`mut_planner`、`pipeline`、`schema`（validate）、`logs`（滚动日志 `~/.xafsmith/xafsmith.log`、诊断包）、`tasks`（`TaskHandle`/`Cancelled`）。
+## 代码结构（v1.3）
+- 计算层（不依赖 Qt，可单元测试、CLI 与 GUI 共用）：`io` + `readers/`（格式插件表：每种格式一个 reader，`read_any` 统一入口；**不要再直接调用 `read_bsrf`**）、`calib`、`normalize`、`autobk`、`ft`、`fit_exafs`（单 / 多数据集拟合 `run_fit` / `fit_multi`、`normalize_model`、软约束驱动 `_feffit_restrained.py` 是 larch feffit 的副本，升级 larch 时看 `test_restrained_empty_bitwise`；`compare_models`）、`msbind`（多重散射 ΔR/σ² 绑定建议）、`sigma2`（Debye/Einstein σ²(T)；`build_paths` 按路径几何展开 `sigma2_debye/eins`）、`trend`（联合拟合趋势表：seq 变量、N_err 规则、共享标记）、`seqtools`（σ² 各数据集独立、勾选同步）、`fit_lcf`、`xanes`、`mut_planner`、`pipeline`、`schema`（validate）、`logs`（滚动日志 `~/.xafsmith/xafsmith.log`、诊断包）、`tasks`（`TaskHandle`/`Cancelled`）。
 - 界面层 `qt/`：`widgets/`、`pages/process/`、`pages/fitting/`、`pages/_common.py` 都是包，旧导入路径（`from xafsmith.qt import widgets as W`、`pr.NormPage`、`ft.FitPage`）靠 `__init__` 再导出保持不变；可变全局（LANG、ERRORS、QUIET、_INFO、_RUNNING）只在一个子模块定义。包内引用 `xafsmith.qc` 等同名模块一律用绝对导入。
 - 后台任务统一走 `widgets.run_task`（QThread，`progress=True` 时可取消；取消只在步骤之间生效）。线程规则见 `tasks.py` 头部：worker 内不建/改控件、不改 State，输入先复制，结果在 on_done 写回；matplotlib 只用 `Figure` + Agg，不用 pyplot。`Cancelled` 继承 `BaseException`，`except Exception` 吞不掉它。
 - 打包：`packaging/`（PyInstaller spec、入口脚本、Inno Setup `.iss`、体积审计 `size_report.py`、已用包统计 `used_modules.py`）。打包版（`sys.frozen`）的 `update.py` 只查 GitHub Release，不自更新。

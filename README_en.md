@@ -40,6 +40,9 @@ Compared with a typical Athena / Artemis workflow:
 | Apply one fit model to a series (time, potential, temperature) | Usually copy and adjust per sample | **Run a saved model** → select samples → done |
 | Fit several datasets at once with shared parameters (temperatures, samples, edges) | Add each dataset to the project and set up shared parameters | Switch the fit page “Mode” to **Joint fit of several datasets**: one path table per dataset, parameters with the same name shared, results switchable per dataset; misfit between datasets is checked and variables are compared with Σ N_idp |
 | Constrain parameters with an independent prior (known S0², two similar σ²) | restraint expressions | **Restraints** table (expr, value, sigma): weighted on the scale of the reported errors, not counted in N_idp; a pull beyond 2σ raises a warning |
+| Bind ΔR and σ² of multiple-scattering paths to single-scattering paths | Derive the expressions from the geometry yourself | **Multiple-scattering binding…** suggests deltar / sigma2 expressions for the ticked multiple-scattering paths from the FEFF path geometry, with the basis; nothing changes until Apply |
+| σ² of multi-temperature data (Debye / Einstein model) | Hand-written σ² functions and temperatures | Tick **Use a σ² temperature model**, enter each dataset's temperature: one θ replaces one σ² per temperature; a **σ²(T)** plot in the result area |
+| How structural parameters change along a series (time, potential) | Fit one by one, collect the numbers, plot the trend in Origin | **Trend** tab of a joint fit: N, R, σ², ΔE0 and edge position against `seq` from `meta.csv`, 1σ error bars, shared parameters marked; a **Trend** figure on the Figure export page (Origin project too); one-click **Independent σ² per dataset** and **Sync ticked paths to all datasets**; the help page's “Joint fitting of a series” walks through the whole workflow |
 | FEFF calculations | Atoms builds the input from a CIF, then run FEFF | Pick a CIF or built-in structure → one click; **FEFF6L (seconds) and FEFF8L (self-consistent) built in**, easy to compare, no separate FEFF install |
 | Wavelet transform (light vs heavy scatterers, overlapping shells) | Needs other software | Built in (Morlet / Cauchy); k of the maximum per R window, **one-click export of data and figure**, in-page guidance on every parameter |
 | Judge a fit and find out why it does not match | Mostly the R-factor and experience | An **automatic quality check** after every fit (R-factor, variables, residual/noise, errors, bounds, ΔE0, σ², ΔR, correlations, point by point); **fit diagnosis** (k-space residual, glitches located and converted to energy, misfit by segment, hints); **robustness check**; **F-test**; **model comparison table** (R-factor, χ²_ν, variables, N_idp and the F-test against the neighbouring model for several models, with the reason when the F-test does not apply) |
@@ -198,6 +201,7 @@ You do not need to remember them, but they help you follow what the AI does:
 | Fit | `xafsmith fit model_name` (model in `models/model_name.json`) | `output/fits/` |
 | Diagnosis / robustness / significance | `xafsmith diagnose model`, `robust model`, `ftest small large` | screen, `output/fits/` |
 | Model comparison | `xafsmith compare model1 model2 [model3 …]` | `output/fits/model_compare.csv` |
+| Multiple-scattering binding / σ²(T) / series trend | `xafsmith msbind model`, `sigma2 feff0001.dat --model debye --theta 300 --temps 10,100,300`, `trend joint_model` | screen, `output/fits/<model>_trend.csv` |
 | LCF / XANES | `xafsmith lcf …`, `xafsmith xanes …` | `output/lcf/`, `output/xanes/` |
 | **Figure export** | `xafsmith figure --kind chir --samples A B --size double` | `output/figs/journal/` |
 | **Report export** | `xafsmith summary` | `output/reports/汇总_<time>/` |
@@ -228,6 +232,7 @@ AI can still make mistakes — **verify key conclusions in the GUI** and, where 
 | [XAFS basics](src/xafsmith/docs/XAFS_basics_en.md) | Undergraduate physics and chemistry only: how synchrotron XAFS works, step by step, with formulas, measured spectra and worked examples |
 | [GUI guide](src/xafsmith/docs/GUI_guide_en.md) | Every page and button |
 | [Beginner fitting tutorial](src/xafsmith/docs/fitting_tutorial_en.md) | Your first EXAFS fit: principles, parameter choices, how to judge success |
+| [Joint fitting of a series](src/xafsmith/docs/joint_fit_guide_en.md) | A series of samples (time, potential, temperature): separate fits first, then the joint fit, F-tests of the sharing assumptions, trends, step by step |
 | [Improving fit quality](src/xafsmith/docs/fit_quality_guide_en.md) | When the fit does not match: residual diagnosis, deglitching, FEFF6/FEFF8, when to add paths, when to stop |
 | [Data standard](src/xafsmith/docs/数据标准.md) (Chinese) | What every file in a project means |
 
@@ -266,7 +271,7 @@ Always measure the **elemental reference** (metal foil or powder) in the same se
 
 If you use XAFSmith in a publication, please cite this repository (**Cite this repository** on the right of the GitHub page):
 
-*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 1.2.0. https://github.com/Wiolic/XAFSmith*
+*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 1.3.0. https://github.com/Wiolic/XAFSmith*
 
 and the programs it builds on:
 - Larch: M. Newville, *J. Phys.: Conf. Ser.* **430**, 012007 (2013).

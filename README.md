@@ -44,6 +44,9 @@ XAFSmith 处理同步辐射 X 射线吸收谱（XANES + EXAFS）：能量校准�
 | 同一个拟合模型用于一组样品（时间、电位、温度序列） | 通常逐个样品复制、调整 | **运行已保存的模型** → 多选样品 → 一次跑完 |
 | 几个数据集同时拟合、共享参数（多温度、多样品、多吸收边） | 在工程中逐个加入数据集、设置共享参数 | 拟合页“拟合方式”切到 **多个数据集联合**：每个数据集一张路径表，同名参数自动共享，结果按数据集切换；自动比较各数据集失配，变量数与 Σ N_idp 比较 |
 | 用独立先验约束参数（如已知 S0²、两个 σ² 相近） | restraint 表达式 | **软约束**表（expr、value、sigma）：权重与报告误差同一尺度，不计入 N_idp；偏离先验超过 2σ 自动警告 |
+| 多重散射路径的 ΔR、σ² 怎样绑定到单散射路径 | 自己按几何推导表达式 | **多重散射绑定…**：按 FEFF 路径几何给已勾选的多重散射路径建议 deltar / sigma2 表达式并写明依据，点“应用”才改表 |
+| 多温度数据的 σ²（Debye / Einstein 模型） | 手写 σ² 函数与温度 | 勾选**使用 σ² 温度模型**，每个数据集填温度，一个 θ 代替每个温度各一个 σ²；结果区 **σ²(T)** 图 |
+| 序列样品（时间、电位）的结构参数怎样变化 | 逐个拟合后自己整理、在 Origin 里画趋势 | 联合拟合结果的 **趋势** 页：N、R、σ²、ΔE0 与边位置随 `meta.csv` 的 `seq` 变化，带 1σ 误差棒并标出共享参数；图片导出页 **趋势图**（含 Origin 工程）；**σ² 各数据集独立**、**勾选同步到所有数据集** 两个一键工具；帮助页《多样品联合拟合指南》一步步讲完整流程 |
 | 判断拟合好不好、为什么对不上 | 主要看 R 因子与经验 | 每次拟合后**自动质量检查**（R 因子、变量数、残差与噪声之比、误差、边界、ΔE0、σ²、ΔR、相关性逐条判断）；**拟合诊断**（k 空间残差、自动定位毛刺并换算成能量、分段失配、改进建议）；**稳健性检查**；**F 检验**；**模型比较表**（几个模型的 R 因子、χ²_ν、变量数、N_idp 与相邻模型 F 检验一表列出，不适用 F 检验时写明原因） |
 | 和 Athena / Artemis 对照 | — | **一键导出 Athena 工程（.prj）**，带本软件的处理参数 |
 | 半年后重现结果 | 找工程文件、回忆参数 | 原始数据只读，参数都写在项目文件里，结果随时可从原始数据重新生成 |
@@ -197,6 +200,7 @@ AI 助手的安装和账号按各自官方说明完成。用什么语言提问�
 | 拟合 | `xafsmith fit 模型名`（模型写在 `models/模型名.json`） | `output/fits/` |
 | 诊断 / 稳健性 / 显著性 | `xafsmith diagnose 模型名`、`robust 模型名`、`ftest 小模型 大模型` | 屏幕、`output/fits/` |
 | 多模型比较 | `xafsmith compare 模型1 模型2 [模型3 …]` | `output/fits/model_compare.csv` |
+| 多重散射绑定 / σ²(T) / 序列趋势 | `xafsmith msbind 模型名`、`sigma2 feff0001.dat --model debye --theta 300 --temps 10,100,300`、`trend 联合模型名` | 屏幕、`output/fits/<模型>_trend.csv` |
 | LCF / XANES | `xafsmith lcf …`、`xafsmith xanes …` | `output/lcf/`、`output/xanes/` |
 | **期刊图** | `xafsmith figure --kind chir --samples A B --size double` | `output/figs/journal/` |
 | **报告导出** | `xafsmith summary` | `output/reports/汇总_<时间>/` |
@@ -227,6 +231,7 @@ AI 仍可能出错，**关键结论请在图形界面中核对**，必要时与 
 | [XAFS 基础讲义](src/xafsmith/docs/XAFS基础讲义.md) | 只有本科物理、化学基础：同步辐射 XAFS 的原理，由浅入深，有公式、实测谱图和算例 |
 | [图形界面使用指南](src/xafsmith/docs/图形界面使用指南.md) | 每一页、每个按钮的用法 |
 | [零基础拟合教程](src/xafsmith/docs/零基础拟合教程.md) | 第一次做 EXAFS 拟合：原理、参数怎么取、怎么判断做对了 |
+| [多样品联合拟合指南](src/xafsmith/docs/多样品联合拟合指南.md) | 一组序列样品（时间、电位、温度）：先单独、后联合、F 检验检查共享假设、看趋势，一步一步 |
 | [拟合质量提升教程](src/xafsmith/docs/拟合质量提升教程.md) | 拟合对不严时：诊断残差、去毛刺、FEFF6/FEFF8、何时加路径、何时停 |
 | [数据标准](src/xafsmith/docs/数据标准.md) | 项目文件夹里每个文件的含义 |
 | [命令行速查](src/xafsmith/docs/命令行速查.md) | 会用命令行、想批处理，或 macOS / Linux |
@@ -266,7 +271,7 @@ AI 仍可能出错，**关键结论请在图形界面中核对**，必要时与 
 
 论文中使用本软件，请引用本仓库（GitHub 页面右侧 **Cite this repository**）：
 
-*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 1.2.0. https://github.com/Wiolic/XAFSmith*
+*Eggy & Claude. XAFSmith: XAFS processing and fitting software, version 1.3.0. https://github.com/Wiolic/XAFSmith*
 
 并引用所依赖的程序：
 - Larch：M. Newville, *J. Phys.: Conf. Ser.* **430**, 012007 (2013).

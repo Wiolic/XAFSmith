@@ -225,5 +225,6 @@ After updating XAFSmith, click “Write / update” on **AI assistant** again.
 ## What to read next
 
 - [Beginner fitting tutorial](src/xafsmith/docs/fitting_tutorial_en.md): the principles, parameter choices and checks behind every step.
+- [Joint fitting of a series](src/xafsmith/docs/joint_fit_guide_en.md): joint fitting of a sample series step by step (separate fits first, then joint, F-tests, trends).
 - [GUI guide](src/xafsmith/docs/GUI_guide_en.md): every page and button.
 - [Improving fit quality](src/xafsmith/docs/fit_quality_guide_en.md): getting the best fit your data allow.

@@ -226,6 +226,7 @@ AI 会运行 `xafsmith qc`、`process`、`feff`、`fit`、`diagnose`、`robust`�
 ## 下一步读什么
 
 - [零基础拟合教程](src/xafsmith/docs/零基础拟合教程.md)：每一步的原理、参数怎么取、怎么判断做对了。
+- [多样品联合拟合指南](src/xafsmith/docs/多样品联合拟合指南.md)：一组序列样品的联合拟合，一步一步（先单独、后联合、再做 F 检验、看趋势）。
 - [图形界面使用指南](src/xafsmith/docs/图形界面使用指南.md)：每一页、每个按钮的说明。
 - [拟合质量提升教程](src/xafsmith/docs/拟合质量提升教程.md)：把拟合做到数据允许的最好。
 - [命令行速查](src/xafsmith/docs/命令行速查.md)：会用命令行、想批处理的人。
