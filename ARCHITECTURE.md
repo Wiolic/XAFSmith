@@ -61,7 +61,8 @@ raw file ──readers.read_any──► Larch Group (energy, μ, mode, edge, pr
    │                               ▼
    │                  autobk → χ(k);  ft → |χ(R)|, Re/Im  (parameters from xafsmith.json)
    │                               ▼
-   │      feff_wrap (FEFF6L/8L) ─► fit_exafs (feffit; N_idp, χ²_ν, R-factor, F-test, robustness)
+   │      feff_wrap (FEFF6L/8L) ─► fit_exafs (feffit; joint multi-dataset fits, restraints via _feffit_restrained;
+   │                              N_idp, χ²_ν, R-factor, F-test, model comparison, robustness)
    │                           └─► fit_lcf / xanes (LCF, edge position, white line, valence)
    ▼
 output/  ──► report / pubfig / summary / methods_text / si_text / origin_export
@@ -139,7 +140,7 @@ configuration — never raw data or spectra. Set `XAFSMITH_DEBUG=1` to record de
 | Suite | Content | Runs in CI |
 |---|---|---|
 | `tests/unit/` | one file per module (readers, schema, calib, normalize, tasks, session, update, …) | yes |
-| `tests/benchmark/` | Cu-foil first shell vs Larch's `doc_feffit1` example, bit-identical to a direct Larch call, full-pipeline invariants | yes |
+| `tests/benchmark/` | Cu-foil first shell vs Larch's `doc_feffit1` example, bit-identical to a direct Larch call, full-pipeline invariants; multi-dataset and restraint fits bit-identical to a frozen v1.1 copy (`_legacy_fit_v11.py`) in the single-dataset, unrestrained case, error calibration on synthetic spectra | yes |
 | `tests/test_qt.py` | page-by-page GUI test (offscreen) on the public demo project, both languages | yes |
 | `tests/local/` | tests that need the author's own data (git-ignored) | no |
 
