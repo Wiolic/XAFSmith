@@ -393,7 +393,7 @@ def trend(table, size="单栏 85 mm", panels=TREND_DEFAULT_PANELS, paths=None, x
                     ax.errorbar(d["seq"], d[vcol], yerr=err, color=c, label=chem(pth), **kw)
         ax.set_ylabel(ylab)
         ax.ticklabel_format(axis="y", useOffset=False)      # E0 约 1e4 eV：不要 “+1.121e4” 偏移记法
-        if first and len(paths) > 1 and pk != "E0":
+        if first and paths and pk != "E0":       # 只有一条路径也给图例：否则看不出画的是哪条
             ax.legend(loc="best")
             first = False
     for ax in axl[:n][-nc:]:                      # 每列最下面的面板：横轴标题与刻度标签（共享横轴默认只在最后一行显示）
@@ -419,13 +419,12 @@ def trend_caption(table, panels, paths, xlabel=None, model="", edge=""):
     if any(p != "E0" for p in panels):
         c += " Error bars: 1σ from the covariance matrix scaled by √χ²_ν (Larch)."
     if "N" in panels:
-        fixed = [p for p in paths if table[table["path"] == p]["N_err"].isna().all()]
         comp = [p for p in table.attrs.get("n_composite", []) if p in paths]
+        fixed = [p for p in paths if p not in comp and table[table["path"] == p]["N_err"].isna().all()]
         if fixed:
             c += f" N is fixed (no error bar) for {', '.join(fixed)}."
-        for p in comp:
-            if p in fixed:
-                c += f" N of {p} is a composite expression; no error is given."
+        if comp:
+            c += f" N of {', '.join(comp)} is a composite expression; no error is given."
     shared = [f"{k} of {p}" for k in ("N", "R", "sigma2", "dE0") if k in panels
               for p in paths if table[table["path"] == p][_SHARED_COL[k]].any()]
     if shared:

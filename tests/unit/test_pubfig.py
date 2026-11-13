@@ -104,3 +104,16 @@ def test_trend_no_data_for_e0_panel_and_save(tmp_path):
     assert (tmp_path / "t.png").is_file() and (tmp_path / "t.txt").read_text(encoding="utf-8") == cap
     with pytest.raises(ValueError):
         pubfig.trend(t, panels=("nope",))
+
+
+def test_trend_caption_composite_n_is_not_called_fixed_and_single_path_has_legend():
+    from xafsmith import pubfig
+    t = _trend_table(n_err=False)
+    t.attrs["n_composite"] = ["Ir-O"]
+    fig, cap = pubfig.trend(t, "单栏 85 mm", paths=["Ir-O"], model="m")
+    try:
+        assert "N of Ir-O is a composite expression" in cap and "N is fixed" not in cap
+        assert fig.axes[0].get_legend() is not None             # 只画一条路径也有图例
+    finally:
+        import matplotlib.pyplot as plt
+        plt.close(fig)

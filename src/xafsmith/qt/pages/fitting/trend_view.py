@@ -44,7 +44,7 @@ def draw_trend(axes, table, panels, paths, xlabel=None, colors=None):
                 err = d[ecol].to_numpy(float) if d[ecol].notna().any() else None
                 ax.errorbar(d["seq"], d[vcol], yerr=err, color=cols[i % len(cols)], marker="o", ms=5, lw=1.3,
                             capsize=3, elinewidth=1.0, label=p)
-            if len(paths) > 1 and ax is axes[0]:
+            if paths and ax is axes[0]:
                 ax.legend(fontsize=8)
         ax.set_ylabel(panel_name(pk))
         ax.ticklabel_format(axis="y", useOffset=False)
