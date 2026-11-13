@@ -1,6 +1,6 @@
 """使用指南：独立窗口（可与主窗口并排，一边操作一边查看）。
 
-左侧：图形界面使用指南、零基础拟合教程、拟合质量提升教程、XAFS 基础讲义；下方单独一页“关于”（版本、署名、免责声明、引用、检查更新）。
+左侧：图形界面使用指南、零基础拟合教程、多样品联合拟合指南、拟合质量提升教程、XAFS 基础讲义；下方单独一页“关于”（版本、署名、免责声明、引用、检查更新）。
 """
 from __future__ import annotations
 
@@ -24,6 +24,8 @@ def doc_specs():
     en = W.en()
     return [("gui", T("图形界面使用指南", "GUI guide"), "doc", "GUI_guide_en.md" if en else "图形界面使用指南.md"),
             ("tutorial", T("零基础拟合教程", "Fitting for beginners"), "fit", "fitting_tutorial_en.md" if en else "零基础拟合教程.md"),
+            ("joint", T("多样品联合拟合指南", "Joint fitting of a series"), "layers",
+             "joint_fit_guide_en.md" if en else "多样品联合拟合指南.md"),
             ("quality", T("拟合质量提升教程", "Improving fit quality"), "chart", "fit_quality_guide_en.md" if en else "拟合质量提升教程.md"),
             ("basics", T("XAFS 基础讲义", "XAFS basics"), "atom", "XAFS_basics_en.md" if en else "XAFS基础讲义.md")]
 

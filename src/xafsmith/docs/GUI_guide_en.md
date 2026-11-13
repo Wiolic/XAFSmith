@@ -369,6 +369,8 @@ Drag the divider between the columns to resize them. A fit updates only the righ
 
 **Joint fit of several datasets** (several samples fitted at once, parameters with the same name shared)
 
+> The complete step-by-step workflow (separate fits first, then the joint fit, F-tests, trends) is in “Joint fitting of a series” (help page, left).
+
 - At the top of card 1 switch “Mode” to **Joint fit of several datasets**; “Data” becomes a multi-select (at least 2 for a joint fit; selecting 1 equals a single-dataset fit, bit-identical). The FEFF folders are one shared choice.
 - The fit range in card 2 is the common value for all datasets; below it **Σ N_idp** is shown (summed over each dataset's actual range). Keep the variables ≤ Σ N_idp/2.
 - Card 3 has one tab per dataset (tab = dataset id), each with its own path table; a new dataset's table is copied from the first one, and **Copy this path table to the other datasets** syncs them. Under each table you can **override the fit range** (kmin / kmax / Rmin / Rmax; empty = common range). **Parameters with the same name are shared between datasets; rename to make them independent** (e.g. `ss1_300K`).

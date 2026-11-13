@@ -1514,7 +1514,7 @@ def main():
     keys = list(hw.btn)
     about_txt = " ".join(l.text() for l in hw.btn["about"][1].findChildren(QLabel))
     say(isinstance(hw, HelpWindow) and hw.isVisible() and w.S.extra.get("page") == cur
-        and keys[:4] == ["gui", "tutorial", "quality", "basics"] and keys[-1] == "about"
+        and keys[:5] == ["gui", "tutorial", "joint", "quality", "basics"] and keys[-1] == "about"
         and "Claude Opus 5.5" in about_txt and "Athena / Artemis" in about_txt,
         f"使用指南独立窗口：{keys}，主窗口仍在 {cur}")
     # U5：帮助窗口目录、锚点跳转、查找、后退
