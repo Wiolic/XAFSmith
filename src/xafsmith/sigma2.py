@@ -191,3 +191,29 @@ def raise_on_errors(m):
     if errs:
         raise ValueError("; ".join(f"{w}: {zh}" for _, w, zh, _en in errs) + " / "
                          + "; ".join(f"{w}: {en}" for _, w, _zh, en in errs))
+
+
+def sigma2_info(expr):
+    """路径 sigma2 表达式 → (模型 'debye'|'einstein'|None, θ 参数名|None)；取第一个 σ² 模型调用。"""
+    cs = _calls(expr)
+    if not cs:
+        return None, None
+    c = cs[0]
+    kind = "debye" if c.func.id == "sigma2_debye" else "einstein"
+    th = c.args[1].id if len(c.args) == 2 and isinstance(c.args[1], ast.Name) else None
+    return kind, th
+
+
+def sigma2_extra(specs, temperature):
+    """摘要的路径行要不要加 σ² 模型字段：有 temperature 或有路径用了 σ² 模型。返回 [(model, theta_param)] 或 None。"""
+    info = [sigma2_info(sp.get("sigma2") if isinstance(sp, dict) else None) for sp in specs]
+    if temperature is None and all(k is None for k, _ in info):
+        return None
+    return info
+
+
+def einstein_ms_warning(label, nleg):
+    """Einstein 用在 nleg > 2 的路径上的警告文字（中文 / English）。"""
+    return (f"路径 {label}（nleg={nleg}）用了 sigma2_eins：Einstein 模型把多重散射路径当成一个约化质量振子，只是近似；多重散射建议用 Debye / "
+            f"path {label} (nleg={nleg}) uses sigma2_eins: the Einstein model treats a multiple-scattering path as one reduced-mass oscillator, "
+            "which is only an approximation; Debye is recommended for multiple scattering")

@@ -38,7 +38,7 @@ import pandas as pd
 from larch import Group
 
 from .common import ETOK, n_idp, write_params
-from .sigma2 import parse_temperature, raise_on_errors
+from .sigma2 import einstein_ms_warning, parse_temperature, raise_on_errors, sigma2_extra
 
 
 def _mkparam(name, spec):
@@ -354,6 +354,28 @@ def _dataset_stats(res):
     return num, den, npts
 
 
+def _nleg(path):
+    fd = getattr(path, "_feffdat", None)
+    return int(getattr(fd, "nleg", 2)) if fd is not None else 2
+
+
+def sigma2_info_row(d, ds):
+    """一个数据集各路径的 (σ² 模型, θ 参数名)，与 larch 路径按位置对应（不对应时全部 (None, None)）。"""
+    from .sigma2 import sigma2_info
+    specs = _path_specs(d["paths"], ds)
+    return [sigma2_info(sp.get("sigma2") if isinstance(sp, dict) else None) for sp in specs]
+
+
+def _add_sigma2_fields(prows, info, temps, warn, labels):
+    """B6：路径行加 temperature、sigma2_model、theta_param；Einstein 用在 nleg>2 的路径上加警告。"""
+    for r, (kind, th), t, (lab, nleg) in zip(prows, info, temps, labels):
+        r["temperature"] = t
+        r["sigma2_model"] = kind
+        r["theta_param"] = th
+        if kind == "einstein" and nleg > 2:
+            warn.append(einstein_ms_warning(lab, nleg))
+
+
 def summarize_multi(res, nm: dict, groups=None) -> dict:
     """多数据集拟合摘要。合计值（n_idp、rfactor、chi2、chi2_reduced）取 larch；逐数据集统计在 datasets 里。
     逐数据集不报 χ²_ν（变量共享，无法分摊）；chi2_share、chi2_per_idp 用来看哪个数据集失配大。"""
@@ -407,9 +429,13 @@ def summarize_multi(res, nm: dict, groups=None) -> dict:
     # 每条路径：N 的参考 S0² 见 _s02_ref（与旧格式相同）
     s02g = _s02val(res)
     prows = []
+    pextra, ptemps, plabels = [], [], []
     for d, ds in zip(dl, res.datasets):
+        pextra.append(sigma2_extra(d["paths"], d.get("temperature")))
         for spec, path in zip(_path_specs(d["paths"], ds), ds.paths.values()):
             v = path.path_paramvals()
+            ptemps.append(d.get("temperature"))
+            plabels.append((path.label, _nleg(path)))
 
             def err(pn, path=path):
                 p = path.params.get(path.pathpar_name(pn)) if path.params else None
@@ -422,6 +448,11 @@ def summarize_multi(res, nm: dict, groups=None) -> dict:
                               e0=float(v["e0"]), e0_err=err("e0"), deltar=float(v["deltar"]),
                               dataset=d["id"]))
     out["paths"] = prows
+    if any(x is not None for x in pextra) or any(t is not None for t in ptemps):
+        info = [sigma2_info_row(d, ds) for d, ds in zip(dl, res.datasets)]
+        _add_sigma2_fields(prows, [i for blk in info for i in blk], ptemps, warn, plabels)
+        for r, d in zip(rows, dl):
+            r["temperature"] = d.get("temperature")
     _add_restraints(out, res)
     return out
 
@@ -480,6 +511,8 @@ def summarize(res, model, data=None):
     # 每条路径的结果
     prows = []
     s02g = _s02val(res)
+    temp = parse_temperature(model.get("temperature"))          # B6：只在有 temperature 或用了 σ² 模型时多字段
+    extra = sigma2_extra(model.get("paths", []), temp)
     for ds in res.datasets:
         for spec, path in zip(_path_specs(model.get("paths", []), ds), ds.paths.values()):
             v = path.path_paramvals()
@@ -494,6 +527,9 @@ def summarize(res, model, data=None):
                               sigma2=float(v["sigma2"]), sigma2_err=err("sigma2"),
                               e0=float(v["e0"]), e0_err=err("e0"), deltar=float(v["deltar"])))
     out["paths"] = prows
+    if extra is not None:
+        _add_sigma2_fields(prows, extra, [temp] * len(prows), warn,
+                           [(p.label, _nleg(p)) for ds in res.datasets for p in ds.paths.values()])
     return out
 
 
@@ -555,12 +591,22 @@ def write_result_row(summ, csv=None):
                                             for k, v in summ["params"].items()},
                                            ensure_ascii=False)))
     _csv_restraint_cols(rows, summ)
+    _csv_sigma2_cols(rows, summ)
     df = pd.DataFrame(rows)
     csv = Path(csv)
     csv.parent.mkdir(parents=True, exist_ok=True)
     from .common import append_csv
     append_csv(df, csv)
     return df
+
+
+def _csv_sigma2_cols(rows, summ):
+    """B6：摘要路径行带 temperature / sigma2_model 时加两列（没有就不加，列不变）。"""
+    pr = summ.get("paths", [])
+    if not pr or "sigma2_model" not in pr[0]:
+        return
+    for row, p in zip(rows, pr):
+        row.update(temperature=p["temperature"], sigma2_model=p["sigma2_model"])
 
 
 def _csv_restraint_cols(rows, summ):
@@ -595,6 +641,7 @@ def _write_multi_rows(summ, csv):
                          dataset=d["id"], n_datasets=summ["n_datasets"], rfactor_dataset=d["rfactor"],
                          n_idp_dataset=d["n_idp"], chi2_share=d["chi2_share"]))
     _csv_restraint_cols(rows, summ)
+    _csv_sigma2_cols(rows, summ)
     df = pd.DataFrame(rows)
     append_csv(df, csv)
     return df
