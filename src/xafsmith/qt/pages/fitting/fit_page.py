@@ -399,6 +399,36 @@ class FitPage(Page):
             out.append(item)
         return out
 
+    @staticmethod
+    def _sigma2_button(edit, k):
+        b = W.button(T("σ² 模型…", "σ² model…"),
+                     tip=T("把选中路径的 σ² 写成 Debye / Einstein 温度模型（多个温度共用一个 θ）", "Write the selected path's σ² as a "
+                           "Debye / Einstein temperature model (one θ shared by all temperatures)"))
+        b.clicked.connect(lambda *_: edit(k))
+        return b
+
+    def _apply_sigma2(self, spec, k, row, keys, ptabs, cur):
+        """把对话框结果写进路径表与参数表。row：路径表行号；联合拟合且 apply_all 时，其他数据集里同名路径（label 相同）一起改。
+        参数：已存在的同名参数不动（保留用户设置），只新建所缺的。"""
+        targets = [(k, row)]
+        if spec["apply_all"] and len(keys) > 1:
+            label = ptabs[k].df().iloc[row]["label"]
+            for k2 in keys:
+                if k2 == k:
+                    continue
+                d2 = ptabs[k2].df()
+                hit = d2.index[d2.label == label]
+                if len(hit):
+                    targets.append((k2, int(hit[0])))
+        old = cur["tab"].df() if "tab" in cur else self.state.get("partab", pd.DataFrame(columns=["name", "value", "vary", "min", "max", "expr"]))
+        new = [dict(name=n, expr="", **p) for n, p in spec["params"].items() if n not in set(old.name)]
+        if new:
+            self.state["partab"] = pd.concat([old, pd.DataFrame(new, columns=["name", "value", "vary", "min", "max", "expr"])],
+                                             ignore_index=True)
+        for k_, r_ in targets:
+            m = ptabs[k_].m
+            m.setData(m.index(r_, list(m.df.columns).index("sigma2")), spec["expr"])
+
     def _model_cards(self, add, keys, fdirs, multi):
         """keys：参与拟合的数据（单数据集模式只有 1 个）；multi：联合拟合模式（路径表按数据集分标签页，参数表共享）"""
         from xafsmith import feff_wrap as xfeff, pipeline as pl
@@ -462,6 +492,32 @@ class FitPage(Page):
             c3.add(W.label(T("同名参数在数据集之间共享；要各自独立就改名（如 ss1_300K）。",
                              "Parameters with the same name are shared between datasets; rename to make them independent "
                              "(e.g. ss1_300K)."), "faint"))
+        def edit_sigma2(k):
+            """B6：“σ² 模型…”——改路径表当前行的 sigma2 单元格，并在参数表里建所缺的 θ / 静态项参数。"""
+            from .sigma2_dialog import Sigma2Dialog, current_sigma2_value
+            df = ptabs[k].df()
+            if not len(df):
+                return
+            r = ptabs[k].currentIndex().row()
+            if not 0 <= r < len(df):
+                used_ = df.index[df.use.astype(bool)]
+                r = int(used_[0]) if len(used_) else 0
+            row = df.iloc[r].to_dict()
+            try:
+                tnow = float(temps[k].text())
+                tnow = tnow if tnow > 0 else None
+            except ValueError:
+                tnow = None
+            pt = cur["tab"].df() if "tab" in cur else self.state.get("partab")
+            dlg_ = Sigma2Dialog(self, row, tnow, current_sigma2_value(row["sigma2"], pt), multi=multi)
+            if not dlg_.exec():
+                return
+            self._apply_sigma2(dlg_.spec(), k, r, keys, ptabs, cur)
+            if dlg_.spec()["kind"] != "free" and not str(temps[k].text()).strip():
+                W.toast(self, T("已写入 σ² 模型。该数据集还没有温度：请填写“温度 (K)”，否则无法拟合。",
+                                "σ² model written. This dataset has no temperature yet: fill in “Temperature (K)”, "
+                                "otherwise the fit cannot run."), "warn")
+
         ptabs, over, temps = {}, {}, {}
         for k in keys:
             # B6：温度（K），空 = 模型里不写 temperature；σ² 模型（sigma2_debye / sigma2_eins）与 tempK 用它
@@ -476,7 +532,8 @@ class FitPage(Page):
             ptab.hide_cols("file")
             ptabs[k] = ptab
         if not multi:
-            c3.add(W.fields((T("温度 (K)", "Temperature (K)"), temps[data_k]), cols=4))
+            c3.add(W.hbox(W.fields((T("温度 (K)", "Temperature (K)"), temps[data_k]), cols=1), self._sigma2_button(edit_sigma2, data_k),
+                          None, stretch_last=False))
             c3.add(ptabs[data_k])
         else:
             pages_ = []
@@ -492,7 +549,8 @@ class FitPage(Page):
                                     f"Copied the path table of {ids[k]} to the other {len(others)} dataset(s)"))
                     self.refresh()
                 ow = over[k]
-                col = W.vbox(W.fields((T("温度 (K)", "Temperature (K)"), temps[k]), cols=4),
+                col = W.vbox(W.hbox(W.fields((T("温度 (K)", "Temperature (K)"), temps[k]), cols=1), self._sigma2_button(edit_sigma2, k),
+                                    None),
                              ptabs[k],
                              W.label(T("覆盖拟合范围（留空 = 用上面“拟合范围”的共同值）",
                                        "Override the fit range (empty = the common range above)"), "faint"),

@@ -268,6 +268,125 @@ def sigma2_checks(app, w, S, P, k1, fdir):
         pg.refresh()
 
 
+def sigma2_dialog_checks(app, w, S, P, k1, k2, fdir):
+    """B6 ⑧：“σ² 模型…”对话框。单数据集：写表达式 + 建 θ / 静态项参数（缺省 50–2000 K、静态项无下限）；
+    联合拟合：应用到所有数据集的同一壳层，各数据集温度进模型，联合拟合能跑。k2 是 k1 的副本（演示项目只有一条 Cu 谱）。"""
+    import copy
+    import numpy as np
+    from xafsmith import pipeline as pl
+    from xafsmith.qt.pages.fitting import sigma2_dialog as sd
+    pg = P["fit"]
+    w.go("fit")
+    st = pg.state
+    id1, id2 = (pl.safe(Path(k).name) for k in (k1, k2))
+    S.groups[k2] = copy.deepcopy(S.groups[k1])
+    n0 = len(S.fits)
+    orig = sd.Sigma2Dialog.exec
+    plan = {}
+
+    def fake_exec(self):                                   # 不弹窗：按 plan 填写后直接确定
+        for key, v in plan.items():
+            getattr(self, key).setValue(v) if key in ("th0", "thmin", "thmax") else None
+        self.kind.setCurrentIndex(sd.KINDS.index(plan.get("kind", "debye")))
+        self.static.setChecked(plan.get("static", False))
+        self.apply_all.setChecked(plan.get("apply_all", True))
+        plan["spec"] = self.spec()
+        plan["note"] = self.note.text()
+        return 1
+    sd.Sigma2Dialog.exec = fake_exec
+
+    def tabs_():
+        return [t for t in pg.findChildren(W.Table) if {"use", "sigma2"} <= set(t.m.df.columns)]
+
+    def edit(label_btn="σ² 模型"):
+        b = next((b for b in pg.findChildren(W.QPushButton) if label_btn in b.text()), None)
+        say(b is not None, "路径卡有“σ² 模型…”按钮")
+        if b is not None:
+            b.click()
+            pump(app, 0.3)
+
+    def param_tab():
+        return next((t for t in pg.findChildren(W.Table) if "vary" in t.m.df.columns), None)
+    try:
+        for k in [k for k in st if k.startswith("temp_")]:
+            st.pop(k)
+        st.update(multi=False, data=k1)
+        st["fdirs_" + k1] = [str(PROJ / fdir)]
+        st.pop("partab", None)
+        pg.refresh()
+        pump(app)
+        te = next(e for e in pg.findChildren(W.QLineEdit) if e.placeholderText() in ("不写", "not set"))
+        te.setText("100")
+        plan.clear()
+        plan.update(kind="debye", static=True, apply_all=False)
+        edit()
+        sg = plan["spec"]
+        say(sg["expr"] == "sigma2_debye(tempK, thD1) + ss0_1" and set(sg["params"]) == {"thD1", "ss0_1"},
+            f"对话框结果：{sg['expr']}")
+        pt = tabs_()[0]
+        say(pt.m.df.iloc[0]["sigma2"] == "sigma2_debye(tempK, thD1) + ss0_1", "路径表 sigma2 单元格已改写")
+        par = param_tab().m.df.set_index("name")
+        say(par.loc["thD1", "min"] == 50 and par.loc["thD1", "max"] == 2000 and par.loc["thD1", "value"] == 300
+            and par.loc["ss0_1", "value"] == 0 and np.isnan(par.loc["ss0_1", "min"]) and np.isnan(par.loc["ss0_1", "max"])
+            and "tempK" not in par.index, "参数表：thD1（300，50–2000）、ss0_1（0，无下限）")
+        # 自由：改回 ss1，已有参数保留
+        plan.clear()
+        plan.update(kind="free", apply_all=False)
+        edit()
+        say(tabs_()[0].m.df.iloc[0]["sigma2"] == "ss1", "改回自由：sigma2 = ss1")
+        # 当前 σ² 是数字且有温度 → θ 初值由 theta_from_sigma2 反算
+        t0 = tabs_()[0]
+        t0.m.setData(t0.m.index(0, list(t0.m.df.columns).index("sigma2")), "0.0045")
+        pump(app, 0.2)
+        plan.clear()
+        plan.update(kind="einstein", static=False, apply_all=False)
+        edit()
+        from xafsmith import paths as xp
+        from xafsmith.sigma2 import theta_from_sigma2
+        row = tabs_()[0].m.df.iloc[0]
+        ref = theta_from_sigma2(xp.resolve(row["file"]), "einstein", 100.0, 0.0045)
+        thE = param_tab().m.df.set_index("name").loc["thE1"]
+        say(ref is not None and abs(float(thE["value"]) - ref) < 0.006 and tabs_()[0].m.df.iloc[0]["sigma2"] == "sigma2_eins(tempK, thE1)",
+            f"Einstein：θ 初值由 σ²=0.0045 @100 K 反算 = {ref}（表中 {thE['value']}，{tabs_()[0].m.df.iloc[0]['sigma2']}）")
+        # 联合拟合：应用到所有数据集的同一壳层
+        st.pop("partab", None)
+        for k in [k for k in st if k.startswith("pathtab_")]:
+            st.pop(k)
+        st.update(multi=True, datas=[k1, k2], fdirs_multi=[str(PROJ / fdir)])
+        st["mname_multi"] = "b6test_joint"
+        st["temp_" + id1], st["temp_" + id2] = "10", "300"
+        pg.refresh()
+        pump(app)
+        plan.clear()
+        plan.update(kind="debye", static=False, apply_all=True)
+        edit()
+        say([t.m.df.iloc[0]["sigma2"] for t in tabs_()] == ["sigma2_debye(tempK, thD1)"] * 2, "联合：两个数据集同一壳层的 sigma2 都改了")
+        n = len(W.ERRORS)
+        click(pg, "拟合")
+        wait(app)
+        step("σ² 模型 · 联合拟合", n)
+        f = S.fits[-1] if len(S.fits) == n0 + 1 else None
+        sm = (f or {}).get("summ", {})
+        say(f is not None and [d["temperature"] for d in sm.get("datasets", [])] == [10.0, 300.0]
+            and {p["sigma2_model"] for p in sm["paths"]} == {"debye"} and {p["theta_param"] for p in sm["paths"]} == {"thD1"}
+            and [d["temperature"] for d in f["model"]["datasets"]] == [10.0, 300.0],
+            "联合拟合：模型与摘要记录各数据集温度、σ² 模型、θ 参数")
+        if f:
+            from xafsmith import fit_exafs as fx
+            res, _, s2 = fx.fit_multi({id1: S.groups[k1], id2: S.groups[k2]}, f["model"])
+            same = all(s2["params"][k]["value"] == v["value"] for k, v in sm["params"].items())
+            say(same, "GUI 联合拟合与同一模型重跑（同一 groups）参数相差 0")
+    finally:
+        sd.Sigma2Dialog.exec = orig
+        for k in [k for k in st if k.startswith(("temp_", "pathtab_"))]:
+            st.pop(k)
+        st.update(multi=False)
+        st.pop("partab", None)
+        S.groups.pop(k2, None)
+        S.fits[:] = S.fits[:n0]
+        pg.refresh()
+
+
 def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
     """B2：拟合页多数据集联合拟合（k1、k2：两条已载入的谱；fdir：FEFF 目录，相对项目根）。
     alias=True：k2 是 k1 的副本（演示项目只有一条 Cu 谱），不做命令行重跑对照。
@@ -832,6 +951,7 @@ def demo_suite(app, w, S, P):
                          rng=dict(kmin=3, kmax=17, dk=4, win="kaiser", kws=[2], rmin=1.4, rmax=3.0, space="r"), alias=True)
         restraint_checks(app, w, S, P, "cu_metal_rt", "output/feff/_b2test_Cu_CuK")
         sigma2_checks(app, w, S, P, "cu_metal_rt", "output/feff/_b2test_Cu_CuK")
+        sigma2_dialog_checks(app, w, S, P, "cu_metal_rt", "cu_b6copy", "output/feff/_b2test_Cu_CuK")
     finally:
         (fd / "feff0001.dat").unlink(missing_ok=True)
         fd.rmdir()
