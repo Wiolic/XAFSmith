@@ -225,3 +225,23 @@ def test_shared_flags_tempk_with_different_temperatures():
     assert fl["Cu-Cu"]["shared_sigma2"] is False and fl["Cu-Cu"]["shared_R"] is True
     nm_model["datasets"][1]["temperature"] = 10
     assert tr._shared_flags(normalize_model(nm_model))["Cu-Cu"]["shared_sigma2"] is True
+
+
+# ------------------------------------------------------------------ meta.csv 的 seq 列（schema 检查）
+def test_validate_meta_seq(tmp_path, monkeypatch):
+    from xafsmith import schema
+    raw = tmp_path / "x.xdi"
+    raw.write_text("")
+    monkeypatch.setattr(schema.paths, "resolve", lambda p: raw)
+    base = dict(file="x", sample="s", edge_key="Cu_K", mode="trans", role="sample", use="1", ref_file="r", note="")
+    meta = pd.DataFrame([dict(base, seq="50"), dict(base, seq="60"), dict(base, sample="t", seq="abc"),
+                         dict(base, sample="u", seq="")], dtype=str)
+    rep = schema.Report()
+    schema.check_meta(rep, meta, {"edges": {"Cu_K": {}}})
+    msgs = [m for lvl, _, m in rep.items if lvl == "警告"]
+    assert any("不一致" in m for m in msgs) and any("abc" in m for m in msgs)
+    assert not any(lvl == "错误" and "seq" in w for lvl, w, _ in rep.items)
+    meta = pd.DataFrame([dict(base)], dtype=str)       # 没有 seq 列：照常
+    rep = schema.Report()
+    schema.check_meta(rep, meta, {"edges": {"Cu_K": {}}})
+    assert not any("seq" in m for _, _, m in rep.items)

@@ -8,6 +8,7 @@
 """
 from xafsmith import logs
 import json
+import math
 
 import pandas as pd
 
@@ -15,7 +16,7 @@ from . import paths
 
 # ---------------------------------------------------------------- meta.csv
 META_COLS = ["file", "sample", "edge_key", "mode", "role", "use", "time", "npts", "emax", "note",
-             "batch", "ref_file", "format", "group"]      # format、group 为可选列（schema 1.1）
+             "batch", "ref_file", "format", "group", "seq"]      # format、group 为可选列（schema 1.1）；seq（序列变量，C2）为可选列
 META_REQUIRED = ["file", "sample", "edge_key", "mode", "role", "use", "ref_file"]
 ROLES = {"reference", "standard", "sample"}
 MODES = {"trans", "fluo", ""}
@@ -193,14 +194,26 @@ def check_meta(rep, meta, cfg):
             rep.err(at, "use 应为 0 或 1")
         if str(r.use) == "0" and not str(r.note).strip():
             rep.err(at, "use=0 必须在 note 写理由")
+        sq = str(r.get("seq", "") or "").strip()
+        if sq:
+            try:
+                ok = math.isfinite(float(sq))
+            except ValueError:
+                ok = False
+            if not ok:
+                rep.warn(f"{w} 第 {i + 2} 行 列 seq", f"应为有限数字，实际是 {sq!r}（趋势图不会用它作横轴）")
         if r.edge_key not in cfg.get("edges", {}):
             rep.warn(at, f"{paths.MARKER} 中没有吸收边 {r.edge_key}")
         if not r.ref_file:
             rep.err(at, "没有参比 ref_file：不能校准（数据标准要求每条谱与同批参比一起处理）")
         elif r.ref_file not in refs:
             rep.warn(at, f"ref_file {r.ref_file} 在 meta.csv 中不是 role=reference")
-    # 同一样品名 = 同一吸收边、同一模式
+    # 同一样品名 = 同一吸收边、同一模式；seq 在同一样品的各行中应一致（空行忽略）
     for s, g in meta.groupby("sample"):
+        if "seq" in meta:
+            sv = {str(v).strip() for v in g["seq"] if str(v).strip()}
+            if len(sv) > 1:
+                rep.warn(f"{w} 样品 {s}", f"同一样品多行的 seq 不一致（{', '.join(sorted(sv))}）：趋势图会把该样品视为缺 seq")
         if g.edge_key.nunique() > 1:
             rep.err(f"{w} 样品 {s}", "同名样品跨吸收边（同名多行会被合并）")
         if g["mode"].nunique() > 1:

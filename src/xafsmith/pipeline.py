@@ -39,7 +39,7 @@ def __getattr__(name):            # pipeline.META / CONFIG / PROC 始终指向�
         return getattr(paths, name)
     raise AttributeError(name)
 META_COLS = ["file", "sample", "edge_key", "mode", "role", "use", "time", "npts", "emax", "note",
-             "batch", "ref_file", "format", "group"]
+             "batch", "ref_file", "format", "group", "seq"]
 _DATA_SUFFIX = {".xdi", ".xmu", ".dat", ".txt", ".csv", ".chi", ".prj"}
 
 
