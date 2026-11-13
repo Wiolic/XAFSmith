@@ -140,16 +140,50 @@ class FitView(QWidget):
                   f"χ² = χ²_data {s0['chi2_data']:.3f} + restraints {s0['restraint_chi2']:.3f} "
                   f"(c0 = unrestrained χ²_ν = {s0['restraint_c0']:.3f})"), "faint"))
         path_tab = W.vbox(W.Table(pd.DataFrame(s["paths"]), max_height=420))
+        s2_tab = self._sigma2_tab(s0, fit)
         q = self._quality()
         nwarn = sum(1 for st_, _ in self._checks if st_ is False)
         rep = W.vbox(W.code_block(fit["report"], height=360))
         tabs = W.tabs((T("参数", "Parameters"), p_tab), (T("路径", "Paths"), path_tab),
                       (T("质量检查", "Quality") + (f"  ⚠ {nwarn}" if nwarn else "  ✓"), q),
                       (T("诊断", "Diagnosis"), self._diagnose()), (T("稳健性", "Robustness"), self._robust()),
+                      *([(T("σ²(T)", "σ²(T)"), s2_tab)] if s2_tab is not None else []),
                       (T("完整报告", "Full report"), rep))
         tabs.setCurrentIndex(page.state.get("fit_tab", 0))
         tabs.currentChanged.connect(lambda i: page.state.__setitem__("fit_tab", i))
         lay.addWidget(tabs)
+
+    def _sigma2_tab(self, s0, fit):
+        """B6：用了 Debye / Einstein 模型时的 σ²(T) 图：每个 θ 参数一条拟合模型曲线 + 各数据集拟合 σ² 点（误差棒）。"""
+        from xafsmith import fit_exafs as fx
+        from xafsmith.sigma2 import sigma2_T_series
+        try:
+            series = sigma2_T_series(s0, fx.normalize_model(self.full["model"]))
+        except Exception:                      # 路径文件找不到等：不显示这张图，其余结果照常
+            logs.log.debug("σ²(T) 图数据失败（已忽略）", exc_info=True)
+            return None
+        if not series:
+            return None
+        plot = W.Plot(300, 1, 1)
+        ax = plot.axes[0]
+        cols = [C["err"], C["accent"], C["magenta"], C["text2"]]
+        lines = []
+        for i, sr in enumerate(series):
+            col = cols[i % len(cols)]
+            nm_ = "Debye" if sr["model"] == "debye" else "Einstein"
+            err = f" ± {sr['theta_err']:.3g}" if sr["theta_err"] is not None else ""
+            ax.plot(sr["T"], sr["sigma2"], color=col, lw=1.4, label=f"{nm_}: {sr['theta_param']} = {sr['theta']:.4g}{err} K")
+            t_, v_, e_ = zip(*sr["points"])
+            ax.errorbar(t_, v_, yerr=[0 if e is None else e for e in e_], fmt="o", color=col, capsize=3, ms=5)
+            lines.append(f"{sr['theta_param']} = {sr['theta']:.4g}{err} K（{nm_}），" + T(f"静态项 {sr['static']:.5f} Å²",
+                                                                                         f"static term {sr['static']:.5f} Å²"))
+        ax.set_xlabel(T("温度 T (K)", "Temperature T (K)"))
+        ax.set_ylabel("σ² (Å²)")
+        ax.set_xlim(left=0)
+        ax.legend(fontsize=8)
+        plot.draw()
+        return W.vbox(plot, W.label(T("拟合结果（依赖 Debye / Einstein 模型）：", "Fit result (depends on the Debye / Einstein model): ")
+                                    + "；".join(lines), "faint"))
 
     def _dg(self):
         """拟合诊断（只算一次，质量检查与诊断共用）"""

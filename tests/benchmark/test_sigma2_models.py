@@ -116,3 +116,23 @@ def test_single_temperature_is_pure_reparametrisation(kind):
     assert abs(th_a - th_b) / th_b < 1e-4, (th_a, th_b)
     print(f"[B6 {kind} single T] chi2 rel diff = {abs(sa['chi2'] - sb['chi2']) / sa['chi2']:.2e}, "
           f"theta rel diff = {abs(th_a - th_b) / th_b:.2e}")
+
+
+# ------------------------------------------------------------------ ⑨ σ²(T) 图数据
+def test_sigma2_T_series(joint):
+    import numpy as np
+    from xafsmith.sigma2 import sigma2_curve, sigma2_T_series
+    kind, model, res, summ = joint
+    (sr,) = sigma2_T_series(summ, fx.normalize_model(model))
+    assert sr["theta_param"] == "thD" and sr["model"] == kind
+    assert sr["theta"] == summ["params"]["thD"]["value"] and sr["theta_err"] == summ["params"]["thD"]["stderr"]
+    assert [p[0] for p in sr["points"]] == [10.0, 100.0, 200.0, 300.0]
+    assert abs(sr["static"] - summ["params"]["ss0"]["value"]) < 1e-9          # 表达式 = 模型 + ss0：静态项就是 ss0
+    assert sr["T"][0] == 1.0 and abs(sr["T"][-1] - 360.0) < 1e-9
+    at_pts = sigma2_curve(FEFF, kind, sr["theta"], [p[0] for p in sr["points"]], static=sr["static"])
+    assert np.allclose(at_pts, [p[1] for p in sr["points"]], rtol=1e-9)       # 曲线在各温度处 = 各数据集拟合 σ²
+
+
+def test_sigma2_T_series_empty_without_model():
+    from xafsmith.sigma2 import sigma2_T_series
+    assert sigma2_T_series(dict(paths=[dict(sigma2=0.003)]), fx.normalize_model(joint_model("debye"))) == []

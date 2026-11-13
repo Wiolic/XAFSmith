@@ -63,6 +63,7 @@ def theta_from_sigma2(path_file, kind, T, sigma2, static=0.0):
 # ------------------------------------------------------------------ 模型 JSON 合法性（B6，6.1-4；schema 与 normalize_model 共用）
 import ast
 import math
+from pathlib import Path
 import re
 
 FUNCS = ("sigma2_debye", "sigma2_eins")
@@ -239,3 +240,54 @@ def parse_temps(temps=None, trange=None):
             raise ValueError("温度必须 > 0 K / temperatures must be > 0 K")
         return out
     raise ValueError("需要 --temps 或 --trange / --temps or --trange is required")
+
+
+def sigma2_T_series(summ, nm, root=None, n_curve=60):
+    """拟合结果的 σ²(T) 图数据：每个 θ 参数一组。
+    返回 [dict(theta_param, model, theta, theta_err, static, points=[(T, σ², σ²_err)], T=曲线温度, sigma2=曲线 σ²)]；没有 σ² 模型 → []。
+    曲线 = 模型(T, θ_拟合) + static，T 从 0（取 1 K）到 1.2×最高温度；static = 各点 (拟合 σ² − 模型(T, θ)) 的均值
+    （表达式是“模型 + 静态项”时各点相同）。路径文件取自该组第一条路径（模型 JSON 的 paths[j].file，与摘要路径行按顺序对应；
+    对应不上 → 跳过该组）。这是拟合结果，依赖所选的 Debye / Einstein 模型。"""
+    import numpy as np
+    from . import paths as xp
+    rows = summ.get("paths") or []
+    if not any(r.get("sigma2_model") for r in rows):
+        return []
+    files = []
+    for d in nm["datasets"]:
+        files.append([p.get("file") for p in d["paths"]])
+    out = {}
+    for i, r in enumerate(rows):
+        th = r.get("theta_param")
+        if not (r.get("sigma2_model") and th and r.get("temperature")):
+            continue
+        out.setdefault((th, r["sigma2_model"]), []).append((i, r))
+    series = []
+    for (th, kind), lst in out.items():
+        p = (summ.get("params") or {}).get(th)
+        if not p:
+            continue
+        # 该行对应的路径文件
+        ids = [d["id"] for d in nm["datasets"]]
+        per_ds = {}
+        for r in rows:
+            per_ds[r.get("dataset", ids[0])] = per_ds.get(r.get("dataset", ids[0]), 0) + 1
+        offs, acc = {}, 0
+        for did in ids:
+            offs[did] = acc
+            acc += per_ds.get(did, 0)
+        i0, r0 = lst[0]
+        did = r0.get("dataset", ids[0])
+        j = i0 - offs[did]
+        di = ids.index(did)
+        if len(files[di]) != per_ds.get(did, 0) or not (0 <= j < len(files[di])):
+            continue
+        f = xp.resolve(files[di][j]) if root is None else (Path(root) / files[di][j])
+        pts = [(float(r["temperature"]), float(r["sigma2"]), r.get("sigma2_err")) for _, r in lst]
+        base = sigma2_curve(f, kind, p["value"], [t for t, _, _ in pts])
+        static = float(np.mean([s - b for (_, s, _), b in zip(pts, base)]))
+        tmax = max(t for t, _, _ in pts)
+        tc = np.linspace(1.0, 1.2 * tmax, n_curve)
+        series.append(dict(theta_param=th, model=kind, theta=float(p["value"]), theta_err=p.get("stderr"), static=static,
+                           points=pts, T=tc, sigma2=sigma2_curve(f, kind, p["value"], tc, static=static)))
+    return series

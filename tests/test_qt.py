@@ -372,6 +372,9 @@ def sigma2_dialog_checks(app, w, S, P, k1, k2, fdir):
             and [d["temperature"] for d in f["model"]["datasets"]] == [10.0, 300.0],
             "联合拟合：模型与摘要记录各数据集温度、σ² 模型、θ 参数")
         if f:
+            from PySide6.QtWidgets import QTabBar
+            tabs_txt = [t.tabText(i) for t in pg.findChildren(QTabBar) for i in range(t.count())]
+            say("σ²(T)" in tabs_txt and "拟合结果（依赖 Debye / Einstein 模型）" in texts(pg), f"结果区有 σ²(T) 图（标签页：{tabs_txt}）")
             from xafsmith import fit_exafs as fx
             res, _, s2 = fx.fit_multi({id1: S.groups[k1], id2: S.groups[k2]}, f["model"])
             same = all(s2["params"][k]["value"] == v["value"] for k, v in sm["params"].items())
