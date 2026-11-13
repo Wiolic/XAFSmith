@@ -351,7 +351,7 @@ Drag the divider between the columns to resize them. A fit updates only the righ
 
 **Debye / Einstein temperature model for σ²** (above the paths of card 3, optional)
 
-- Tick “Use a σ² temperature model” first; only then are “Temperature (K)” and “σ² model…” shown. Usually leave it unticked: it is for one sample measured at several temperatures. Unticked, the model has no `temperature`; if a path σ² already uses `sigma2_debye` / `sigma2_eins` / `tempK`, the box is ticked automatically, and unticking it makes “Fit” show a message and not fit.
+- Tick “Use a σ² temperature model” first; only then are “Temperature (K)” and “σ² model…” shown. Usually leave it unticked: it is for one sample measured at several temperatures. Unticked, the model has no `temperature`; if a path σ² already uses `sigma2_debye` / `sigma2_eins` / `tempK`, the box is ticked automatically when the page opens. **Unticking switches the model off**: path σ² values that use it are changed back to plain parameters `ss<shell>` (in every dataset; a message lists them), and the θ and static parameters leave the parameter table.
 
 - With several measurement temperatures, one θ (Debye or Einstein temperature) replaces one σ² per temperature: fewer parameters, and a check that σ² follows a simple vibrational model. Use at least 2–3 temperatures; with a single temperature θ is just another way of writing σ² and adds no information.
 - **Temperature (K)**: one field per dataset (per dataset tab in a joint fit); empty = no `temperature` in the model. In `sigma2_debye(tempK, thD1)`, `tempK` takes this value, so the same expression can be copied unchanged to every temperature's dataset. A non-numeric or ≤ 0 temperature is reported and nothing is fitted.

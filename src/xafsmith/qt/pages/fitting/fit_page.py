@@ -565,6 +565,23 @@ class FitPage(Page):
             self.state["use_tmodel"] = bool(on)
             for r_ in trows.values():
                 r_.setVisible(bool(on))
+            if on or not uses_tmodel():
+                return
+            # 取消勾选 = 停用：用了温度模型的路径 σ² 改回普通参数 ss<壳层号>（否则刷新时又会自动勾上）
+            from .sigma2_dialog import shell_number
+            changed = []
+            for k_ in keys:
+                m = ptabs[k_].m
+                ci = list(m.df.columns).index("sigma2")
+                for r_i in range(len(m.df)):
+                    row = m.df.iloc[r_i]
+                    if _TMODEL_RE.search(str(row["sigma2"])):
+                        new = f"ss{shell_number(row.to_dict())}"
+                        m.setData(m.index(r_i, ci), new)
+                        changed.append(f"{row['label']}: {new}")
+            W.toast(self, T("已停用 σ² 温度模型，路径 σ² 改回普通参数：", "σ² temperature model switched off; path σ² changed "
+                            "back to plain parameters: ") + "；".join(dict.fromkeys(changed)))
+            QTimer.singleShot(0, self.refresh)          # 参数表按新的路径表达式重建（θ / 静态项参数不再出现）
         tcheck.toggled.connect(on_tcheck)
         c3.add(tcheck)
         if not multi:

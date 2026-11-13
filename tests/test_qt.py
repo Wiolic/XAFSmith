@@ -9,6 +9,7 @@
 """
 import argparse
 import json
+import re as _re
 import os
 import shutil
 import sys
@@ -220,6 +221,7 @@ def sigma2_checks(app, w, S, P, k1, fdir):
     st.pop("use_tmodel", None)
     pg.refresh()
     pump(app)
+    snap = {k: v.copy() for k, v in st.items() if type(v).__name__ == "DataFrame"}   # 路径表、参数表：结束时恢复
     n0 = len(S.fits)
     try:
         def tcheck():
@@ -256,15 +258,15 @@ def sigma2_checks(app, w, S, P, k1, fdir):
         pt.m.setData(pt.m.index(0, ci), "sigma2_debye(tempK, thD1)")
         pump(app, 0.2)
         tc = tcheck()
-        if tc.isChecked():                     # 路径已用温度模型时，刷新后勾选框会自动勾上；先取消，检查“不勾不拟合”
-            tc.setChecked(False)
+        if tc.isChecked():                     # 页面刷新过：路径已用温度模型 → 勾选框自动勾上
+            say(True, "路径 σ² 用了温度模型：勾选框自动勾上")
+        else:                                  # 没刷新：手写了模型表达式但没勾 → 不拟合
+            n1 = len(S.fits)
+            click(pg, "拟合")
+            pump(app, 0.3)
+            say(len(S.fits) == n1, "路径用了温度模型但没勾选：不拟合（提示勾选）")
+            tc.setChecked(True)
             pump(app, 0.1)
-        n1 = len(S.fits)
-        click(pg, "拟合")
-        pump(app, 0.3)
-        say(len(S.fits) == n1, "路径用了温度模型但没勾选：不拟合（提示勾选）")
-        tc.setChecked(True)
-        pump(app, 0.1)
         te = temp_edit()
         te.setText("abc")
         n1 = len(S.fits)
@@ -287,10 +289,28 @@ def sigma2_checks(app, w, S, P, k1, fdir):
         say(f is not None and f["model"].get("temperature") == 150.0 and pr.get("temperature") == 150.0
             and pr.get("sigma2_model") == "debye" and pr.get("theta_param") == "thD1",
             "写了温度：模型记录 temperature=150，摘要路径行 temperature / sigma2_model / theta_param")
+        # 取消勾选 = 停用：路径 σ² 改回 ss<壳层号>，刷新后不再自动勾上，拟合不带温度
+        tcheck().setChecked(False)
+        pump(app, 0.3)
+        pg.refresh()
+        pump(app, 0.2)
+        sv = list(path_tab().m.df["sigma2"])
+        say(not tcheck().isChecked() and not any(_re.search(r"sigma2_debye|sigma2_eins|tempK", str(v)) for v in sv)
+            and str(sv[0]).startswith("ss"), f"取消勾选：σ² 改回普通参数（{sv[0]}），刷新后仍不勾")
+        pnames = set(next(t for t in pg.findChildren(W.Table) if "vary" in t.m.df.columns).m.df.name)
+        say("thD1" not in pnames and str(sv[0]) in pnames, f"取消勾选：参数表去掉 θ、出现 {sv[0]}")
+        n2 = len(S.fits)
+        n = len(W.ERRORS)
+        click(pg, "拟合")
+        wait(app)
+        step("σ² 模型 · 取消勾选后拟合", n)
+        say(len(S.fits) == n2 + 1 and "temperature" not in S.fits[-1]["model"], "取消勾选后：能拟合，模型无 temperature")
     finally:
         for k in [k for k in st if k.startswith("temp_")]:
             st.pop(k)
         S.fits[:] = S.fits[:n0]
+        st.update(snap)
+        st.pop("use_tmodel", None)
         pg.refresh()
 
 
@@ -353,9 +373,9 @@ def sigma2_dialog_checks(app, w, S, P, k1, k2, fdir):
         pt = tabs_()[0]
         say(pt.m.df.iloc[0]["sigma2"] == "sigma2_debye(tempK, thD1) + ss0_1", "路径表 sigma2 单元格已改写")
         par = param_tab().m.df.set_index("name")
-        say(par.loc["thD1", "min"] == 50 and par.loc["thD1", "max"] == 2000 and par.loc["thD1", "value"] == 300
+        say(par.loc["thD1", "min"] == 50 and par.loc["thD1", "max"] == 2000 and par.loc["thD1", "value"] == sg["params"]["thD1"]["value"]
             and par.loc["ss0_1", "value"] == 0 and np.isnan(par.loc["ss0_1", "min"]) and np.isnan(par.loc["ss0_1", "max"])
-            and "tempK" not in par.index, "参数表：thD1（300，50–2000）、ss0_1（0，无下限）")
+            and "tempK" not in par.index, "参数表：thD1（对话框初值，50–2000）、ss0_1（0，无下限）")
         # 自由：改回 ss1，已有参数保留
         plan.clear()
         plan.update(kind="free", apply_all=False)
