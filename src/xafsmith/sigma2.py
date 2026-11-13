@@ -217,3 +217,25 @@ def einstein_ms_warning(label, nleg):
     return (f"路径 {label}（nleg={nleg}）用了 sigma2_eins：Einstein 模型把多重散射路径当成一个约化质量振子，只是近似；多重散射建议用 Debye / "
             f"path {label} (nleg={nleg}) uses sigma2_eins: the Einstein model treats a multiple-scattering path as one reduced-mass oscillator, "
             "which is only an approximation; Debye is recommended for multiple scattering")
+
+
+def parse_temps(temps=None, trange=None):
+    """命令行温度列表：'10,100,300' 或 'lo:hi:step'（含两端）→ list[float]；都没给 → ValueError。"""
+    if trange:
+        try:
+            lo, hi, st = (float(x) for x in str(trange).split(":"))
+        except ValueError:
+            raise ValueError(f"--trange 应为 起:止:步长，实际是 {trange!r} / --trange must be start:stop:step, got {trange!r}") from None
+        if st <= 0 or hi < lo or lo <= 0:
+            raise ValueError("--trange 需要 0 < 起 ≤ 止 且步长 > 0 / --trange needs 0 < start <= stop and step > 0")
+        n = int(math.floor((hi - lo) / st + 1e-9)) + 1
+        return [lo + i * st for i in range(n)]
+    if temps:
+        try:
+            out = [float(x) for x in str(temps).split(",") if x.strip()]
+        except ValueError:
+            raise ValueError(f"--temps 应为逗号分隔的数字，实际是 {temps!r} / --temps must be comma-separated numbers") from None
+        if not out or any(t <= 0 for t in out):
+            raise ValueError("温度必须 > 0 K / temperatures must be > 0 K")
+        return out
+    raise ValueError("需要 --temps 或 --trange / --temps or --trange is required")

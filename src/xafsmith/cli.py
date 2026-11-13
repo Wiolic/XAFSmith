@@ -239,6 +239,39 @@ def cmd_kcheck(a):
     print(f"可用 k 上限 ≈ {kl:.2f} Å⁻¹（还需结合 qc 的 k_snr3 决定 kmax）")
 
 
+def cmd_sigma2(a):
+    """B6：σ²(T) 的 Debye / Einstein 模型（只打印，不写文件）。"""
+    from . import sigma2 as s2
+    f = Path(a.path_file)
+    if not f.exists():
+        from . import paths
+        f = paths.resolve(a.path_file)
+    if not f.exists():
+        raise SystemExit(f"找不到 FEFF 路径文件 / FEFF path file not found: {a.path_file}")
+    kind = {"eins": "einstein"}.get(a.model, a.model)
+    try:
+        if a.from_sigma2 is not None:
+            if a.T is None:
+                raise ValueError("--from-sigma2 需要 --T / --from-sigma2 needs --T")
+            th = s2.theta_from_sigma2(f, kind, a.T, a.from_sigma2, static=a.static)
+            if th is None:
+                print(f"无解：σ² = {a.from_sigma2:g} Å²（T = {a.T:g} K，静态项 {a.static:g}）不在 θ ∈ [10, 5000] K 的范围内 / "
+                      "no solution within theta in [10, 5000] K")
+                raise SystemExit(1)
+            print(f"{kind}: T = {a.T:g} K, σ² = {a.from_sigma2:g} Å² (static {a.static:g}) → θ = {th:.4f} K")
+            return
+        if a.theta is None:
+            raise ValueError("需要 --theta（或用 --from-sigma2 --T 反算） / --theta is required (or use --from-sigma2 --T)")
+        temps = s2.parse_temps(a.temps, a.trange)
+        vals = s2.sigma2_curve(f, kind, a.theta, temps, static=a.static)
+    except ValueError as ex:
+        raise SystemExit(str(ex)) from None
+    print(f"# {kind}  theta = {a.theta:g} K  static = {a.static:g}  path = {f.name}")
+    print("T(K)\tsigma2(A^2)")
+    for t, v in zip(temps, vals):
+        print(f"{t:g}\t{v:.8f}")
+
+
 # ---------------------------------------------------------------- 结构与拟合
 def cmd_structures(a):
     from . import structures as xs, paths
@@ -585,6 +618,16 @@ def build_parser():
     p.set_defaults(f=cmd_process)
     p = sp.add_parser("kcheck", help="干扰边与 k 上限"); p.add_argument("--edge", required=True)
     p.set_defaults(f=cmd_kcheck)
+    p = sp.add_parser("sigma2", help="σ² 的 Debye / Einstein 温度模型：算 σ²(T) 或由 σ² 反算 θ（只打印）")
+    p.add_argument("path_file", help="FEFF 路径文件（feffNNNN.dat）")
+    p.add_argument("--model", choices=["debye", "einstein", "eins"], required=True)
+    p.add_argument("--theta", type=float, help="θ（K）")
+    p.add_argument("--temps", help="温度列表，逗号分隔，如 10,100,300")
+    p.add_argument("--trange", help="温度范围 起:止:步长，如 10:300:10")
+    p.add_argument("--static", type=float, default=0.0, help="与温度无关的静态项 σ²_static（Å²，默认 0）")
+    p.add_argument("--from-sigma2", type=float, dest="from_sigma2", help="已知 σ²（Å²），反算 θ（需 --T）")
+    p.add_argument("--T", type=float, help="--from-sigma2 对应的温度（K）")
+    p.set_defaults(f=cmd_sigma2)
     p = sp.add_parser("structures", help="结构文件"); p.add_argument("--export", action="store_true")
     p.set_defaults(f=cmd_structures)
     p = sp.add_parser("feff", help="FEFF 路径")
