@@ -401,6 +401,94 @@ def _check_multi(rep, at, m, klim, samples):
                                    "残差相加，难以解释")
 
 
+def _names_in(expr):
+    """表达式里的变量名（排除作为函数被调用的名字与 pi）；解析失败返回 None。"""
+    import ast
+    try:
+        tree = ast.parse(expr, mode="eval")
+    except (SyntaxError, ValueError):
+        return None
+    called = {n.func.id for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+    return {n.id for n in ast.walk(tree) if isinstance(n, ast.Name) and n.id not in called and n.id != "pi"}
+
+
+_PATH_EXPR_DEFAULT = dict(e0="e0", s02="s02", sigma2="0.003", deltar="0")
+
+
+def _check_restraints(rep, at, m):
+    """B3 软约束（数据标准 4.2），旧格式与多数据集共用。"""
+    import math
+    rs = m.get("restraints")
+    if rs is None:
+        return
+    if not isinstance(rs, list):
+        rep.err(f"{at} restraints", "应是数组 [{expr, value, sigma, name?, note?}]")
+        return
+    params = m.get("params") if isinstance(m.get("params"), dict) else None
+    # 被路径字段或参数表达式用到的名字（与 larch 的 fix_unused_variables 判断一致）
+    used = set()
+    blocks = [d for d in m["datasets"] if isinstance(d, dict)] if isinstance(m.get("datasets"), list) else [m]
+    for b in blocks:
+        for ps in b.get("paths") or []:
+            if not isinstance(ps, dict):
+                continue
+            for k in ("e0", "s02", "sigma2", "deltar", "N", "third", "fourth", "ei"):
+                v = ps.get(k, _PATH_EXPR_DEFAULT.get(k))
+                if isinstance(v, str):
+                    used |= _names_in(v) or set()
+    for spec in (params or {}).values():
+        ex = spec if isinstance(spec, str) else (spec.get("expr") if isinstance(spec, dict) else None)
+        if isinstance(ex, str):
+            used |= _names_in(ex) or set()
+    seen = set()
+    for i, r in enumerate(rs):
+        where = f"{at} restraints[{i}]"
+        if not isinstance(r, dict):
+            rep.err(where, "应是对象 {expr, value, sigma}")
+            continue
+        for k in ("expr", "value", "sigma"):
+            if k not in r:
+                rep.err(where, f"缺少字段 {k}")
+        if "value" in r and not (_isnum(r["value"]) and math.isfinite(r["value"])):
+            rep.err(f"{where} value", f"应为有限数字，实际是 {r['value']!r}")
+        if "sigma" in r and not (_isnum(r["sigma"]) and math.isfinite(r["sigma"]) and r["sigma"] > 0):
+            rep.err(f"{where} sigma", f"应为大于 0 的有限数字，实际是 {r['sigma']!r}")
+        name = r.get("name", f"r{i + 1}")
+        if not isinstance(name, str) or not name.strip():
+            rep.err(f"{where} name", "不能为空")
+        elif name in seen:
+            rep.err(f"{where} name", f"名称 {name} 重复（缺省名为 r1、r2…按位置）")
+        else:
+            seen.add(name)
+        if "expr" not in r:
+            continue
+        ex = r["expr"]
+        if not isinstance(ex, str) or not ex.strip():
+            rep.err(f"{where} expr", "应是非空的参数表达式字符串")
+            continue
+        names = _names_in(ex)
+        if names is None:
+            rep.err(f"{where} expr", f"表达式无法解析：{ex!r}")
+            continue
+        if params is None:
+            continue
+        unknown = sorted(n for n in names if n not in params)
+        if unknown:
+            rep.err(f"{where} expr", f"引用了 params 里没有的名字：{', '.join(unknown)}")
+        ref = [n for n in names if n in params]
+        if not unknown and not ref:
+            rep.err(f"{where} expr", "没有引用任何模型参数")
+            continue
+        if ref and all(isinstance(params[n], dict) and not params[n].get("expr") and not params[n].get("vary", True)
+                       for n in ref):
+            rep.warn(f"{where} expr", "只涉及固定参数，软约束不起作用")
+        for n in ref:
+            sp = params[n]
+            varied = _isnum(sp) or (isinstance(sp, dict) and not sp.get("expr") and sp.get("vary", True))
+            if varied and n not in used:
+                rep.warn(f"{where} expr", f"参数 {n} 不在任何路径中，larch 会把它固定，软约束对它不起作用")
+
+
 def check_models(rep, meta, klim=None):
     samples = set(meta["sample"]) if meta is not None else set()
     klim = klim or {}
@@ -419,6 +507,7 @@ def check_models(rep, meta, klim=None):
             continue
         if "datasets" in m:
             _check_multi(rep, at, m, klim, samples)
+            _check_restraints(rep, at, m)
             continue
         for k in MODEL_REQUIRED:
             if k not in m:
@@ -435,6 +524,7 @@ def check_models(rep, meta, klim=None):
                 rep.warn(f"{at} params", f"变量数 {nv} > N_idp/2 = {ni / 2:.1f}（2ΔkΔR/π），超出处理规范"
                                          "（XAFS 处理规范：变量数不多于 N_idp 的一半，最好 ≤ N_idp − 3），结果可靠性低")
         _check_paths(rep, at, m, klim, samples)
+        _check_restraints(rep, at, m)
 
 
 def check_structures(rep):

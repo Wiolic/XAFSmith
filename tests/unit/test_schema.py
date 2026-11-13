@@ -186,3 +186,56 @@ def test_multi_warnings(proj, model, where, text):
     items = _mm(proj, model)
     assert any(lv == "警告" and at.endswith(where) and text in m for lv, at, m in items), items
     assert not any(lv == "错误" for lv, _, _ in items), items
+
+
+# ------------------------------------------------------------------ B3 R7：restraints
+def _rs(*items, **kw):
+    return _multi(restraints=list(items), **kw)
+
+
+OKR = dict(expr="ssA - ssB", value=-0.004, sigma=0.001)
+
+
+def test_restraints_valid_clean(proj):
+    assert _mm(proj, _rs(OKR, dict(name="s02", expr="amp", value=0.8, sigma=0.05, note="x"))) == []
+    assert _mm(proj, _multi(restraints=[])) == []
+
+
+@pytest.mark.parametrize("rs,where,text", [
+    ("x", "restraints", "应是数组"),
+    ([1], "restraints[0]", "应是对象"),
+    ([dict(value=1, sigma=1)], "restraints[0]", "缺少字段 expr"),
+    ([dict(expr="amp", sigma=1)], "restraints[0]", "缺少字段 value"),
+    ([dict(expr="amp", value=1)], "restraints[0]", "缺少字段 sigma"),
+    ([dict(expr="", value=1, sigma=1)], "restraints[0] expr", "非空"),
+    ([dict(expr="amp +", value=1, sigma=1)], "restraints[0] expr", "无法解析"),
+    ([dict(expr="amp", value="a", sigma=1)], "restraints[0] value", "有限数字"),
+    ([dict(expr="amp", value=1, sigma=0)], "restraints[0] sigma", "大于 0"),
+    ([dict(expr="amp", value=1, sigma=-2)], "restraints[0] sigma", "大于 0"),
+    ([dict(expr="amp", value=1, sigma=1, name="")], "restraints[0] name", "不能为空"),
+    ([dict(expr="amp", value=1, sigma=1), dict(expr="e0", value=0, sigma=1, name="r1")], "restraints[1] name", "重复"),
+    ([dict(expr="amp + zzz", value=1, sigma=1)], "restraints[0] expr", "zzz"),
+    ([dict(expr="3.0", value=1, sigma=1)], "restraints[0] expr", "没有引用任何模型参数"),
+])
+def test_restraints_errors(proj, rs, where, text):
+    items = _mm(proj, _multi(restraints=rs))
+    assert any(lv == "错误" and at.endswith(where) and text in m for lv, at, m in items), items
+
+
+def test_restraints_warnings(proj):
+    m = _multi(restraints=[dict(expr="e0", value=0, sigma=1)])
+    m["params"]["e0"] = dict(value=0.0, vary=False)
+    items = _mm(proj, m)
+    assert any(lv == "警告" and "固定参数" in x for lv, _, x in items) and not any(lv == "错误" for lv, _, _ in items)
+    m = _multi(restraints=[dict(expr="unused", value=0, sigma=1)])
+    m["params"]["unused"] = 0.1
+    items = _mm(proj, m)
+    assert any(lv == "警告" and "不在任何路径中" in x for lv, _, x in items) and not any(lv == "错误" for lv, _, _ in items)
+
+
+def test_restraints_old_format(proj):
+    m = _model(restraints=[dict(expr="nope", value=1, sigma=1)])
+    (proj / "models").mkdir(exist_ok=True)
+    (proj / "models" / "old.json").write_text(json.dumps(m), encoding="utf-8")
+    items = [(lv, at, x) for lv, at, x in schema.validate(structures=False).items if "old.json" in at]
+    assert any(lv == "错误" and "restraints[0] expr" in at and "nope" in x for lv, at, x in items), items
