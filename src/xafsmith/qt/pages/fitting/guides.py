@@ -250,13 +250,52 @@ models/ and can be rerun under “Run a saved model” or with <code>xafsmith fi
 """
 
 # 兼容旧名字（整页）
+SIGMA2_ZH = """
+<h3>什么时候用</h3>
+<p>同一个样品在<b>多个温度</b>下测了 EXAFS（至少 2–3 个温度），想用<b>一个 θ</b>（Debye 或 Einstein 温度）描述 σ² 随温度的变化。
+只有 1 个温度时，θ 只是 σ² 换了一种写法，没有额外信息；若同时放开静态项，两者还不可分。</p>
+<h3>怎么设</h3>
+<ul>
+<li>每个数据集填“温度 (K)”；路径的 σ² 点“σ² 模型…”选 Debye 或 Einstein，软件写成 <code>sigma2_debye(tempK, thD1)</code> 并建好参数 θ（缺省 50–2000 K）。</li>
+<li>联合拟合：θ 在各温度的数据集之间共享（同名参数共享），这正是约束 σ²(T) 的来源；其他参数（S0²、ΔE0、ΔR）按需共享。</li>
+<li><b>静态项</b> <code>ss0</code> 吸收与温度无关的无序（也会吸收理论与实验的系统差），但它与 θ 相关：温度范围窄、点数少时二者难以分开，θ 的误差会很大。</li>
+</ul>
+<h3>要知道的</h3>
+<ul>
+<li><b>Debye</b> 是相关 Debye 模型（用路径全部原子的坐标与质量，FEFF6 算法）；<b>Einstein</b> 把整条路径当成一个约化质量的振子，对单散射路径合理，对<b>多重散射</b>只是近似（会警告），多重散射建议用 Debye。</li>
+<li>θ 是<b>拟合出的有效参数</b>，不等于文献里的块体 Debye 温度；纳米材料、表面、无序材料的 θ 常偏低。不要把它当作独立测量的物理量去比较，除非有标样在同一模型下校准。</li>
+<li>σ² 模型函数只能写在路径的 <code>sigma2</code> 里；θ 要设 min &gt; 0（否则 larch 把 θ 夹到 1e-5 K，σ² 发散）。</li>
+<li>结果区“σ²(T)”标签页画拟合曲线与各数据集的拟合 σ²：点明显偏离曲线说明该模型不适用或温度记录有误。这是拟合结果，依赖模型。</li>
+</ul>
+"""
+
+SIGMA2_EN = """
+<h3>When to use it</h3>
+<p>The same sample was measured at <b>several temperatures</b> (at least 2–3) and you want <b>one θ</b> (Debye or Einstein temperature) to describe how σ² changes with temperature.
+With a single temperature θ is just another way of writing σ² and adds no information; if a static term is varied as well the two cannot be separated.</p>
+<h3>Setting it up</h3>
+<ul>
+<li>Fill in “Temperature (K)” for each dataset; use “σ² model…” on the path to choose Debye or Einstein: the software writes <code>sigma2_debye(tempK, thD1)</code> and creates the θ parameter (default 50–2000 K).</li>
+<li>Joint fit: θ is shared between the datasets of the different temperatures (same name = shared), which is what constrains σ²(T); share the other parameters (S0², ΔE0, ΔR) as needed.</li>
+<li>The <b>static term</b> <code>ss0</code> absorbs temperature-independent disorder (and also theory/experiment systematics) but is correlated with θ: with a narrow temperature range or few points the two are hard to separate and the error of θ becomes large.</li>
+</ul>
+<h3>Good to know</h3>
+<ul>
+<li><b>Debye</b> is the correlated Debye model (uses the coordinates and masses of all atoms of the path, FEFF6 algorithm); <b>Einstein</b> treats the whole path as one reduced-mass oscillator, reasonable for single scattering but only an approximation for <b>multiple scattering</b> (a warning is given), where Debye is recommended.</li>
+<li>θ is a <b>fitted effective parameter</b>, not the literature bulk Debye temperature; nanomaterials, surfaces and disordered materials often give a lower θ. Do not compare it as an independently measured quantity unless a standard has been calibrated with the same model.</li>
+<li>The σ² model functions may only be used in a path's <code>sigma2</code>; give θ a min &gt; 0 (otherwise larch clamps θ to 1e-5 K and σ² diverges).</li>
+<li>The “σ²(T)” tab of the result plots the fitted curve and the fitted σ² of each dataset: points far from the curve mean the model does not fit or a temperature was recorded wrongly. This is a fit result and depends on the model.</li>
+</ul>
+"""
+
 FIT_GUIDE_ZH = BEFORE_ZH + GOOD_ZH
 FIT_GUIDE_EN = BEFORE_EN + GOOD_EN
 
 
 def show_fit_guide(parent, tab=None):
-    """tab：0 拟合前、1 拟合得好的标准、2 多数据集联合拟合"""
-    pages = ([("Before fitting", BEFORE_EN), ("What is a good fit", GOOD_EN), ("Joint fits", JOINT_EN)] if W.en() else
-             [("拟合前", BEFORE_ZH), ("拟合得好的标准", GOOD_ZH), ("多数据集联合拟合", JOINT_ZH)])
+    """tab：0 拟合前、1 拟合得好的标准、2 多数据集联合拟合、3 σ² 温度模型"""
+    pages = ([("Before fitting", BEFORE_EN), ("What is a good fit", GOOD_EN), ("Joint fits", JOINT_EN),
+              ("σ² temperature model", SIGMA2_EN)] if W.en() else
+             [("拟合前", BEFORE_ZH), ("拟合得好的标准", GOOD_ZH), ("多数据集联合拟合", JOINT_ZH), ("σ² 温度模型", SIGMA2_ZH)])
     W.info_window(parent, "fit_guide", T("拟合注意事项与“拟合得好”的标准", "Before you fit, and what counts as a good fit"),
                   pages, tab=tab)
