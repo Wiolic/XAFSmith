@@ -132,7 +132,7 @@ Only after section 2, and only if the diagnosis still shows a **smooth, regular*
 |---|---|---|
 | isotropic expansion | `deltar = dr1*reff/r1`, or `alpha*reff` | cubic-like structures |
 | geometry | e.g. perovskite ΔR(B–A) = √3·ΔR(B–O) → `dr1*sqrt(3)` | lattice geometry |
-| MS σ² | collinear MS shares the single-scattering `ssT`; triangle `ss1*2` | state the rule |
+| MS ΔR / σ² binding | the fit page “Multiple-scattering binding…” (`xafsmith msbind`) suggests them from the path geometry: a collinear path shares the far single-scattering `ssT`; for a triangle the σ² coefficients are the squares of the ΔR coefficients (e.g. `0.5*ss1 + 0.25*ss2`), do not reuse the ΔR coefficients | rules: processing guide (XAFS处理规范) §5 item 8; the suggestion is stored in the path `note` |
 | fixed N | `N = 6` | known coordination |
 | fixed σ² for weak scatterers | value from the standard | N and σ² cannot both be fitted |
 

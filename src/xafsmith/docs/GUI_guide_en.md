@@ -360,6 +360,13 @@ Drag the divider between the columns to resize them. A fit updates only the righ
 - **“σ²(T)” tab of the result**: one fitted model curve per θ parameter (with the static term, from 0 to 1.2 × the highest temperature) and the fitted σ² of each dataset as points with error bars; the caption gives θ ± error. This is a **fit result and depends on the chosen model**; the Einstein model on a multiple-scattering path is only an approximation (a warning is given), so use Debye for multiple scattering.
 - Command line: `xafsmith sigma2 feff0001.dat --model debye --theta 300 --temps 10,100,300` computes σ²(T); `--from-sigma2 0.004 --T 300` back-calculates θ from a σ² at one temperature (print only). For the model JSON see the data standard, section 4.3.
 
+**Multiple-scattering binding** (the **Multiple-scattering binding…** button under the path table of card 3)
+
+- What it does: from the FEFF path geometry and the expressions of the ticked **single-scattering paths**, it suggests `deltar` and `sigma2` for the ticked **multiple-scattering paths** (nleg > 2). The dialog has one row per multiple-scattering path: path, Reff, nleg, deltar now / suggested, σ² now / suggested, status, basis. The “Apply” column is ticked only for rows that would change (consistent rows and rows without a suggestion are not ticked).
+- **Suggestions only**: nothing changes until you click Apply; Apply edits only the `deltar`, `sigma2` and `note` (the basis) cells of the ticked rows in this dataset's path table. It creates no parameters and does not touch N / s02 / e0. In a joint fit every dataset tab has its own button and only that tab changes.
+- Rules and limits: see the processing guide (XAFS处理规范, section 5, item 8): ΔR is built leg by leg (exact for collinear legs, otherwise an equivalent-bond or fixed-angle linear approximation); σ² uses an independent-bond approximation, which is only approximate for triangular paths. If a needed single-scattering path is missing the row gets no suggestion; tick it and try again.
+- Command line: `xafsmith msbind MODEL [--dataset ID] [--out NEW_MODEL]` prints “now / suggested / basis”; `--out` saves a new model (an existing one is never overwritten) and writes `.params.json`.
+
 **Joint fit of several datasets** (several samples fitted at once, parameters with the same name shared)
 
 - At the top of card 1 switch “Mode” to **Joint fit of several datasets**; “Data” becomes a multi-select (at least 2 for a joint fit; selecting 1 equals a single-dataset fit, bit-identical). The FEFF folders are one shared choice.
