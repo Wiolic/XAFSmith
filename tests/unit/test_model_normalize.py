@@ -83,3 +83,44 @@ def test_dataset_of_and_path_files():
     assert fx.model_path_files(m) == [P[0]["file"], "f2.dat", "f3.dat"]
     assert fx.model_path_files(OLD) == [P[0]["file"]]
     assert fx.is_multi(m) and not fx.is_multi(OLD)
+
+
+# ------------------------------------------------------------------ B3 restraints
+def test_restraints_normalized_old_and_multi():
+    rs = [dict(expr="s02", value="0.8", sigma=0.05), dict(name="x", expr="a-b", value=0, sigma=1, note="n")]
+    nm = fx.normalize_model({**OLD, "restraints": rs})
+    assert nm["restraints"] == [dict(name="r1", expr="s02", value=0.8, sigma=0.05, note=""),
+                                dict(name="x", expr="a-b", value=0.0, sigma=1.0, note="n")]
+    assert isinstance(nm["restraints"][0]["value"], float)
+    m = dict(name="j", kmin=3, kmax=17, rmin=1, rmax=3, kweight=2, params={}, restraints=rs,
+             datasets=[dict(sample="s1", paths=P)])
+    assert fx.normalize_model(m)["restraints"] == nm["restraints"]
+    assert fx.normalize_model(OLD)["restraints"] == []
+    assert fx.normalize_model({**OLD, "restraints": []})["restraints"] == []
+
+
+def test_restraints_input_not_modified():
+    rs = [dict(expr="s02", value=0.8, sigma=0.05)]
+    m = {**OLD, "restraints": rs}
+    before = copy.deepcopy(m)
+    fx.normalize_model(m)["restraints"][0]["expr"] = "zzz"
+    assert m == before
+
+
+@pytest.mark.parametrize("rs,where", [
+    ("x", "restraints"),
+    (["x"], r"restraints\[0\]"),
+    ([dict(value=1, sigma=1)], r"restraints\[0\]\.expr"),
+    ([dict(expr="a", sigma=1)], r"restraints\[0\]\.value"),
+    ([dict(expr="a", value=1)], r"restraints\[0\]\.sigma"),
+    ([dict(expr=" ", value=1, sigma=1)], r"restraints\[0\]\.expr"),
+    ([dict(expr="a", value="x", sigma=1)], r"restraints\[0\]\.value"),
+    ([dict(expr="a", value=float("nan"), sigma=1)], r"restraints\[0\]\.value"),
+    ([dict(expr="a", value=1, sigma=0)], r"restraints\[0\]\.sigma"),
+    ([dict(expr="a", value=1, sigma=-1)], r"restraints\[0\]\.sigma"),
+    ([dict(expr="a", value=1, sigma=1, name="")], r"restraints\[0\]\.name"),
+    ([dict(expr="a", value=1, sigma=1), dict(expr="a", value=1, sigma=1, name="r1")], r"restraints\[1\]\.name"),
+])
+def test_restraints_errors(rs, where):
+    with pytest.raises(ValueError, match=where):
+        fx.normalize_model({**OLD, "restraints": rs})

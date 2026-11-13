@@ -100,13 +100,55 @@ def is_multi(model: dict) -> bool:
     return "datasets" in model
 
 
+def _normalize_restraints(raw) -> list:
+    """B3：规范化软约束列表 → [{name, expr, value, sigma, note}]；格式错误 → ValueError（双语，指出 restraints[i].字段）。"""
+    import math
+    if raw in (None, ""):
+        return []
+    if not isinstance(raw, list):
+        raise ValueError("restraints 必须是数组 / restraints must be an array")
+    out, seen = [], set()
+    for i, r in enumerate(raw):
+        at = f"restraints[{i}]"
+        if not isinstance(r, dict):
+            raise ValueError(f"{at} 不是对象 / {at} is not an object")
+        for k in ("expr", "value", "sigma"):
+            if k not in r:
+                raise ValueError(f"{at}.{k} 缺失 / {at}.{k} is missing")
+        expr = r["expr"]
+        if not isinstance(expr, str) or not expr.strip():
+            raise ValueError(f"{at}.expr 必须是非空字符串 / {at}.expr must be a non-empty string")
+        vals = {}
+        for k in ("value", "sigma"):
+            try:
+                if isinstance(r[k], bool):
+                    raise TypeError
+                vals[k] = float(r[k])
+            except (TypeError, ValueError):
+                raise ValueError(f"{at}.{k} 不是数字 / {at}.{k} is not a number") from None
+            if not math.isfinite(vals[k]):
+                raise ValueError(f"{at}.{k} 不是有限数 / {at}.{k} is not finite")
+        if vals["sigma"] <= 0:
+            raise ValueError(f"{at}.sigma 必须 > 0 / {at}.sigma must be > 0")
+        name = r.get("name", f"r{i + 1}")
+        if not isinstance(name, str) or not name:
+            raise ValueError(f"{at}.name 为空 / {at}.name is empty")
+        if name in seen:
+            raise ValueError(f"{at}.name 重复：{name} / duplicate {at}.name: {name}")
+        seen.add(name)
+        out.append(dict(name=name, expr=expr, value=vals["value"], sigma=vals["sigma"],
+                        note=str(r.get("note", "") or "")))
+    return out
+
+
 def normalize_model(model: dict) -> dict:
     """把旧格式或多数据集模型统一成
-    {name, params, multi, datasets: [{id, sample, kmin, kmax, dk, window, kweight, rmin, rmax, fitspace, epsilon_k, paths}]}。
+    {name, params, multi, restraints, datasets: [{id, sample, kmin, kmax, dk, window, kweight, rmin, rmax, fitspace, epsilon_k, paths}]}。
     纯函数（深拷贝，不改输入）。取值顺序：数据集自己的值 → 顶层值 → 内置默认。缺必填 → ValueError。"""
     import copy
     m = copy.deepcopy(model)
-    out = dict(name=m.get("name", ""), params=m.get("params", {}), multi=is_multi(m), datasets=[])
+    out = dict(name=m.get("name", ""), params=m.get("params", {}), multi=is_multi(m), datasets=[],
+               restraints=_normalize_restraints(m.get("restraints")))
     if not out["multi"]:
         ds = dict(id=m.get("sample") or "data", sample=m.get("sample", ""))
         for k in _FIT_KEYS:
