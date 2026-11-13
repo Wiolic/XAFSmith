@@ -106,3 +106,10 @@ def test_fit_restraint_cli_and_ftest(proj):
     f = _cli(proj, "ftest", "cu_one", "cu_one_r")
     assert f.returncode == 0, f.stderr[-2000:]
     assert "软约束不同" in f.stdout
+    m = _cli(proj, "methods")
+    assert m.returncode == 0, m.stderr[-1500:]
+    assert "软约束" in m.stdout and "amp = 0.9 ± 0.05" in m.stdout and "Soft restraints" in m.stdout
+    for lang, word in (("zh", "软约束"), ("en", "Soft restraints")):
+        si = _cli(proj, "si", "--lang", lang)
+        assert si.returncode == 0, si.stderr[-1500:]
+        assert word in si.stdout and "amp = 0.9 ± 0.05" in si.stdout and "σ" in si.stdout
