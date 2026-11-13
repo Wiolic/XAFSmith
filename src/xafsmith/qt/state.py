@@ -261,16 +261,31 @@ def now():
     return datetime.datetime.now().strftime("%H:%M:%S")
 
 
-MULTI_MSG = ("多数据集模型的界面在 v1.2 拟合页提供（B2）；目前请用命令行 xafsmith fit 模型名 / "
-             "the GUI for multi-dataset models comes with the v1.2 fit page (B2); for now use the command line: "
-             "xafsmith fit <model>")
+def _multi_groups(S, model, groups=None):
+    """多数据集模型的 {数据集 id: Group}。给定 groups 就直接用；否则与命令行一致先按项目配置建（build_model_groups），
+    建不出来（谱没有登记）再取会话里已载入的同名谱。"""
+    from xafsmith import fit_exafs as xfit, pipeline as pl
+    if groups is not None:
+        return groups
+    nm = xfit.normalize_model(model)
+    try:
+        return pl.build_model_groups(model)
+    except KeyError:
+        miss = [d["sample"] for d in nm["datasets"] if d["sample"] not in S.groups]
+        if miss:
+            raise
+        return {d["id"]: S.groups[d["sample"]] for d in nm["datasets"]}
 
 
 def run_model(S, model, group=None):
-    """运行一个模型（dict），返回会话中的拟合记录（不保存文件）"""
+    """运行一个模型（dict），返回会话中的拟合记录（不保存文件）。
+    多数据集模型：group 可给 {数据集 id: Group}；不给则同命令行（按项目配置建，缺则取会话中的谱）。"""
     from xafsmith import fit_exafs as xfit, pipeline as pl
     if xfit.is_multi(model):
-        raise ValueError(MULTI_MSG)
+        nm = xfit.normalize_model(model)
+        res, dsets, summ = xfit.fit_multi(_multi_groups(S, model, group), model)
+        return dict(model=model, summ=summ, result=res, curves=xfit.model_curves_all(dsets, nm),
+                    report=xfit.report_text(res), time=now(), multi=True)
     g = group
     if g is None:
         try:
@@ -282,10 +297,28 @@ def run_model(S, model, group=None):
                 report=xfit.report_text(res), time=now())
 
 
+def fit_ds_ids(fit):
+    """多数据集拟合的数据集 id 列表；单数据集拟合返回空列表"""
+    return [r["id"] for r in fit["summ"]["datasets"]] if fit["summ"].get("multi") else []
+
+
+def fit_dataset(fit, ds_id):
+    """多数据集拟合记录 → 某个数据集的单数据集形状记录（model 为旧格式模型，summ 为 dataset_view，curves 为该数据集的曲线），
+    供作图、诊断、质量检查复用；联合量（参数、χ²、变量数）取联合值。单数据集拟合原样返回。"""
+    from xafsmith import fit_exafs as xfit
+    if not fit["summ"].get("multi"):
+        return fit
+    d = xfit.dataset_of(fit["model"], ds_id)
+    mdl = {k: v for k, v in d.items() if k not in ("id", "epsilon_k")}
+    mdl.update(name=fit["summ"]["model"], params=fit["model"].get("params", {}))
+    return dict(model=mdl, summ=xfit.dataset_view(fit["summ"], ds_id), curves=fit["curves"][ds_id],
+                result=fit["result"], report=fit["report"], time=fit["time"], robust=None, dataset=ds_id)
+
+
 def load_model(mf, sample=None):
     m = json.loads((paths.MODELS / mf).read_text(encoding="utf-8-sig"))
     m.setdefault("name", Path(mf).stem)
-    if "datasets" in m:            # 多数据集：不替换样品、不要求顶层 sample（运行时由 run_model 给出提示）
+    if "datasets" in m:            # 多数据集：样品由模型内 datasets 决定，不替换
         return m
     old = m.get("sample")
     if sample and sample != old:
@@ -310,8 +343,8 @@ class plain_rc:
 
 
 def save_fit(fit):
-    """保存一个拟合：结果表一行、模型 json、报告、拟合图"""
-    from xafsmith import fit_exafs as xfit, report as xrep
+    """保存一个拟合：结果表（单数据集一行 / 多数据集每条路径一行）、模型 json、报告、拟合图（多数据集：每个数据集一张）"""
+    from xafsmith import fit_exafs as xfit, pipeline as pl, report as xrep
     s_, md = fit["summ"], fit["model"]
     xfit.write_result_row(s_, paths.FITS_CSV)
     base = safe(s_["model"])
@@ -319,6 +352,13 @@ def save_fit(fit):
     paths.FITS.mkdir(parents=True, exist_ok=True)
     (paths.MODELS / f"{base}.json").write_text(json.dumps(md, ensure_ascii=False, indent=2), encoding="utf-8")
     (paths.FITS / f"{base}.fit_report.txt").write_text(fit["report"], encoding="utf-8")
+    if s_.get("multi"):
+        with plain_rc():
+            for d in xfit.normalize_model(md)["datasets"]:
+                kw = d["kweight"][-1] if isinstance(d["kweight"], list) else d["kweight"]
+                xrep.plot_fit(fit["curves"][d["id"]], xfit.dataset_view(s_, d["id"]), kweight=kw,
+                              out=paths.FIGS / f"{base}_{pl.safe(d['id'])}_fit.png")
+        return base
     kw = md["kweight"][-1] if isinstance(md["kweight"], list) else md["kweight"]
     with plain_rc():
         xrep.plot_fit(fit["curves"], s_, kweight=kw, out=paths.FIGS / f"{base}_fit.png")
