@@ -20,6 +20,7 @@
   xafsmith feff --structure Ta2O5.cif --absorber Ta --edge L3     （或 --builtin KTaO3；--code feff8 用自洽势）→ output/feff/
   xafsmith fit <模型名或路径>             EXAFS 拟合（models/ 中查找）→ output/fits/、output/figs/
   xafsmith ftest <小模型> <大模型>        嵌套模型 F 检验
+  xafsmith compare M1 M2 [M3 …] [--out 文件.csv]   多模型比较表（R、χ²_ν、变量数、相邻模型 F 检验）→ output/fits/model_compare.csv
   xafsmith lcf --sample S --standards A B [--emin -20 --emax 30 --space norm]
   xafsmith plan --formula IrO2 --element Ir --edge L3              样品设计
   xafsmith robust <模型名>                稳健性检查（改变 k/R 范围与 k 权重重复拟合）→ output/fits/
@@ -339,6 +340,25 @@ def cmd_ftest(a):
     print(json.dumps(fx.hamilton_test(r1, r2), ensure_ascii=False, indent=2))
 
 
+def cmd_compare(a):
+    from . import paths, fit_exafs as fx
+    from .common import write_params
+    if len(a.models) < 2:
+        sys.exit("compare 至少需要 2 个模型 / compare needs at least 2 models")
+    entries = []
+    for name in a.models:
+        model, _g, res, _d, summ = _run_model(name)
+        entries.append(dict(name=model["name"], model=model, result=res, summ=summ))
+    df = fx.compare_models(entries)
+    print(df.to_string(index=False))
+    print("\n" + fx.COMPARE_NOTE)
+    out = Path(a.out) if a.out else paths.FITS / "model_compare.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(out, index=False, encoding="utf-8-sig")
+    write_params(out.with_suffix(".params.json"), {"models": list(a.models)}, "xafsmith compare")
+    print(f"→ {out}")
+
+
 def cmd_lcf(a):
     from . import paths, pipeline as pl, fit_lcf as lc, report as xrep
     pd = _pd()
@@ -581,6 +601,8 @@ def build_parser():
     p.set_defaults(f=cmd_fit)
     p = sp.add_parser("ftest", help="F 检验"); p.add_argument("small"); p.add_argument("large")
     p.set_defaults(f=cmd_ftest)
+    p = sp.add_parser("compare", help="多模型比较表"); p.add_argument("models", nargs="+")
+    p.add_argument("--out", default=None); p.set_defaults(f=cmd_compare)
     p = sp.add_parser("lcf", help="线性组合拟合")
     p.add_argument("--sample", required=True); p.add_argument("--standards", nargs="+", required=True)
     p.add_argument("--emin", type=float, default=-20); p.add_argument("--emax", type=float, default=30)

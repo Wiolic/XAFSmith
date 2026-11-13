@@ -70,6 +70,7 @@ This folder is an **XAFSmith project** for synchrotron XAFS (XANES + EXAFS) anal
 | 拟合 Fit | 写 `models/<名>.json`（见 `models/_模板.json`）→ `xafsmith fit <名>` | `output/fits/` |
 | 诊断 Diagnose | `xafsmith diagnose <名>` | 残差/噪声、毛刺、建议 residual vs noise, glitches, hints |
 | 显著性 Significance | `xafsmith ftest <小模型> <大模型>`（p < 0.05） | |
+| 多模型比较 Model comparison | `xafsmith compare M1 M2 [M3 …]` | `output/fits/model_compare.csv` |
 | 稳健性 Robustness | `xafsmith robust <名>` | `output/fits/*_robustness*.csv` |
 | LCF / XANES | `xafsmith lcf --sample S --standards A B`；`xafsmith xanes --samples …` | `output/lcf/`、`output/xanes/` |
 | **导出 Export** | `xafsmith figure …`（期刊图 journal figures）；`xafsmith summary`（Excel + HTML）；`xafsmith methods`（方法段落 methods text）；`xafsmith si`（SI 拟合方法文本 + 参数表 SI fitting text + table）；`xafsmith export-prj --samples …`（Athena） | `output/figs/journal/`、`output/reports/` |
