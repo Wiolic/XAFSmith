@@ -201,7 +201,10 @@ class FitView(QWidget):
         body = Card(flat=True)
         body.lay.setContentsMargins(4, 12, 4, 4)
         if self.multi:
-            body.add(Banner("info", T("多数据集模型暂不支持稳健性检查（与命令行一致）。", "Robustness checks are not yet supported for multi-dataset models (same as the command line).")))
+            b = Banner("info", T("多数据集模型暂不支持稳健性检查（与命令行一致）。",
+                                 "Robustness checks are not yet supported for multi-dataset models (same as the command line)."))
+            b.setSizePolicy(W.QSizePolicy.Policy.Preferred, W.QSizePolicy.Policy.Maximum)   # 只占文字高度，不把标签页撑高
+            body.add(b)
             return body
         out = W.vbox()
         body.add(W.label(T("稳健性检查：改变拟合条件重复拟合", "Robustness check: refit under varied conditions"), "h3"))

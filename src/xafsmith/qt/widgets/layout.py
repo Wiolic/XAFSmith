@@ -317,6 +317,15 @@ class _FitTabs(QTabWidget):
         sz.setHeight(self._cur("sizeHint"))
         return sz
 
+    def heightForWidth(self, width):
+        # 页里有自动换行的文字时，布局按 heightForWidth 取高度；QTabWidget 默认取所有页的最大值，这里也只看当前页
+        w = self.currentWidget()
+        if w is None:
+            return super().heightForWidth(width)
+        h = w.heightForWidth(width) if w.hasHeightForWidth() else -1
+        h = max(h, w.minimumSizeHint().height()) if h >= 0 else w.sizeHint().height()
+        return h + self.tabBar().sizeHint().height() + 8
+
 
 def tabs(*pages, state=None, key="tab"):
     """pages: [(标题, 控件), ...]；高度随当前页变化。给 state（页面的 self.state）时记住当前标签，重建后恢复"""
