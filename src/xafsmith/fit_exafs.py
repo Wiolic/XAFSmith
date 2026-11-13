@@ -29,6 +29,7 @@ F 检验：hamilton_test(fit_small, fit_large)。
 from xafsmith import logs
 import argparse
 import json
+import re
 from collections.abc import Callable
 from pathlib import Path
 
@@ -58,14 +59,45 @@ def _mkparam(name, spec):
     return param(float(spec.get("value", 0.0)), name=name, vary=False, **kw)
 
 
+_TEMPK = re.compile(r"\btempK\b")
+_PATH_STR_FIELDS = ("N", "s02", "e0", "deltar", "sigma2", "third", "fourth", "ei")
+
+
+def parse_temperature(v, where="temperature"):
+    """temperature（K）：None → None；数字且有限且 > 0 → float；否则 ValueError（双语）。"""
+    if v is None:
+        return None
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not np.isfinite(v) or v <= 0:
+        raise ValueError(f"{where} 应为大于 0 的有限数字（K），实际是 {v!r} / "
+                         f"{where} must be a finite number > 0 (kelvin), got {v!r}")
+    return float(v)
+
+
+def _subst_tempk(expr, temperature, where):
+    """把表达式里的保留符号 tempK（词边界）换成该数据集 temperature 的 repr(float)。"""
+    if not isinstance(expr, str) or not _TEMPK.search(expr):
+        return expr
+    if temperature is None:
+        raise ValueError(f"{where} 用了 tempK，但该数据集没有 temperature / "
+                         f"{where} uses tempK but the dataset has no temperature")
+    return _TEMPK.sub(repr(float(temperature)), expr)
+
+
 def build_paths(model, root=None):
-    """路径文件名相对项目根目录（数据标准：output/feff/...）"""
+    """路径文件名相对项目根目录（数据标准：output/feff/...）。
+    B6：路径字符串字段里的 tempK 先换成 model["temperature"]（规范化后的数据集；无则 None）。"""
     from .paths import ROOT
     root = ROOT if root is None else root
     from larch.xafs import feffpath
     paths = {}
     used = set()
+    temp = model.get("temperature")
     for i, ps in enumerate(model["paths"]):
+        if any(isinstance(ps.get(k), str) and _TEMPK.search(ps[k]) for k in _PATH_STR_FIELDS):
+            ps = dict(ps)
+            for k in _PATH_STR_FIELDS:
+                if k in ps:
+                    ps[k] = _subst_tempk(ps[k], temp, f"paths[{i}].{k}")
         f = Path(ps["file"])
         if root and not f.is_absolute():
             f = Path(root) / f
@@ -157,6 +189,7 @@ def normalize_model(model: dict) -> dict:
         if miss:
             raise ValueError(f"模型缺少 {', '.join(miss)} / model is missing {', '.join(miss)}")
         ds["epsilon_k"] = None                      # 旧格式从不传 epsilon_k（与 v1.1 相同）
+        ds["temperature"] = parse_temperature(m.get("temperature"))
         ds["paths"] = m.get("paths", [])
         out["datasets"].append(ds)
         return out
@@ -187,6 +220,8 @@ def normalize_model(model: dict) -> dict:
             raise ValueError(f"datasets[{i}].{'/'.join(miss)} 缺失（数据集与顶层都没有） / "
                              f"datasets[{i}].{'/'.join(miss)} missing (neither in the dataset nor at top level)")
         ds["epsilon_k"] = d.get("epsilon_k")
+        ds["temperature"] = parse_temperature(d["temperature"] if "temperature" in d else m.get("temperature"),
+                                              f"datasets[{i}].temperature")
         ds["paths"] = d["paths"]
         out["datasets"].append(ds)
     return out
