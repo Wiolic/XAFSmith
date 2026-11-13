@@ -647,6 +647,9 @@ def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
             md = json.loads(mj.read_text(encoding="utf-8"))
             say("datasets" in md and "sample" not in md and "paths" not in md and [d["id"] for d in md["datasets"]] == [id1, id2],
                 "模型 json 写入 datasets（顶层无 sample / paths）")
+            w.go("pubfig")                       # C2：图片导出页的趋势图（用刚做的联合拟合）
+            trend_pubfig_check(app, w, S, P)
+            w.go("fit")
             # 已保存模型：多数据集，样品框禁用，直接运行
             st["mf"] = mj.name
             st["saved_open"] = True
@@ -998,6 +1001,49 @@ def irtaox_suite(app, w, S, P):
     m = S.extra.get("methods") or {}
     say("AUTOBK" in m.get("en", "") and "XAFSmith" in m.get("zh", ""),
         f"方法段落：中文 {len(m.get('zh', ''))} 字，英文 {len(m.get('en', '').split())} 词")
+
+
+def trend_pubfig_check(app, w, S, P):
+    """C2：图片导出页的“趋势图”（需要会话里有 ≥ 2 个数据集的联合拟合）：预览、保存、Origin 脚本模式的误差列。"""
+    from xafsmith import origin_export as oe
+    joint = [f for f in S.fits if f["summ"].get("multi") and len(f["summ"].get("datasets", [])) >= 2]
+    say(bool(joint), "趋势图前提：会话里有联合拟合")
+    if not joint:
+        return
+    pg = P["pubfig"]
+    old = {k: pg.state.get(k) for k in ("kind", "name", "fmts", "tr_fit")}
+    pg.state.update(kind="trend", name="_test_trend", fmts=["png", "svg"])
+    pg.state.pop("tr_fit", None)
+    n = len(W.ERRORS)
+    pg.refresh()
+    pump(app, 0.5)
+    step("趋势图页构建与预览", n)
+    t = texts(pg)
+    say("Trend of fitted structural parameters" in t and "1σ" in t, "趋势图：预览图注含误差棒说明")
+    n = len(W.ERRORS)
+    click(pg, "保存到 output/figs/journal/")
+    step("趋势图保存", n)
+    made = list((PROJ / "output" / "figs" / "journal").glob("_test_trend.*"))
+    say({p.suffix for p in made} >= {".png", ".svg", ".txt"}, f"趋势图文件：{sorted(p.suffix for p in made)}")
+    for p_ in made:
+        p_.unlink()
+    import tempfile
+    from xafsmith import pubfig as pf, trend as tr
+    meta, proc = tr.load_project_tables()
+    tab = tr.trend_table(joint[-1]["summ"], joint[-1]["model"], meta, proc)
+    with tempfile.TemporaryDirectory() as td:
+        fig, _ = pf.trend(tab, "单栏 85 mm")
+        r = oe.export(fig, td, "_t", kind="trend", use_originpro=False)
+        import json as _j
+        sp = _j.loads((Path(td) / "spec.json").read_text(encoding="utf-8"))
+        import matplotlib.pyplot as plt
+        plt.close(fig)
+        say(r["mode"] == "script" and any(ln.get("symbol") for g_ in sp["graphs"] for ln in g_["lines"]),
+            "趋势图：Origin 脚本模式写出符号线")
+    pg.state.update({k: v for k, v in old.items() if v is not None})
+    if old["kind"] is None:
+        pg.state.pop("kind", None)
+    pg.refresh()
 
 
 def demo_suite(app, w, S, P):

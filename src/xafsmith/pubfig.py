@@ -404,7 +404,7 @@ def trend(table, size="单栏 85 mm", panels=TREND_DEFAULT_PANELS, paths=None, x
         for ax in axl[:n][-nc:]:
             ax.set_xticks(list(d["seq"]))
             ax.set_xticklabels([chem(x) for x in d["sample"]], rotation=30 if len(d) > 3 else 0, ha="right" if len(d) > 3 else "center")
-    return fig, trend_caption(table, panels, paths, xlabel, model, edge)
+    return fig, trend_caption(table, panels, paths, xlabel, model, edge or table.attrs.get("edge", ""))
 
 
 def trend_caption(table, panels, paths, xlabel=None, model="", edge=""):

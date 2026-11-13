@@ -205,8 +205,12 @@ def trend_table(summ, model, meta=None, processed=None):
                 row["shared_" + col] = fl.get("shared_" + col, False)
             rows.append(row)
     df = pd.DataFrame(rows, columns=COLUMNS)
+    edge = ""
+    if meta is not None and {"sample", "edge_key"} <= set(meta.columns):
+        eks = sorted({str(e) for e in meta[meta["sample"].isin([d["sample"] for d in dsets])]["edge_key"] if str(e).strip()})
+        edge = ", ".join(e.replace("_", " ") + "-edge" for e in eks)
     df.attrs.update(seq_source=sv["source"], seq_notes=sv["notes"], n_composite=composite,
-                    seq_labels=sv["labels"])
+                    seq_labels=sv["labels"], edge=edge)
     return df
 
 

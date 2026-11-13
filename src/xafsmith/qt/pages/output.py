@@ -184,7 +184,7 @@ def _fit_key(S, fit, keys):
 class PubFigPage(Page):
     title_zh, title_en, icon_name = "图片导出", "Figure export", "chart"
 
-    KINDS = ["xanes", "deriv", "chik", "chir"]
+    KINDS = ["xanes", "deriv", "chik", "chir", "trend"]
 
     def build(self):
         from xafsmith import pubfig as pf
@@ -193,7 +193,7 @@ class PubFigPage(Page):
                       "Arial, consistent line widths and palettes; 600 dpi TIFF (LZW) / PNG, vector SVG / PDF and an English "
                       "caption, or an Origin project (.opju)."))
         names = {"xanes": T("归一化 XANES", "Normalized XANES"), "deriv": T("XANES 导数", "XANES derivative"), "chik": "kⁿχ(k)",
-                 "chir": "|χ(R)|"}
+                 "chir": "|χ(R)|", "trend": T("趋势图", "Trend")}
         sizes = {"单栏 85 mm": T("单栏 85 mm", "Single column 85 mm"), "1.5 栏 120 mm": T("1.5 栏 120 mm", "1.5 column 120 mm"),
                  "双栏 178 mm": T("双栏 178 mm", "Double column 178 mm"), "汇报 16:9": T("汇报 16:9", "Slide 16:9")}
         ctl = Card()
@@ -208,6 +208,8 @@ class PubFigPage(Page):
         k_ = self.state.get("kind", "xanes")
         if k_ not in self.KINDS:       # 旧版本的“拟合（k + R）”并入 χ(k)/|χ(R)| 的“叠加拟合”
             k_ = "chir"
+        if k_ == "trend":
+            return self._build_trend(ctl, size, fmts, name, pal)
         opt = {}
         need_chi = k_ in ("chik", "chir")
         cands = [k for k, g in S.groups.items() if (has_chi(g) if need_chi else hasattr(g, "flat"))]
@@ -258,6 +260,45 @@ class PubFigPage(Page):
             ctl.add(W.fields((T("叠加的拟合（每条谱默认取最近一次）", "Fits to overlay (latest per spectrum by default)"), opt["fits"])))
         ctl.add(W.hbox(opt["sub"], *([opt["re"]] if "re" in opt else []), *([opt["usefit"]] if "usefit" in opt else []), None))
         ctl.add(W.fields((T("尺寸", "Size"), size), (T("格式", "Formats"), fmts), (T("文件名", "File name"), name)))
+        def make():
+            sel = [k for k in order.value() if k in opt["sel"].value()]
+            if not sel:
+                return None
+            gs = [S.groups[k] for k in sel]
+            sub = opt["sub"].isChecked()
+            cols = pf.series_colors(sel, pal.value(), opt["refs"].value())
+            fits = None
+            if "usefit" in opt and opt["usefit"].isChecked():
+                # 按谱的显示名（g.label）对应：会话里的键名与 g.label 不一定相同
+                fits = {}
+                for i in opt["fits"].value():
+                    smp = _fit_key(S, S.fits[i], sel)
+                    if smp:
+                        fits[S.groups[smp].label] = S.fits[i]
+                fits = fits or None
+            if k_ in ("xanes", "deriv"):
+                fig, c = pf.xanes(gs, size.value(), (opt["lo"].value(), opt["hi"].value()), opt["off"].value(),
+                                  deriv=k_ == "deriv", sub=sub, colors=cols)
+            elif k_ == "chik":
+                fig, c = pf.chik(gs, size.value(), opt["kw"].value(), opt["off"].value(), sub=sub, colors=cols, fits=fits)
+            else:
+                fig, c = pf.chir(gs, size.value(), opt["kw"].value(), opt["rmax"].value(), opt["off"].value(),
+                                 opt["re"].isChecked(), sub=sub, colors=cols, fits=fits)
+            return fig, c
+
+        def pre():
+            self.state["pal"] = pal.value()
+            for k, wdg in opt.items():
+                v = wdg.isChecked() if isinstance(wdg, W.QCheckBox) else wdg.value()
+                self.state[k] = v
+            self.state["order"] = order.value()
+        render = self._finish(ctl, size, fmts, name, k_, make,
+                              [w_ for w_ in list(opt.values()) + [size, pal] if w_ is not opt["sel"]], pre)
+        order.changed.connect(lambda *_: W.wait_cursor(render))
+
+    def _finish(self, ctl, size, fmts, name, k_, make, widgets, pre=None):
+        """预览、图注、保存与 Origin 导出（各种图共用）：make() → (fig, 英文图注) 或 None；widgets 变化时重画。返回 render。"""
+        from xafsmith import pubfig as pf
         self.add(ctl)
         view = Card(T("预览", "Preview"))
         holder = W.vbox()
@@ -269,40 +310,19 @@ class PubFigPage(Page):
         cur = {}
 
         def render():
-            self.state.update(size=size.value(), fmts=fmts.value(), name=name.text(), pal=pal.value())
-            for k, wdg in opt.items():
-                v = wdg.isChecked() if isinstance(wdg, W.QCheckBox) else wdg.value()
-                self.state[k] = v
-            self.state["order"] = order.value()
+            self.state.update(size=size.value(), fmts=fmts.value(), name=name.text())
+            if pre is not None:
+                pre()
             import matplotlib.pyplot as plt
             if cur.get("fig") is not None:
                 plt.close(cur["fig"])
             with plain_rc():
-                sel = [k for k in order.value() if k in opt["sel"].value()]
-                if not sel:
+                made = make()
+                if made is None:
                     W._clear_layout(holder.layout())
                     cur["fig"] = None
                     return
-                gs = [S.groups[k] for k in sel]
-                sub = opt["sub"].isChecked()
-                cols = pf.series_colors(sel, pal.value(), opt["refs"].value())
-                fits = None
-                if "usefit" in opt and opt["usefit"].isChecked():
-                    # 按谱的显示名（g.label）对应：会话里的键名与 g.label 不一定相同
-                    fits = {}
-                    for i in opt["fits"].value():
-                        smp = _fit_key(S, S.fits[i], sel)
-                        if smp:
-                            fits[S.groups[smp].label] = S.fits[i]
-                    fits = fits or None
-                if k_ in ("xanes", "deriv"):
-                    fig, c = pf.xanes(gs, size.value(), (opt["lo"].value(), opt["hi"].value()), opt["off"].value(),
-                                      deriv=k_ == "deriv", sub=sub, colors=cols)
-                elif k_ == "chik":
-                    fig, c = pf.chik(gs, size.value(), opt["kw"].value(), opt["off"].value(), sub=sub, colors=cols, fits=fits)
-                else:
-                    fig, c = pf.chir(gs, size.value(), opt["kw"].value(), opt["rmax"].value(), opt["off"].value(),
-                                     opt["re"].isChecked(), sub=sub, colors=cols, fits=fits)
+                fig, c = made
                 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
                 canvas = FigureCanvasQTAgg(fig)
                 fig.set_dpi(150 if size.value() != pf.SLIDE_SIZE else 70)
@@ -314,10 +334,7 @@ class PubFigPage(Page):
             holder.layout().addWidget(W.hbox(canvas, None))
             cap.setText(c)
         render_d = W.debounced(self, lambda: W.wait_cursor(render))     # 数值微调：连续改只重画一次
-        order.changed.connect(lambda *_: W.wait_cursor(render))
-        for wdg in list(opt.values()) + [size, pal]:
-            if wdg is opt["sel"]:          # 选谱变化经 order.changed 重画，避免画两次
-                continue
+        for wdg in widgets:
             if hasattr(wdg, "changed"):
                 wdg.changed.connect(lambda *_: W.wait_cursor(render))
             elif hasattr(wdg, "currentIndexChanged"):
@@ -384,6 +401,54 @@ class PubFigPage(Page):
                         W.button(T("保存到 output/figs/journal/", "Save to output/figs/journal/"), primary=True, icon_name="save", slot=save)))
         self.add(view)
         W.wait_cursor(render)
+        return render
+
+    def _build_trend(self, ctl, size, fmts, name, pal):
+        """C2：趋势图——选一个联合拟合（缺省最近一个）、面板、路径、横轴标题；尺寸 / 配色 / 格式 / 文件名与其他图相同。"""
+        from xafsmith import pubfig as pf, trend as tr
+        S, st = self.S, self.state
+        jf = [i for i, f_ in enumerate(S.fits) if f_["summ"].get("multi") and len(f_["summ"].get("datasets", [])) >= 2]
+        if not jf:
+            self.add(ctl)
+            self.add(Banner("info", T("先在“EXAFS 拟合”中做一次 ≥ 2 个数据集的联合拟合（序列样品，如时间分辨）",
+                                      "First run a joint fit of ≥ 2 datasets under “EXAFS fitting” (a series, e.g. time-resolved)")))
+            return
+        cur_fit = st.get("tr_fit") if st.get("tr_fit") in jf else jf[-1]
+        fsel = W.combo(jf, cur_fit, fmt=lambda i: fit_label(S.fits[i]))
+        fsel.currentIndexChanged.connect(lambda *_: (st.__setitem__("tr_fit", fsel.value()), st.pop("tr_paths", None), self.refresh()))
+        f = S.fits[cur_fit]
+        try:
+            meta, proc = tr.load_project_tables()
+            table = tr.trend_table(f["summ"], f["model"], meta, proc)
+        except Exception as ex:      # noqa: BLE001
+            logs.log.warning("趋势图：趋势表失败（已提示）", exc_info=True)
+            self.add(ctl)
+            self.add(Banner("err", T(f"无法生成趋势表：{ex}", f"Cannot build the trend table: {ex}")))
+            return
+        all_paths = list(dict.fromkeys(table["path"]))
+        names = {"N": "N", "R": "R", "sigma2": "σ²", "dE0": "ΔE0", "E0": T("边位置 E0", "Edge position E0")}
+        opts = [k for k in names if k != "E0" or table["E0_edge"].notna().any()]
+        pm = W.MultiSelect(opts, [p for p in st.get("tr_panels", pf.TREND_DEFAULT_PANELS) if p in opts] or opts[:1],
+                           fmt=lambda k: names[k])
+        pp = W.MultiSelect(all_paths, [p for p in st.get("tr_paths", all_paths) if p in all_paths] or all_paths)
+        xl = W.text(st.get("tr_xlabel", ""), tr.SEQ_LABELS[table.attrs["seq_source"]])
+        ctl.add(W.fields((T("联合拟合", "Joint fit"), fsel), (T("面板", "Panels"), pm), (T("路径", "Paths"), pp),
+                         (T("横轴标题（空 = 缺省）", "X-axis title (empty = default)"), xl), cols=2))
+        ctl.add(W.fields((T("配色方案（每条路径一种颜色）", "Palette (one colour per path)"), pal)))
+        ctl.add(W.fields((T("尺寸", "Size"), size), (T("格式", "Formats"), fmts), (T("文件名", "File name"), name)))
+        for n in table.attrs.get("seq_notes", []):
+            ctl.add(Banner("info", n))
+
+        def make():
+            paths_ = pp.value() or all_paths
+            cols = [c for c, _ in pf.series_colors(paths_, pal.value(), ())]
+            return pf.trend(table, size.value(), pm.value() or opts[:1], paths_, xl.text().strip() or None, cols,
+                            model=f["summ"]["model"])
+
+        def pre():
+            st.update(tr_panels=pm.value(), tr_paths=pp.value(), tr_xlabel=xl.text().strip(), pal=pal.value())
+        render = self._finish(ctl, size, fmts, name, "trend", make, [pm, pp, size, pal], pre)
+        xl.editingFinished.connect(lambda: W.wait_cursor(render))
 
 
 # ============================================================================= 制样指导
