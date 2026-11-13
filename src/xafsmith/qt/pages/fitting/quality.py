@@ -83,6 +83,6 @@ def quality_checks(fit, dg=None):
     if not (isinstance(kws, list) and len(kws) > 1):
         out.append((None, T("只用了单一 k 权重：同时拟合 k¹、k²、k³ 能降低相关性",
                             "Single k-weight: fitting k¹, k², k³ together reduces correlations")))
-    if fit.get("robust") is None:
+    if fit.get("robust") is None and not s.get("dataset"):      # 多数据集暂无稳健性检查，不提示
         out.append((None, T("尚未运行稳健性检查（见“稳健性”标签）", "Robustness check not run yet (Robustness tab)")))
     return out

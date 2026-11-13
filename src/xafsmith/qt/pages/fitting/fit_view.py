@@ -7,7 +7,7 @@ import pandas as pd
 from PySide6.QtWidgets import QWidget
 from xafsmith import paths
 from ... import widgets as W
-from ...state import safe, save_fit
+from ...state import fit_dataset, fit_ds_ids, safe, save_fit
 from ...theme import C
 from ...widgets import T, Banner, Card
 from .._common import rlabel
@@ -20,31 +20,70 @@ class FitView(QWidget):
     adopt：把拟合值写回参数表的回调（EXAFS 拟合页提供；拟合历史页没有）"""
     def __init__(self, page, fit, key="", adopt=None):
         super().__init__()
-        self.page, self.fit = page, fit
+        self.page, self.full, self.adopt = page, fit, adopt
+        self.multi = bool(fit["summ"].get("multi"))
+        self._lay = W.QVBoxLayout(self)
+        self._lay.setContentsMargins(0, 0, 0, 0)
+        self._lay.setSpacing(12)
+        self._build()
+
+    def _rebuild(self):
+        # 用 singleShot：切换控件正在发信号，不能在它自己的槽里把它删掉
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, self._build)
+
+    def _build(self):
+        page, adopt, full = self.page, self.adopt, self.full
+        W._clear_layout(self._lay)
+        self.__dict__.pop("_dg_cache", None)
+        s0 = full["summ"]
+        ids = fit_ds_ids(full)
+        if ids:       # 多数据集：作图、路径、质量检查、诊断按所选数据集；参数、完整报告为联合
+            cur = page.state.get("fit_ds")
+            self.ds = cur if cur in ids else ids[0]
+            fit = fit_dataset(full, self.ds)
+        else:
+            self.ds, fit = None, full
+        self.fit = fit
         s, c, md = fit["summ"], fit["curves"], fit["model"]
-        lay = W.QVBoxLayout(self)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(12)
+        lay = self._lay
         card = Card()
         head = W.QHBoxLayout()
-        t = W.label(T(f"拟合结果 · {s['model']}", f"Fit result · {s['model']}"), "h2")
+        t = W.label(T(f"拟合结果 · {s0['model']}", f"Fit result · {s0['model']}"), "h2")
         t.setWordWrap(True)
         head.addWidget(t, 1)
 
         def save():
-            base = save_fit(fit)
-            W.toast(page, T(f"已保存：output/fits/exafs_fits.csv、models/{base}.json、报告与拟合图",
-                            f"Saved: output/fits/exafs_fits.csv, models/{base}.json, report and figure"))
+            base = save_fit(full)
+            if ids:
+                W.toast(page, T(f"已保存：output/fits/exafs_fits.csv、models/{base}.json、报告与 {len(ids)} 张拟合图",
+                                f"Saved: output/fits/exafs_fits.csv, models/{base}.json, report and {len(ids)} figures"))
+            else:
+                W.toast(page, T(f"已保存：output/fits/exafs_fits.csv、models/{base}.json、报告与拟合图",
+                                f"Saved: output/fits/exafs_fits.csv, models/{base}.json, report and figure"))
         if adopt is not None:
             head.addWidget(W.button(T("采纳拟合值到参数", "Use fitted values as start"), icon_name="check",
-                                    slot=lambda: adopt(fit),
+                                    slot=lambda: adopt(full),
                                     tip=T("把本次拟合得到的变量值写回左侧参数表的 value 列，作为下一次拟合的初值",
                                           "Copy the fitted values into the value column of the parameter table (start values for the next fit)")))
         head.addWidget(W.button(T("保存结果", "Save result"), primary=True, icon_name="save", slot=save))
         card.add(head)
-        card.add(W.metrics((T("R 因子", "R-factor"), f"{s['rfactor']:.4f}"), ("χ²_ν", f"{s['chi2_reduced']:.1f}"),
-                           ("N_idp", f"{s['n_idp']:.1f}"), (T("变量数", "Variables"), s["nvarys"]),
-                           (T("样品", "Sample"), s["sample"])))
+        if ids:
+            card.add(W.metrics((T("联合 R 因子", "Joint R-factor"), f"{s0['rfactor']:.4f}"),
+                               ("χ²_ν", f"{s0['chi2_reduced']:.1f}"), (T("Σ N_idp", "Σ N_idp"), f"{s0['n_idp']:.1f}"),
+                               (T("变量数", "Variables"), s0["nvarys"]), (T("数据集", "Datasets"), s0["n_datasets"])))
+            row = next(r for r in s0["datasets"] if r["id"] == self.ds)
+            dsc = W.combo(ids, self.ds)
+            dsc.currentIndexChanged.connect(lambda *_: (page.state.__setitem__("fit_ds", dsc.value()), self._rebuild()))
+            card.add(W.hbox(W.label(T("查看数据集", "Dataset"), "faint"), dsc,
+                            W.label(T(f"R 因子 <b>{row['rfactor']:.4f}</b>　N_idp <b>{row['n_idp']:.1f}</b>　χ² 占比 <b>{row['chi2_share']:.2f}</b>"
+                                      f"　（样品 {row['sample']}）",
+                                      f"R-factor <b>{row['rfactor']:.4f}</b>　N_idp <b>{row['n_idp']:.1f}</b>　χ² share <b>{row['chi2_share']:.2f}</b>"
+                                      f"　(sample {row['sample']})"), rich=True), None))
+        else:
+            card.add(W.metrics((T("R 因子", "R-factor"), f"{s['rfactor']:.4f}"), ("χ²_ν", f"{s['chi2_reduced']:.1f}"),
+                               ("N_idp", f"{s['n_idp']:.1f}"), (T("变量数", "Variables"), s["nvarys"]),
+                               (T("样品", "Sample"), s["sample"])))
         for w_ in s["warnings"]:
             card.add(Banner("warn", w_))
         kw = W.combo([1, 2, 3], page.state.get("kwshow", 2))
@@ -161,6 +200,9 @@ class FitView(QWidget):
         fit, page = self.fit, self.page
         body = Card(flat=True)
         body.lay.setContentsMargins(4, 12, 4, 4)
+        if self.multi:
+            body.add(Banner("info", T("多数据集模型暂不支持稳健性检查（与命令行一致）。", "Robustness checks are not yet supported for multi-dataset models (same as the command line).")))
+            return body
         out = W.vbox()
         body.add(W.label(T("稳健性检查：改变拟合条件重复拟合", "Robustness check: refit under varied conditions"), "h3"))
         body.add(W.label(T("依次改变 kmin ±0.5、kmax ±1、Rmax ±0.2 Å，以及（多 k 权重时）单独用 k¹/k²/k³，看变量的变化是否超过统计误差。",
