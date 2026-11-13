@@ -136,3 +136,48 @@ def test_sigma2_T_series(joint):
 def test_sigma2_T_series_empty_without_model():
     from xafsmith.sigma2 import sigma2_T_series
     assert sigma2_T_series(dict(paths=[dict(sigma2=0.003)]), fx.normalize_model(joint_model("debye"))) == []
+
+
+# ------------------------------------------------------------------ 6.9 多路径共用 θ（larch feffpath 冻结问题的回归）
+@pytest.fixture(scope="module", params=["debye", "einstein"])
+def joint2(request, tmp_path_factory):
+    from _sigma2_synth import synth_two_path_groups, two_path_model, variant_feff
+    kind = request.param
+    files = [FEFF, variant_feff(tmp_path_factory.mktemp("feffv"))]
+    res, ds, summ = fx.fit_multi(synth_two_path_groups(kind, files), two_path_model(kind, files), root=".")
+    return kind, files, two_path_model(kind, files), summ
+
+
+def test_two_paths_shared_theta_recovered(joint2):
+    """6.9：一个数据集两条几何不同的路径共用 θ。修正前每条路径都用同一几何（θ 偏 18σ，不报错）。"""
+    kind, files, model, summ = joint2
+    th, ss = summ["params"]["thD"], summ["params"]["ss0"]
+    assert abs(th["value"] - THETA_TRUE[kind]) < 3 * th["stderr"], (kind, th)
+    assert abs(ss["value"] - SS0_TRUE) < 3 * ss["stderr"], (kind, ss)
+    print(f"[B6 6.9 {kind} 2 paths] thD = {th['value']:.3f} +/- {th['stderr']:.3f} (true {THETA_TRUE[kind]}), "
+          f"ss0 = {ss['value']:.6f} +/- {ss['stderr']:.6f}")
+
+
+def test_two_paths_each_use_own_geometry(joint2):
+    """每条路径的拟合 σ² = 该路径的 模型(T, θ_fit) + ss0；两条路径的值不同。"""
+    from xafsmith.sigma2 import sigma2_curve
+    kind, files, model, summ = joint2
+    th, ss = summ["params"]["thD"]["value"], summ["params"]["ss0"]["value"]
+    rows = summ["paths"]
+    assert len(rows) == 2 * len(model["datasets"])
+    for i, r in enumerate(rows):
+        f = files[i % 2]
+        want = float(sigma2_curve(f, kind, th, [r["temperature"]], static=ss)[0])
+        assert abs(r["sigma2"] - want) / want < 1e-9, (kind, i, r["sigma2"], want)
+    for a, b in zip(rows[0::2], rows[1::2]):
+        assert abs(a["sigma2"] - b["sigma2"]) > 1e-4, (kind, a["sigma2"], b["sigma2"])
+
+
+def test_two_paths_sigma2_T_series_one_curve_per_shell(joint2):
+    from xafsmith.sigma2 import sigma2_T_series
+    kind, files, model, summ = joint2
+    ser = sigma2_T_series(summ, fx.normalize_model(model))
+    assert sorted(s["file"] for s in ser) == sorted(files)
+    for s in ser:
+        assert [p[0] for p in s["points"]] == [10.0, 100.0, 200.0, 300.0]
+        assert abs(s["static"] - summ["params"]["ss0"]["value"]) < 1e-9
