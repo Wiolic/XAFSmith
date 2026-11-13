@@ -38,9 +38,11 @@ Compared with a typical Athena / Artemis workflow:
 | Calibrate, normalize and merge dozens of spectra from one beamtime | Import, mark references, align, set parameters and merge group by group, then save a project | Drop files into a folder → **Scan and register** → **One-click processing**: calibration against the reference of the same batch, one parameter set for normalization, automatic merging (outlier scans removed with a recorded reason) |
 | Make sure a sample series uses **one** parameter set | Check each one yourself | One parameter set per edge stored in the project and shared by all samples; exceptions need a written reason |
 | Apply one fit model to a series (time, potential, temperature) | Usually copy and adjust per sample | **Run a saved model** → select samples → done |
+| Fit several datasets at once with shared parameters (temperatures, samples, edges) | Add each dataset to the project and set up shared parameters | Switch the fit page “Mode” to **Joint fit of several datasets**: one path table per dataset, parameters with the same name shared, results switchable per dataset; misfit between datasets is checked and variables are compared with Σ N_idp |
+| Constrain parameters with an independent prior (known S0², two similar σ²) | restraint expressions | **Restraints** table (expr, value, sigma): weighted on the scale of the reported errors, not counted in N_idp; a pull beyond 2σ raises a warning |
 | FEFF calculations | Atoms builds the input from a CIF, then run FEFF | Pick a CIF or built-in structure → one click; **FEFF6L (seconds) and FEFF8L (self-consistent) built in**, easy to compare, no separate FEFF install |
 | Wavelet transform (light vs heavy scatterers, overlapping shells) | Needs other software | Built in (Morlet / Cauchy); k of the maximum per R window, **one-click export of data and figure**, in-page guidance on every parameter |
-| Judge a fit and find out why it does not match | Mostly the R-factor and experience | An **automatic quality check** after every fit (R-factor, variables, residual/noise, errors, bounds, ΔE0, σ², ΔR, correlations, point by point); **fit diagnosis** (k-space residual, glitches located and converted to energy, misfit by segment, hints); **robustness check**; **F-test** |
+| Judge a fit and find out why it does not match | Mostly the R-factor and experience | An **automatic quality check** after every fit (R-factor, variables, residual/noise, errors, bounds, ΔE0, σ², ΔR, correlations, point by point); **fit diagnosis** (k-space residual, glitches located and converted to energy, misfit by segment, hints); **robustness check**; **F-test**; **model comparison table** (R-factor, χ²_ν, variables, N_idp and the F-test against the neighbouring model for several models, with the reason when the F-test does not apply) |
 | Methods section and Supporting Information | Write methods by hand, copy parameters from Artemis reports | **Methods export**: a Methods paragraph (English and Chinese) from the project records, one-click copy of the parameter table (N, R, σ², ΔE0, R-factor), .md with the fitting text |
 | Publication figures | Export data, redraw and format in Origin | **Figure export**: **exports Origin files (.opju) directly**, in one consistent format (font sizes, line widths, layer size) and editable in Origin; also single / double column, 600 dpi TIFF, PNG, SVG, PDF with English captions; 24 palettes, standards drawn in grey automatically |
 | Collect all results | Copy tables by hand | **One-click summary report**: Excel + HTML with figures |
@@ -195,6 +197,7 @@ You do not need to remember them, but they help you follow what the AI does:
 | FEFF | `xafsmith feff --structure X.cif --absorber Cu --edge K [--code feff8]` | `output/feff/` |
 | Fit | `xafsmith fit model_name` (model in `models/model_name.json`) | `output/fits/` |
 | Diagnosis / robustness / significance | `xafsmith diagnose model`, `robust model`, `ftest small large` | screen, `output/fits/` |
+| Model comparison | `xafsmith compare model1 model2 [model3 …]` | `output/fits/model_compare.csv` |
 | LCF / XANES | `xafsmith lcf …`, `xafsmith xanes …` | `output/lcf/`, `output/xanes/` |
 | **Figure export** | `xafsmith figure --kind chir --samples A B --size double` | `output/figs/journal/` |
 | **Report export** | `xafsmith summary` | `output/reports/汇总_<time>/` |
@@ -245,7 +248,7 @@ Always measure the **elemental reference** (metal foil or powder) in the same se
 
 - Against Artemis (IrO2, same k/R ranges and k-weights): S0² 0.80 ± 0.11 vs 0.86 ± 0.09, ΔE0 9.2 vs 10.2 eV, ΔR −0.012 vs −0.010 Å — consistent within errors.
 - Multi-shell fits of standards (rutile IrO2, cubic perovskite KTaO3) give coordination numbers and distances consistent with crystallography.
-- Numerical benchmark (automated): the Cu-foil first-shell fit reproduces Larch's official example (S0² 0.92, ΔE0 4.4 eV, σ² 0.0087 Å²) and is bit-identical to a direct Larch call; the installer build repeats the same check on the packaged program.
+- Numerical benchmark (automated): the Cu-foil first-shell fit reproduces Larch's official example (S0² 0.92, ΔE0 4.4 eV, σ² 0.0087 Å²) and is bit-identical to a direct Larch call; the installer build repeats the same check on the packaged program. Joint multi-dataset fits and restraints: bit-identical to v1.1 for a single dataset without restraints; error calibration and statistics checked on synthetic spectra.
 - Every release runs unit tests, the numerical benchmarks and a page-by-page automatic GUI test (Chinese and English interface); a demo project built from public data ships with the repository (`tests/data/demo_project`).
 
 ## Reporting problems
