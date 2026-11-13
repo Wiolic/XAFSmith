@@ -495,7 +495,7 @@ class FitPage(Page):
                     sh = len(shells) - 1
                 rows.append(dict(use=bool(sh == 0), label=f"{r.label}@{r.reff:.3f}", reff=r.reff, degen=r.degen, nleg=r.nleg,
                                  amp_ratio=r.amp_ratio, N=f"{r.degen:g}", s02="s02", e0="e0", deltar=f"dr{sh + 1}",
-                                 sigma2=f"ss{sh + 1}", third="", dir=r.dir, file=r.file))
+                                 sigma2=f"ss{sh + 1}", third="", note="", dir=r.dir, file=r.file))
             return pd.DataFrame(rows)
         for k in keys:
             if tkey(k) not in self.state:
@@ -544,7 +544,11 @@ class FitPage(Page):
                                   "Measurement temperature (K). In sigma2_debye(tempK, thD), tempK takes this value; empty = no "
                                   "temperature in the model."))
             temps[k].textChanged.connect(lambda s_, k=k: self.state.__setitem__("temp_" + ids[k], s_.strip()))
-            ptab = W.Table(self.state[tkey(k)], editable=["use", "label", "N", "s02", "e0", "deltar", "sigma2", "third"],
+            if "note" not in self.state[tkey(k)].columns:        # B5：旧草稿 / 旧路径表没有 note 列
+                df_ = self.state[tkey(k)].copy()
+                df_.insert(list(df_.columns).index("third") + 1 if "third" in df_.columns else len(df_.columns), "note", "")
+                self.state[tkey(k)] = df_
+            ptab = W.Table(self.state[tkey(k)], editable=["use", "label", "N", "s02", "e0", "deltar", "sigma2", "third", "note"],
                            bools=["use"], max_height=280, click_edit=True)
             ptab.hide_cols("file")
             ptabs[k] = ptab
@@ -800,6 +804,8 @@ class FitPage(Page):
                         d["N"] = str(r.N)
                     if isinstance(r.third, str) and r.third.strip():
                         d["third"] = r.third
+                    if isinstance(r.note, str) and r.note.strip():       # B5：note 只是说明，计算忽略
+                        d["note"] = r.note.strip()
                     mpaths.append(d)
                 return mpaths
             rng = dict(kmin=st["kmin"], kmax=st["kmax"], dk=st["dk"], window=st["win"], kweight=st["kws"] or [2],

@@ -330,6 +330,8 @@ def _check_paths(rep, where, m, klim, samples):
     for j, pth in enumerate(m.get("paths", []) if isinstance(m.get("paths", []), list) else []):
         if not isinstance(pth, dict) or "file" not in pth:
             rep.err(f"{where} paths[{j}]", "每条路径需要 file 字段")
+        elif "note" in pth and not isinstance(pth["note"], str):         # B5：note 是可选说明字符串，计算忽略
+            rep.err(f"{where} paths[{j}].note", "note 应是字符串")
     if samples and m.get("sample") not in samples:
         rep.warn(where, f"样品 {m.get('sample')} 不在 meta.csv 中")
     missing = [p["file"] for p in (m.get("paths", []) if isinstance(m.get("paths", []), list) else [])
