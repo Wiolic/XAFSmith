@@ -26,6 +26,7 @@ S0² 与配位数 N 完全相关，两者不能同时自由。标样本身要结
 <li><b>同一组样品用同一模型比较</b>：加入或去掉一条路径会改变其他参数的绝对值（例如外壳层 σ² 会随邻近的轻散射体路径一起变）；
 样品之间的趋势只在同一模型、同一范围内比较。</li>
 <li><b>换 FEFF 版本（FEFF6 ↔ FEFF8）要重新确定 ΔE0</b>：两者能量零点不同（可差几 eV）；沿用另一版本下固定的 ΔE0 会使 ΔR 偏移。</li>
+<li><b>软约束只在有独立先验时用</b>：例如 S0² 取标样拟合的值 ± 误差；σ 填先验的报告误差（与本软件的参数误差同一尺度）；结果里偏离超过 2σ 要查先验来源或模型。软约束不同的模型不能用 F 检验比较。</li>
 <li><b>FT 峰位不是键长</b>：未相移校正的峰位比真实距离短约 0.3–0.5 Å；一个小峰不等于一个壳层（可能是噪声、背景残余、窗函数旁瓣或多重散射）。</li>
 </ul>
 <h3>别追求严丝合缝</h3>
@@ -135,6 +136,7 @@ shells you fit. Check N_idp = 2ΔkΔR/π first.</li>
 σ² moves together with a nearby light-scatterer path); compare trends between samples only within the same model and ranges.</li>
 <li><b>Switching FEFF6 ↔ FEFF8 needs a new ΔE0</b>: their energy zeros differ (by several eV); keeping a ΔE0 fixed under the other
 version shifts ΔR.</li>
+<li><b>Use restraints only with an independent prior</b>: e.g. S0² from a standard fit ± its error; give σ as the reported error of the prior (same scale as this software's parameter errors); a pull beyond 2σ means checking the prior's source or the model. Models with different restraints cannot be compared with the F-test.</li>
 <li><b>FT peak ≠ bond length</b>: peaks without phase correction sit about 0.3–0.5 Å short; a small peak is not necessarily a shell
 (noise, background residue, window side lobes or multiple scattering).</li>
 </ul>

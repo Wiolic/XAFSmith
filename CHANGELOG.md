@@ -7,6 +7,8 @@ All notable changes are recorded here (format: Keep a Changelog; versioning: Sem
 ## [未发布 / Unreleased]
 
 ### 新增 / Added
+- 拟合软约束（restraint）：模型 JSON 顶层 `restraints`（`expr`、`value`、`sigma`），在 χ² 中加入 c₀·((expr − value)/σ)²，c₀ = 无约束预拟合的 χ²_ν，使 σ 与报告的参数误差同一尺度；不计入 N_idp，R 因子只计数据；摘要、CSV、报告、方法与 SI 文本、`xafsmith validate` 与 `ftest` 都已适配；图形界面在拟合页参数表下加软约束表。没有 `restraints` 的模型与以前逐位相同（自带 feffit 驱动 `_feffit_restrained.py`，由测试保证空约束时与 larch 逐位一致）。
+  EXAFS fit restraints: a top-level `restraints` list in the model JSON adds c0·((expr − value)/σ)² to χ², with c0 = χ²_ν of the unrestrained pre-fit so that σ is on the scale of the reported errors; not counted in N_idp, R-factor over data only; summaries, CSV, reports, methods/SI text, `validate`, `ftest` and a restraint table on the GUI fit page are updated. Models without `restraints` are bit-identical to before.
 - 图形界面：拟合页支持多数据集联合拟合——单个 / 多个数据集开关，路径表按数据集分标签页（可覆盖各自的 k/R 范围），参数表共享，右栏显示联合指标并可按数据集切换图、路径、质量检查与诊断；保存时每个数据集一张图；多数据集模型可在“运行已保存的模型”里运行；草稿与自动恢复含多数据集设置。多数据集模型的稳健性检查暂不支持。
   GUI: the fit page supports joint multi-dataset fitting (single / joint switch, per-dataset path tabs with range overrides, shared parameter table, joint metrics with a per-dataset view, one figure per dataset on save, saved multi-dataset models runnable, drafts keep the settings). Robustness checks for multi-dataset models are not yet supported.
 - 多数据集同时拟合：模型 JSON 新增 `datasets`（各自样品、路径、k/R 范围，共享 `params`），`xafsmith fit` / `diagnose` / `figure --dataset` 支持；逐数据集报告 N_idp、R 因子、χ² 占比，失配主导误差缩放与同一数据重复使用时警告；`xafsmith validate` 增加对应校验。旧模型原样可跑，结果与 v1.1 逐位一致。

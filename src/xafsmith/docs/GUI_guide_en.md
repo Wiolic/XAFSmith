@@ -342,6 +342,13 @@ Drag the divider between the columns to resize them. A fit updates only the righ
 
 > These are necessary, not sufficient: an added shell must also pass the F-test (section 12) and stay stable in the robustness check.
 
+**Restraints** (below the parameter table in card 4, optional)
+
+- Pull a parameter towards an independent prior: χ² gets ((expr − value)/σ)² × χ²_ν(unrestrained) added. **Give σ on the scale of the reported errors**, e.g. S0² = 0.816 ± 0.05 from a standard fit: value = 0.816, sigma = 0.05.
+- The table has 5 columns `name expr value sigma note`: `expr` is a parameter expression (e.g. `s02` or `ss1 - ss2`, names from the parameter table); **Add a row** / **Delete selected row**. An empty table = no restraints and the fit is bit-identical to before. If value or sigma is not a number, or sigma ≤ 0, a message is shown and nothing is fitted.
+- Restraints do not add to N_idp and the R-factor counts data only. The “Parameters” tab of the result has a restraints table (prior, fitted value, pull in σ); a pull beyond 2σ raises a warning: the data contradict the prior, so check where the prior came from or the model. Use restraints only with an independent prior.
+- Drafts, automatic restore and saved models include the restraints; two models with different restraints cannot be compared with the F-test.
+
 **Joint fit of several datasets** (several samples fitted at once, parameters with the same name shared)
 
 - At the top of card 1 switch “Mode” to **Joint fit of several datasets**; “Data” becomes a multi-select (at least 2 for a joint fit; selecting 1 equals a single-dataset fit, bit-identical). The FEFF folders are one shared choice.
