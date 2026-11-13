@@ -384,6 +384,7 @@ Drag the divider between the columns to resize them. A fit updates only the righ
 
 - All open fits are listed; **Save all to output/fits/** saves them at once.
 - **F-test (Hamilton)**: choose the “simpler” and the “more complex” model (with an extra shell or parameters) and click **Compare**. Only **p < 0.05** makes the extra shell significant.
+- **Model comparison**: tick the fits to compare (at least 2) and click **Compare**: the table is ordered by number of variables and lists R-factor, χ²_ν, χ², variables, N_idp, number of restraints and, for each model, the F-test (F, p) against the previous row. Adjacent models with different data or fit ranges, different restraints or the same number of variables get no F-test (reason in the “note” column); the F-test card's **Compare** also shows a warning in those cases. **The F-test is valid only for nested models (the smaller is a special case of the larger); the software does not check nesting.** **Save as CSV** writes `output/fits/model_compare.csv`; on the command line use `xafsmith compare model1 model2 …`.
 - **View fit**: switch to any fit, shown like the right column of EXAFS fitting.
 
 ### 13　LCF (linear combination fitting)

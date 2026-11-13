@@ -7,6 +7,8 @@ All notable changes are recorded here (format: Keep a Changelog; versioning: Sem
 ## [未发布 / Unreleased]
 
 ### 新增 / Added
+- 多模型比较：`xafsmith compare M1 M2 […]` 与拟合历史页“模型比较表”卡片，按变量数升序列出 R 因子、χ²_ν、χ²、变量数、N_idp、软约束个数与相邻模型的 F 检验（调用原 Hamilton 检验，数值不变）；数据或拟合范围不同、软约束不同、变量数相同时不做 F 检验并写明原因；`ftest` 的两条提示抽成 `ftest_blockers`，输出逐字不变，F 检验卡片也显示同样的警告。F 检验只对嵌套模型有效，软件不检查嵌套关系。
+  Model comparison: `xafsmith compare M1 M2 […]` and a “Model comparison” card on the Fit history page list R-factor, χ²_ν, χ², variables, N_idp, restraints and the F-test against the previous model (existing Hamilton test, numbers unchanged); no F-test when data/ranges or restraints differ or the variable count is equal, with the reason shown; `ftest` output is unchanged and its card now shows the same warnings. The F-test is valid only for nested models; nesting is not checked.
 - 拟合软约束（restraint）：模型 JSON 顶层 `restraints`（`expr`、`value`、`sigma`），在 χ² 中加入 c₀·((expr − value)/σ)²，c₀ = 无约束预拟合的 χ²_ν，使 σ 与报告的参数误差同一尺度；不计入 N_idp，R 因子只计数据；摘要、CSV、报告、方法与 SI 文本、`xafsmith validate` 与 `ftest` 都已适配；图形界面在拟合页参数表下加软约束表。没有 `restraints` 的模型与以前逐位相同（自带 feffit 驱动 `_feffit_restrained.py`，由测试保证空约束时与 larch 逐位一致）。
   EXAFS fit restraints: a top-level `restraints` list in the model JSON adds c0·((expr − value)/σ)² to χ², with c0 = χ²_ν of the unrestrained pre-fit so that σ is on the scale of the reported errors; not counted in N_idp, R-factor over data only; summaries, CSV, reports, methods/SI text, `validate`, `ftest` and a restraint table on the GUI fit page are updated. Models without `restraints` are bit-identical to before.
 - 图形界面：拟合页支持多数据集联合拟合——单个 / 多个数据集开关，路径表按数据集分标签页（可覆盖各自的 k/R 范围），参数表共享，右栏显示联合指标并可按数据集切换图、路径、质量检查与诊断；保存时每个数据集一张图；多数据集模型可在“运行已保存的模型”里运行；草稿与自动恢复含多数据集设置。多数据集模型的稳健性检查暂不支持。

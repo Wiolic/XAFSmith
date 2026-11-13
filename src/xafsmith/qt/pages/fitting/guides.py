@@ -105,7 +105,7 @@ JOINT_ZH = """
 <li>右侧先显示联合指标（总 R 因子、χ²_ν、Σ N_idp、变量数）；用数据集切换看每条谱的图、路径、质量检查与诊断。</li>
 <li>稳健性检查暂不支持多数据集：对关键样品另做单独拟合的稳健性检查。</li>
 <li>“保存结果”：结果表每条路径一行（带 dataset 列），每个数据集一张拟合图；模型存入 models/，可在“运行已保存的模型”或命令行
-<code>xafsmith fit 模型名</code>、<code>xafsmith ftest 小模型 大模型</code>、<code>xafsmith figure --kind fit --model 模型名 --dataset ID</code> 重跑。</li>
+<code>xafsmith fit 模型名</code>、<code>xafsmith ftest 小模型 大模型</code>、<code>xafsmith compare 模型1 模型2 …</code>、<code>xafsmith figure --kind fit --model 模型名 --dataset ID</code> 重跑。</li>
 </ul>
 """
 
@@ -244,7 +244,7 @@ differences (e.g. a σ² trend) are not supported by the fit.</li>
 plot, paths, quality checks and diagnosis.</li>
 <li>Robustness checks are not yet available for joint fits: run them on single fits of the key samples.</li>
 <li>“Save result”: one row per path in the results table (with a dataset column) and one fit figure per dataset; the model goes to
-models/ and can be rerun under “Run a saved model” or with <code>xafsmith fit name</code>, <code>xafsmith ftest small large</code>,
+models/ and can be rerun under “Run a saved model” or with <code>xafsmith fit name</code>, <code>xafsmith ftest small large</code>, <code>xafsmith compare model1 model2 …</code>,
 <code>xafsmith figure --kind fit --model name --dataset ID</code>.</li>
 </ul>
 """
