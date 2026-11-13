@@ -136,8 +136,12 @@ def n_err(spec, amp_err, params):
         if _NAME.match(s):
             p = params.get(s)
             e = None if p is None else p.get("stderr")
-            return (None if e is None else float(e)), False
+            if p is None or _param_fixed(p) or e is None or float(e) == 0.0:
+                return None, False                 # N 是固定参数（或只依赖固定参数）→ 固定，不画误差棒
+            return float(e), False
         ref = _s02_ref_param(spec, params)
+        if amp_err is not None and float(amp_err) == 0.0:
+            return None, False                     # 复合表达式里全是固定参数（如 nT*6/6，nT、s02 都固定）→ N 固定
         if (ref is None or _param_fixed(ref)) and amp_err is not None:
             v = 1.0 if ref is None else float(ref["value"])
             return float(amp_err) / max(v, 1e-9), False

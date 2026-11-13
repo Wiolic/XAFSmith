@@ -102,6 +102,14 @@ def test_n_err_expression_with_fixed_s02_ref():
     assert tr.n_err({"N": "N1*2"}, 0.2, {"N1": P(5.0, True, 0.1)})[0] == pytest.approx(0.2)
 
 
+def test_n_err_all_fixed_is_blank_not_zero():
+    # J1_IrTa_chain：N = nT*6/6，nT 与 s02 都固定 → 路径 s02 的 stderr 为 0 → N 固定，N_err 空（不画零长误差棒）
+    params = {"s02": P(0.8, False), "nT": P(1.0, False)}
+    assert tr.n_err({"N": "nT*6/6"}, 0.0, params) == (None, False)
+    # 单个参数名、stderr 为 0（固定参数）→ 空
+    assert tr.n_err({"N": "nT"}, ROW, {"nT": P(1.0, False, 0.0)}) == (None, False)
+
+
 def test_n_err_expression_with_varying_s02_ref_is_blank():
     params = {"s02": P(0.8, True, 0.05), "N1": P(5.0, True, 0.3)}
     assert tr.n_err({"N": "N1*2"}, ROW, params) == (None, True)
