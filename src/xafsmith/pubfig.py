@@ -334,6 +334,107 @@ def wavelet(k, r, W, label="", size="单栏 85 mm", rmax=6.0, kweight=2):
     return fig, f"Wavelet transform (k$^{kweight}$-weighted) of {label}; R not phase-corrected."
 
 
+# ------------------------------------------------------------------ C2：序列趋势图
+# 面板键 → (值列, 误差列, 纵轴标题)；E0 面板是实测边位置（归一化定义），不是拟合量，不画误差棒
+TREND_PANELS = {"N": ("N", "N_err", "N"), "R": ("R", "R_err", "R (Å)"), "sigma2": ("sigma2", "sigma2_err", "σ² (Å$^2$)"),
+                "dE0": ("dE0", "dE0_err", "ΔE$_0$ (eV)"), "E0": ("E0_edge", None, "Edge position E$_0$ (eV)")}
+TREND_DEFAULT_PANELS = ("N", "R", "sigma2", "E0")
+_SHARED_COL = {"N": "shared_N", "R": "shared_R", "sigma2": "shared_sigma2", "dE0": "shared_dE0"}
+
+
+def trend_xlabel(table, xlabel=None):
+    """横轴标题：用户给的优先，否则按序列来源取缺省（trend.SEQ_LABELS）。"""
+    from .trend import SEQ_LABELS
+    return xlabel or SEQ_LABELS.get(table.attrs.get("seq_source", "order"), "Sequence")
+
+
+def trend(table, size="单栏 85 mm", panels=TREND_DEFAULT_PANELS, paths=None, xlabel=None, colors=None, model="", edge=""):
+    """联合拟合的序列趋势图：每个面板一个参数，横轴共享；每条路径一种颜色，点 + 连线 + 1σ 误差棒。
+    table：trend.trend_table 的结果；paths：要画的路径（缺省全部）；colors：与 paths 同序的颜色（缺省色板顺序）。
+    误差棒样式（设计 6.4，已确定）：elinewidth = capthick = 0.7·lw，capsize = 0.3·font，圆点 ms = 0.5·font，实心同色。
+    N 固定（无 N_err）的路径不画误差棒。返回 (fig, 英文图注)。"""
+    import math
+    panels = [p for p in panels if p in TREND_PANELS]
+    if not panels:
+        raise ValueError("至少选一个面板 / select at least one panel")
+    all_paths = list(dict.fromkeys(table["path"]))
+    paths = [p for p in (paths or all_paths) if p in all_paths]
+    if not paths and any(p != "E0" for p in panels):
+        raise ValueError("没有可画的路径 / no path to plot")
+    cols = list(colors) if colors else [COLORS[(i + 1) % len(COLORS)] for i in range(len(paths))]
+    cols = [cols[i % len(cols)] for i in range(len(paths))]
+    s = style(size)
+    n = len(panels)
+    slide = size == SLIDE_SIZE
+    nc = 2 if slide and n > 1 else 1
+    nr = math.ceil(n / nc)
+    figsize = (s["w"], s["h"]) if slide else (s["w"], s["h"] * 0.6 * n)
+    fig, axs = plt.subplots(nr, nc, figsize=figsize, sharex=True, layout="constrained", squeeze=False)
+    axl = axs.ravel()
+    for ax in axl[n:]:
+        ax.set_visible(False)
+    kw = dict(lw=s["lw"], elinewidth=0.7 * s["lw"], capthick=0.7 * s["lw"], capsize=0.3 * s["font"], ms=0.5 * s["font"],
+              marker="o", ls="-")
+    src = table.attrs.get("seq_source", "order")
+    first = True
+    for ax, pk in zip(axl, panels):
+        vcol, ecol, ylab = TREND_PANELS[pk]
+        if pk == "E0":
+            d = table.drop_duplicates("dataset").sort_values("seq")
+            if d[vcol].notna().any():
+                ax.errorbar(d["seq"], d[vcol], yerr=None, color="k", **kw)
+        else:
+            for pth, c in zip(paths, cols):
+                d = table[table["path"] == pth].sort_values("seq")
+                if d[vcol].notna().any():
+                    err = None
+                    if d[ecol].notna().any():
+                        err = d[ecol].to_numpy(float)
+                    ax.errorbar(d["seq"], d[vcol], yerr=err, color=c, label=chem(pth), **kw)
+        ax.set_ylabel(ylab)
+        ax.ticklabel_format(axis="y", useOffset=False)      # E0 约 1e4 eV：不要 “+1.121e4” 偏移记法
+        if first and len(paths) > 1 and pk != "E0":
+            ax.legend(loc="best")
+            first = False
+    for ax in axl[:n][-nc:]:                      # 每列最下面的面板：横轴标题与刻度标签（共享横轴默认只在最后一行显示）
+        ax.set_xlabel(trend_xlabel(table, xlabel))
+        ax.tick_params(labelbottom=True)
+    if src == "order":
+        d = table.drop_duplicates("dataset").sort_values("seq")
+        for ax in axl[:n][-nc:]:
+            ax.set_xticks(list(d["seq"]))
+            ax.set_xticklabels([chem(x) for x in d["sample"]], rotation=30 if len(d) > 3 else 0, ha="right" if len(d) > 3 else "center")
+    return fig, trend_caption(table, panels, paths, xlabel, model, edge)
+
+
+def trend_caption(table, panels, paths, xlabel=None, model="", edge=""):
+    """英文图注：模型、数据集数、边、序列来源、误差棒含义、固定 N、共享参数、E0 的含义、“拟合结果、依赖模型”。"""
+    nds = table["dataset"].nunique()
+    srcname = {"seq": "meta.csv column 'seq'", "time": "measurement time (hours after the earliest dataset)",
+               "order": "dataset order (no 'seq' or time for every dataset)"}[table.attrs.get("seq_source", "order")]
+    c = f"Trend of fitted structural parameters across {nds} datasets"
+    c += f" (joint fit, model {model}" if model else " (joint fit"
+    c += f"; {edge}" if edge else ""
+    c += f"). Abscissa: {trend_xlabel(table, xlabel)}; source: {srcname}."
+    if any(p != "E0" for p in panels):
+        c += " Error bars: 1σ from the covariance matrix scaled by √χ²_ν (Larch)."
+    if "N" in panels:
+        fixed = [p for p in paths if table[table["path"] == p]["N_err"].isna().all()]
+        comp = [p for p in table.attrs.get("n_composite", []) if p in paths]
+        if fixed:
+            c += f" N is fixed (no error bar) for {', '.join(fixed)}."
+        for p in comp:
+            if p in fixed:
+                c += f" N of {p} is a composite expression; no error is given."
+    shared = [f"{k} of {p}" for k in ("N", "R", "sigma2", "dE0") if k in panels
+              for p in paths if table[table["path"] == p][_SHARED_COL[k]].any()]
+    if shared:
+        c += f" Parameters shared between datasets (one fitted value): {', '.join(shared)}."
+    if "E0" in panels:
+        c += " E$_0$ is the measured edge position from the normalization (not a fitted quantity)."
+    return c + " Fit results are model-dependent."
+
+
 def save(fig, caption, base, formats=("tiff", "png", "svg"), dpi=600):
     """保存到 base.<fmt>（TIFF 用 LZW 压缩），并写 base.txt 图注；返回文件列表"""
     base = Path(base)
