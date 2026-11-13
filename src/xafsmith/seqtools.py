@@ -57,7 +57,9 @@ def sigma2_independent(tables: dict, params: pd.DataFrame):
     for i in ids:
         for n in dict.fromkeys(per[i]):
             count[n] = count.get(n, 0) + 1
-    shared = [n for n in dict.fromkeys(n for i in ids for n in per[i]) if count[n] >= 2]
+    # 被别的参数的 expr 引用的名字不改（如 ss2 = ss1*1.2：改掉 ss1 后它从参数表消失，ss2 的表达式就找不到它）
+    in_expr = {n for e in (params["expr"] if len(params) and "expr" in params else []) for n in param_names(e)}
+    shared = [n for n in dict.fromkeys(n for i in ids for n in per[i]) if count[n] >= 2 and n not in in_expr]
     taken = set(params["name"]) if len(params) else set()
     for i in ids:
         for col in PATH_COLS:

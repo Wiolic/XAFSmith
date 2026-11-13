@@ -126,3 +126,14 @@ def test_shared_gives_one_value_and_independent_recovers_each(synth):
     rows = {r["dataset"]: r["sigma2"] for r in s_ind["paths"]}
     assert rows["A"] == pytest.approx(0.004, abs=2e-5) and rows["B"] == pytest.approx(0.008, abs=2e-5)
     assert abs(rows["A"] - rows["B"]) > 0.003
+
+
+def test_independent_skips_names_used_in_other_param_expr():
+    # ss2 = ss1*1.2：改掉 ss1 后 ss1 会从参数表消失，ss2 的表达式失效 → ss1 不改（ss2 自己没被引用，照常改）
+    t = {"A": pd.concat([_tab("ss1"), _tab("ss2").assign(file="f2")], ignore_index=True),
+         "B": pd.concat([_tab("ss1"), _tab("ss2").assign(file="f2")], ignore_index=True)}
+    p = _par("ss1", "ss2")
+    p.loc[1, "expr"] = "ss1*1.2"
+    nt, _, ch = st.sigma2_independent(t, p)
+    assert {c[1] for c in ch} == {"ss2"}
+    assert nt["A"].at[0, "sigma2"] == "ss1" and nt["A"].at[1, "sigma2"] == "ss2_A"
