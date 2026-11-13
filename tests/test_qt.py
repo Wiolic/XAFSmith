@@ -145,6 +145,163 @@ def copy_register_check(app, w):
         w.open_project(str(PROJ))
 
 
+def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
+    """B2：拟合页多数据集联合拟合（k1、k2：两条已载入的谱；fdir：FEFF 目录，相对项目根）。
+    alias=True：k2 是 k1 的副本（演示项目只有一条 Cu 谱），不做命令行重跑对照。
+    项目里测试产生的文件按名字删除；exafs_fits.csv 先备份、测完原样写回。"""
+    import numpy as np
+    import pandas as pd
+    from PySide6.QtWidgets import QComboBox, QTabBar
+    from xafsmith import pipeline as pl
+    from xafsmith.qt import session
+    from xafsmith.qt.pages.fitting.fit_view import FitView
+    from xafsmith.qt.state import safe
+    from xafsmith.paths import FITS_CSV
+    csv0 = FITS_CSV.read_bytes() if FITS_CSV.exists() else None
+    made = []
+    pg = P["fit"]
+    w.go("fit")
+    if alias:
+        import copy
+        S.groups[k2] = copy.deepcopy(S.groups[k1])
+    id1, id2 = (pl.safe(Path(k).name) for k in (k1, k2))
+    st = pg.state
+    st["range"] = dict(rng or st.get("range") or {})
+    st.update(multi=False, data=k1, fdirs_multi=[str(PROJ / fdir)], datas=[k1, k2])
+    st["fdirs_" + k1] = [str(PROJ / fdir)]
+    pg.refresh()
+    pump(app)
+
+    def run(label):
+        n = len(W.ERRORS)
+        n0 = len(S.fits)
+        click(pg, "拟合")
+        wait(app)
+        step(label, n)
+        return S.fits[-1] if len(S.fits) == n0 + 1 else None
+    try:
+        # 单数据集（对照）
+        single = run("多数据集 · 先做单数据集拟合（对照）")
+        # 多数据集模式只选 1 个数据集：逐位等于单数据集
+        st.update(multi=True, datas=[k1])
+        pg.refresh()
+        m1 = run("多数据集模式选 1 个数据集")
+        sp = single["summ"]["params"] if single else {}
+        mp = m1["summ"]["params"] if m1 else {}
+        eq = bool(sp) and set(sp) == set(mp) and all(mp[k]["value"] == v["value"] and mp[k]["stderr"] == v["stderr"]
+                                                     for k, v in sp.items())
+        say(eq and m1["summ"]["rfactor"] == single["summ"]["rfactor"]
+            and m1["summ"]["chi2_reduced"] == single["summ"]["chi2_reduced"],
+            "1 个数据集：多数据集模式与单数据集模式的参数、误差、R 因子、χ²_ν 逐位相等")
+        print("   参数表（单 | 多）:", {k: (v["value"], v["stderr"]) for k, v in sp.items()}, "|",
+              {k: (v["value"], v["stderr"]) for k, v in mp.items()})
+        # 两个数据集联合
+        st.update(multi=True, datas=[k1, k2])
+        st["mname_multi"] = "b2test_joint"
+        pg.refresh()
+        tabs = [t.tabText(i) for t in pg.findChildren(QTabBar) for i in range(t.count())]
+        say(id1 in tabs and id2 in tabs, f"路径卡按数据集分标签页：{tabs}")
+        say("Σ N_idp" in texts(pg), "拟合范围显示 Σ N_idp")
+        f2 = run("2 个数据集联合拟合")
+        s2 = f2["summ"] if f2 else {}
+        say(f2 is not None and s2.get("n_datasets") == 2 and f2.get("multi") and set(f2["curves"]) == {id1, id2},
+            f"联合拟合：n_datasets={s2.get('n_datasets')}")
+        if f2:
+            print(f"   联合 R={s2['rfactor']:.5f} χ²_ν={s2['chi2_reduced']:.3f} ΣN_idp={s2['n_idp']:.2f} 变量数={s2['nvarys']}；"
+                  + "；".join(f"{d['id']}: R={d['rfactor']:.5f} N_idp={d['n_idp']:.2f} χ²占比={d['chi2_share']:.2f}"
+                             for d in s2["datasets"]))
+            t = texts(pg)
+            say("联合 R 因子" in t and "Σ N_idp" in t and "多数据集模型暂不支持稳健性检查" in t, "右栏：联合指标与稳健性提示")
+            # 切换数据集：图、路径、诊断重画
+            fv = pg.findChildren(FitView)[-1]
+            cb = [c for c in fv.findChildren(QComboBox) if c.count() == 2 and c.itemText(1) == id2][0]
+            n = len(W.ERRORS)
+            cb.setCurrentIndex(1)
+            pump(app, 0.5)
+            step("切换数据集重画", n)
+            fv = pg.findChildren(FitView)[-1]
+            say(fv.ds == id2 and fv.fit["summ"]["dataset"] == id2 and f"{s2['datasets'][1]['rfactor']:.4f}" in texts(pg),
+                f"当前数据集 {fv.ds}")
+            cb = [c for c in fv.findChildren(QComboBox) if c.count() == 2 and c.itemText(1) == id2][0]
+            cb.setCurrentIndex(0)
+            pump(app, 0.5)
+            # 历史页
+            n = len(W.ERRORS)
+            w.go("history")
+            pump(app, 0.3)
+            step("拟合历史显示多数据集拟合", n)
+            w.go("fit")
+            # 保存
+            n = len(W.ERRORS)
+            click(pg, "保存结果")
+            step("保存多数据集拟合", n)
+            base = safe(s2["model"])
+            fig1, fig2 = (PROJ / "output" / "figs" / f"{base}_{i}_fit.png" for i in (id1, id2))
+            mj = PROJ / "models" / f"{base}.json"
+            made += [fig1, fig2, mj, PROJ / "output" / "fits" / f"{base}.fit_report.txt"]
+            dfc = pd.read_csv(FITS_CSV)
+            last = dfc[dfc["model"] == s2["model"]]
+            say(fig1.exists() and fig2.exists() and mj.exists() and set(last["dataset"]) == {id1, id2},
+                f"保存：{fig1.name}、{fig2.name}、CSV dataset 列 {sorted(set(last['dataset']))}")
+            md = json.loads(mj.read_text(encoding="utf-8"))
+            say("datasets" in md and "sample" not in md and "paths" not in md and [d["id"] for d in md["datasets"]] == [id1, id2],
+                "模型 json 写入 datasets（顶层无 sample / paths）")
+            # 已保存模型：多数据集，样品框禁用，直接运行
+            st["mf"] = mj.name
+            st["saved_open"] = True
+            pg.refresh()
+            say(not W.find(pg, "saved_smp").isEnabled() and "样品由模型内 datasets 决定" in texts(pg),
+                "已保存的多数据集模型：样品框禁用并提示")
+            n0, n = len(S.fits), len(W.ERRORS)
+            click(pg, "运行")
+            wait(app)
+            step("运行已保存的多数据集模型", n)
+            say(len(S.fits) == n0 + 1 and S.fits[-1]["summ"].get("n_datasets") == 2, "已保存多数据集模型能运行")
+            # 与命令行重跑对照
+            if not alias:
+                from xafsmith import cli
+                sc = cli._run_model(base)[4]
+                gp = f2["summ"]["params"]
+                dif = max(abs(sc["params"][k]["value"] - v["value"]) / max(abs(v["value"]), 1e-12) for k, v in gp.items())
+                say(dif < 1e-10, f"GUI 联合拟合与 xafsmith fit 重跑：参数最大相对差 {dif:.2e}")
+        # 覆盖范围：第 2 个数据集用不同的 kmax
+        st["over_" + id2] = {"kmax": "12"}
+        pg.refresh()
+        f3 = run("第 2 个数据集覆盖 kmax")
+        say(f3 is not None and f2 is not None and f3["summ"]["datasets"][1]["kmax"] == 12.0
+            and f3["summ"]["datasets"][0]["kmax"] != 12.0 and f3["summ"]["n_idp"] < f2["summ"]["n_idp"],
+            "覆盖范围：" + ("无结果" if f3 is None else f"kmax {[d['kmax'] for d in f3['summ']['datasets']]}，Σ N_idp {f3['summ']['n_idp']:.2f}"))
+        # 草稿：多数据集设置能存能恢复
+        dr = session.save_draft("_b2test", S, P)
+        made.append(dr)
+        snap = session.load_draft(dr)
+        before = {k: st[k] for k in ("multi", "datas", "over_" + id2, "fdirs_multi")}
+        pt_key = [k for k in st if k.startswith("pathtab_") and id2 + "|" in k][0]
+        pt_before = st[pt_key].copy()
+        for k in list(before) + [pt_key]:
+            st.pop(k)
+        session.apply_pages(snap, dict(P), only=("fit",))
+        same = all(st.get(k) == v for k, v in before.items()) and isinstance(st.get(pt_key), pd.DataFrame) \
+            and np.array_equal(st[pt_key].astype(object).fillna("").astype(str).to_numpy(),
+                       pt_before.astype(object).fillna("").astype(str).to_numpy())
+        say(same, "草稿：multi、datas、范围覆盖、各数据集路径表保存并恢复")
+    finally:
+        st.update(multi=False)
+        st.pop("over_" + id2, None)
+        for k in [k for k in st if k.startswith("pathtab_") and id2 + "|" in k]:
+            st.pop(k)
+        for f in made:
+            Path(f).unlink(missing_ok=True)
+        if csv0 is None:
+            FITS_CSV.unlink(missing_ok=True)
+        else:
+            FITS_CSV.write_bytes(csv0)
+        if alias:
+            S.groups.pop(k2, None)
+        S.fits[:] = [f for f in S.fits if f["summ"].get("model") != "b2test_joint"]
+        pg.refresh()
+
+
 def irtaox_suite(app, w, S, P):
     """本机 IrTaOx 项目专用检查（样品名与已保存模型写死）。"""
     # 载入谱：按样品
@@ -325,6 +482,7 @@ def irtaox_suite(app, w, S, P):
     wait(app)
     step("已保存模型用于多个样品", n)
     say([f["summ"]["sample"] for f in S.fits[n1:]] == ["IrTa-50", "IrTa-100"], f"多样品运行：{[f['summ']['sample'] for f in S.fits[n1:]]}")
+    multi_fit_checks(app, w, S, P, "IrO2", "IrTa-50", "output/feff/IrO2_IrL3", rng=dict(pg.state["range"]))
     if not ARGS.quick:
         pg.state["mf"] = "IrO2_1shell_ArtemisCompare.json"
         pg.refresh()
@@ -495,6 +653,17 @@ def demo_suite(app, w, S, P):
     finally:
         mf.unlink(missing_ok=True)
         (PROJ / "output" / "fits" / "test_cu_demo.params.json").unlink(missing_ok=True)
+
+    # B2：多数据集联合拟合（演示项目没有 FEFF 目录：用基准测试的 Cu 路径文件临时建一个；第 2 个数据集是 Cu 谱的副本）
+    fd = PROJ / "output" / "feff" / "_b2test_Cu_CuK"
+    fd.mkdir(parents=True, exist_ok=True)
+    shutil.copy(PROJ.parent / "benchmark" / "feffcu01.dat", fd / "feff0001.dat")
+    try:
+        multi_fit_checks(app, w, S, P, "cu_metal_rt", "cu_b2copy", "output/feff/_b2test_Cu_CuK",
+                         rng=dict(kmin=3, kmax=17, dk=4, win="kaiser", kws=[2], rmin=1.4, rmax=3.0, space="r"), alias=True)
+    finally:
+        (fd / "feff0001.dat").unlink(missing_ok=True)
+        fd.rmdir()
 
     # 归一化：导出 .prj
     w.go("norm")
