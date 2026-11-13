@@ -82,3 +82,37 @@ def test_einstein_multiple_scattering_warning():
     warn.clear()
     fx._add_sigma2_fields([dict()], [("einstein", "thE")], [300.0], warn, [("SS", 2)])
     assert warn == []
+
+
+# ------------------------------------------------------------------ ⑤ 合成多温度基准
+def test_joint_fit_recovers_theta_and_ss0(joint):
+    kind, model, res, summ = joint
+    th, ss = summ["params"]["thD"], summ["params"]["ss0"]
+    assert th["stderr"] and ss["stderr"]
+    assert abs(th["value"] - THETA_TRUE[kind]) < 3 * th["stderr"], (kind, th)
+    assert abs(ss["value"] - SS0_TRUE) < 3 * ss["stderr"], (kind, ss)
+    print(f"[B6 {kind}] thD = {th['value']:.3f} +/- {th['stderr']:.3f} (true {THETA_TRUE[kind]}), "
+          f"ss0 = {ss['value']:.6f} +/- {ss['stderr']:.6f} (true {SS0_TRUE})")
+
+
+@pytest.mark.parametrize("kind", ["debye", "einstein"])
+def test_single_temperature_is_pure_reparametrisation(kind):
+    """单一温度：σ² 自由 与 σ² = 模型(T, θ)（无静态项）拟合同一数据，χ² 相同，θ 与 θ_from_sigma2(σ²) 相同。"""
+    from xafsmith.sigma2 import theta_from_sigma2
+    T = 150
+    groups = synth_groups(kind, temps=(T,), ss0=0.0)
+    base = joint_model(kind, temps=(T,), static=False)
+    ds = base.pop("datasets")[0]
+    common = dict(base, sample=ds["sample"])
+    free = dict(common, params={"amp": 0.9, "e0": 0.0, "dr": 0.0, "ssA": {"value": 0.004}},
+                paths=[dict(ds["paths"][0], sigma2="ssA")])
+    mod = dict(common, temperature=T, paths=[dict(ds["paths"][0])])
+    ra, _, sa = fx.run_fit(groups[f"T{T}"], free, root=".")
+    rb, _, sb = fx.run_fit(groups[f"T{T}"], mod, root=".")
+    assert abs(sa["chi2"] - sb["chi2"]) / sa["chi2"] < 1e-6
+    ssa = sa["paths"][0]["sigma2"]
+    th_a = theta_from_sigma2(FEFF, kind, T, ssa)
+    th_b = sb["params"]["thD"]["value"]
+    assert abs(th_a - th_b) / th_b < 1e-4, (th_a, th_b)
+    print(f"[B6 {kind} single T] chi2 rel diff = {abs(sa['chi2'] - sb['chi2']) / sa['chi2']:.2e}, "
+          f"theta rel diff = {abs(th_a - th_b) / th_b:.2e}")
