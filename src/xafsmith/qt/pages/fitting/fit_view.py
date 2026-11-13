@@ -172,10 +172,12 @@ class FitView(QWidget):
             col = cols[i % len(cols)]
             nm_ = "Debye" if sr["model"] == "debye" else "Einstein"
             err = f" ± {sr['theta_err']:.3g}" if sr["theta_err"] is not None else ""
-            ax.plot(sr["T"], sr["sigma2"], color=col, lw=1.4, label=f"{nm_}: {sr['theta_param']} = {sr['theta']:.4g}{err} K")
+            pre = f"{sr['path']} · " if sr.get("path") else ""        # 6.9：同一 θ 用在几个壳层时每个壳层一条曲线
+            ax.plot(sr["T"], sr["sigma2"], color=col, lw=1.4,
+                    label=f"{pre}{nm_}: {sr['theta_param']} = {sr['theta']:.4g}{err} K")
             t_, v_, e_ = zip(*sr["points"])
             ax.errorbar(t_, v_, yerr=[0 if e is None else e for e in e_], fmt="o", color=col, capsize=3, ms=5)
-            lines.append(f"{sr['theta_param']} = {sr['theta']:.4g}{err} K（{nm_}），" + T(f"静态项 {sr['static']:.5f} Å²",
+            lines.append(f"{pre}{sr['theta_param']} = {sr['theta']:.4g}{err} K（{nm_}），" + T(f"静态项 {sr['static']:.5f} Å²",
                                                                                          f"static term {sr['static']:.5f} Å²"))
         ax.set_xlabel(T("温度 T (K)", "Temperature T (K)"))
         ax.set_ylabel("σ² (Å²)")

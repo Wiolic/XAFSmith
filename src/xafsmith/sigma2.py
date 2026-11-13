@@ -295,41 +295,35 @@ def sigma2_T_series(summ, nm, root=None, n_curve=60):
     rows = summ.get("paths") or []
     if not any(r.get("sigma2_model") for r in rows):
         return []
-    files = []
+    # 每个摘要路径行对应的路径文件：按数据集顺序、数据集内按路径顺序；某数据集行数与模型路径数不符 → 该数据集的行无文件
+    ids = [d["id"] for d in nm["datasets"]]
+    by_ds = {}
+    for i, r in enumerate(rows):
+        by_ds.setdefault(r.get("dataset", ids[0]), []).append(i)
+    row_file = {}
     for d in nm["datasets"]:
-        files.append([p.get("file") for p in d["paths"]])
+        idx = by_ds.get(d["id"], [])
+        if len(idx) == len(d["paths"]):
+            for i, p in zip(idx, d["paths"]):
+                row_file[i] = p.get("file")
+    # 6.9：按 (θ 参数, 模型, 路径文件) 分组——同一 θ 用在不同壳层时，几何不同，曲线也不同
     out = {}
     for i, r in enumerate(rows):
         th = r.get("theta_param")
-        if not (r.get("sigma2_model") and th and r.get("temperature")):
+        if not (r.get("sigma2_model") and th and r.get("temperature") and row_file.get(i)):
             continue
-        out.setdefault((th, r["sigma2_model"]), []).append((i, r))
+        out.setdefault((th, r["sigma2_model"], row_file[i]), []).append((i, r))
     series = []
-    for (th, kind), lst in out.items():
+    for (th, kind, fname), lst in out.items():
         p = (summ.get("params") or {}).get(th)
         if not p:
             continue
-        # 该行对应的路径文件
-        ids = [d["id"] for d in nm["datasets"]]
-        per_ds = {}
-        for r in rows:
-            per_ds[r.get("dataset", ids[0])] = per_ds.get(r.get("dataset", ids[0]), 0) + 1
-        offs, acc = {}, 0
-        for did in ids:
-            offs[did] = acc
-            acc += per_ds.get(did, 0)
-        i0, r0 = lst[0]
-        did = r0.get("dataset", ids[0])
-        j = i0 - offs[did]
-        di = ids.index(did)
-        if len(files[di]) != per_ds.get(did, 0) or not (0 <= j < len(files[di])):
-            continue
-        f = xp.resolve(files[di][j]) if root is None else (Path(root) / files[di][j])
+        f = xp.resolve(fname) if root is None else (Path(root) / fname)
         pts = [(float(r["temperature"]), float(r["sigma2"]), r.get("sigma2_err")) for _, r in lst]
         base = sigma2_curve(f, kind, p["value"], [t for t, _, _ in pts])
         static = float(np.mean([s - b for (_, s, _), b in zip(pts, base)]))
         tmax = max(t for t, _, _ in pts)
         tc = np.linspace(1.0, 1.2 * tmax, n_curve)
-        series.append(dict(theta_param=th, model=kind, theta=float(p["value"]), theta_err=p.get("stderr"), static=static,
+        series.append(dict(theta_param=th, model=kind, path=lst[0][1].get("path"), file=fname, theta=float(p["value"]), theta_err=p.get("stderr"), static=static,
                            points=pts, T=tc, sigma2=sigma2_curve(f, kind, p["value"], tc, static=static)))
     return series
