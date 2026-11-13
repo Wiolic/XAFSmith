@@ -342,6 +342,16 @@ Drag the divider between the columns to resize them. A fit updates only the righ
 
 > These are necessary, not sufficient: an added shell must also pass the F-test (section 12) and stay stable in the robustness check.
 
+**Joint fit of several datasets** (several samples fitted at once, parameters with the same name shared)
+
+- At the top of card 1 switch “Mode” to **Joint fit of several datasets**; “Data” becomes a multi-select (at least 2 for a joint fit; selecting 1 equals a single-dataset fit, bit-identical). The FEFF folders are one shared choice.
+- The fit range in card 2 is the common value for all datasets; below it **Σ N_idp** is shown (summed over each dataset's actual range). Keep the variables ≤ Σ N_idp/2.
+- Card 3 has one tab per dataset (tab = dataset id), each with its own path table; a new dataset's table is copied from the first one, and **Copy this path table to the other datasets** syncs them. Under each table you can **override the fit range** (kmin / kmax / Rmin / Rmax; empty = common range). **Parameters with the same name are shared between datasets; rename to make them independent** (e.g. `ss1_300K`).
+- Card 4 is one shared parameter table (names are the union over the ticked paths of all datasets).
+- Right column: joint metrics on top (joint R-factor, χ²_ν, Σ N_idp, variables, datasets); the **Dataset** drop-down switches the plot, paths, quality check and diagnosis to that dataset (with its R-factor, N_idp and χ² share); “Parameters” and “Full report” are joint. Robustness checks are not yet supported for multi-dataset models.
+- **Save result** writes one CSV (one row per path, with a `dataset` column), one model json (`datasets` format), one report, and one figure per dataset `…_<dataset>_fit.png`. A saved multi-dataset model runs directly from **Run a saved model** (the samples come from the model's `datasets`, the sample box is greyed) or from the command line `xafsmith fit <model>`.
+- Drafts and automatic restore also keep the multi-dataset settings (chosen datasets, per-dataset path tables and range overrides).
+
 **Two common recipes**
 
 - **S0² from a standard**: let S0² vary on a standard of known structure and enter the result under “Calibrate & process → Processing parameters → S0²”. For samples, untick vary for `s02` and set its value.
