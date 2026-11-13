@@ -38,7 +38,7 @@ import pandas as pd
 from larch import Group
 
 from .common import ETOK, n_idp, write_params
-from .sigma2 import einstein_ms_warning, parse_temperature, raise_on_errors, sigma2_extra
+from .sigma2 import einstein_ms_warning, expand_for_path, parse_temperature, raise_on_errors, sigma2_extra
 
 
 def _mkparam(name, spec):
@@ -108,7 +108,10 @@ def build_paths(model, root=None):
         for extra in ("third", "fourth", "ei"):
             if ps.get(extra):
                 kw[extra] = ps[extra]
-        paths[key] = feffpath(str(f), label=lab, **kw)
+        p = feffpath(str(f), label=lab, **kw)
+        if isinstance(p.sigma2, str):              # B6/6.9：σ² 模型调用按本路径几何展开，不依赖 larch 的 feffpath 符号
+            p.sigma2 = expand_for_path(p.sigma2, p._feffdat)
+        paths[key] = p
     return paths
 
 

@@ -53,9 +53,13 @@ def _sigma2_exprs(nm):
 
 
 def test_tempk_substituted_per_dataset():
-    got = _sigma2_exprs(fx.normalize_model(_multi(temperature=100)))
-    assert got == ["sigma2_debye(10.0, thD) + ss0", "sigma2_debye(100.0, thD) + ss0",
-                   "sigma2_debye(300.5, thD) + ss0"]
+    nm = fx.normalize_model(_multi(temperature=100))
+    got = _sigma2_exprs(nm)
+    # 6.9：build_paths 先替换 tempK，再按路径几何展开 σ² 模型调用
+    from larch.xafs import feffpath
+    from xafsmith.sigma2 import expand_for_path
+    fd = feffpath(str(Path(nm["datasets"][0]["paths"][0]["file"])))._feffdat
+    assert got == [expand_for_path(f"sigma2_debye({t}, thD) + ss0", fd) for t in ("10.0", "100.0", "300.5")]
 
 
 def test_tempk_word_boundary_and_other_fields():

@@ -194,6 +194,48 @@ def raise_on_errors(m):
                          + "; ".join(f"{w}: {en}" for _, w, _zh, en in errs))
 
 
+class _Expand(ast.NodeTransformer):
+    """把 sigma2_debye(A, B) / sigma2_eins(A, B) 改写成只用本路径几何字面量的算式。"""
+
+    def __init__(self, feffdat):
+        geom = feffdat.geom
+        self.n = len(geom)
+        self.rnorm = float(feffdat.rnorman)
+        self.x = [float(g[4]) for g in geom]
+        self.y = [float(g[5]) for g in geom]
+        self.z = [float(g[6]) for g in geom]
+        self.m = [float(g[3]) for g in geom]
+        # 与 larch sigma2_eins 相同：rmass = 1/Σ 1/max(0.1, amass)，再夹到 1e-12
+        self.mu = 1.0 / max(1.e-12, sum(1.0 / max(0.1, a) for a in self.m))
+
+    def visit_Call(self, node):
+        self.generic_visit(node)
+        if not (isinstance(node.func, ast.Name) and node.func.id in FUNCS and len(node.args) == 2
+                and not node.keywords):
+            return node
+        a, b = (ast.unparse(x) for x in node.args)
+        t, th = f"max(({a}), 1e-05)", f"max(({b}), 1e-05)"      # 与 larch 相同的夹值
+        if node.func.id == "sigma2_debye":
+            s = (f"sigma2_correldebye({self.n}, {t}, {th}, {self.rnorm!r}, "
+                 f"{self.x!r}, {self.y!r}, {self.z!r}, {self.m!r})")
+        else:
+            s = f"(EINS_FACTOR/({th}*{self.mu!r}*tanh({th}/(2.0*{t}))))"
+        return ast.parse(s, mode="eval").body
+
+
+def expand_for_path(expr, feffdat):
+    """σ² 表达式里的 sigma2_debye / sigma2_eins → 用该路径几何字面量展开（6.9）。
+
+    larch 2026.3.1 的这两个函数是 asteval 过程，读的 feffpath 在 lmfit 深拷贝参数时被冻结在最后存入的路径，
+    一个数据集里多条路径会全部用同一几何（悄悄算错）。展开后只依赖 sigma2_correldebye（Python 函数）、
+    EINS_FACTOR 与 tanh，与当前路径符号无关；数值与 larch 直接调用 sigma2_debye/eins(t, theta, path) 逐位相同。
+    没有这两个函数的表达式原样返回。"""
+    if not _calls(expr):
+        return expr
+    tree = _Expand(feffdat).visit(ast.parse(expr, mode="eval"))
+    return ast.unparse(ast.fix_missing_locations(tree))
+
+
 def sigma2_info(expr):
     """路径 sigma2 表达式 → (模型 'debye'|'einstein'|None, θ 参数名|None)；取第一个 σ² 模型调用。"""
     cs = _calls(expr)

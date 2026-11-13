@@ -97,3 +97,41 @@ def test_theta_none_cases():
     assert s2.theta_from_sigma2(CU, "debye", 300.0, 1e-9) is None         # 小于 θ=5000 K 的值
     with pytest.raises(ValueError):
         s2.sigma2_curve(CU, "foo", 300, [1])
+
+
+# ------------------------------------------------------------------ 6.9 按路径几何展开
+def _variant(tmp_path):
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmark"))
+    from _sigma2_synth import variant_feff
+    return variant_feff(tmp_path)
+
+
+@pytest.mark.parametrize("kind", ["debye", "eins"])
+def test_expand_for_path_bitwise_equals_larch(kind, tmp_path):
+    """展开式经 larch 路径参数求值 == larch 直接调用 sigma2_<kind>(T, θ, path)，逐位相同。"""
+    from larch.fitting import param_group
+    from larch.xafs import feffpath
+    from larch.xafs import sigma2_models as sm
+    fn = sm.sigma2_debye if kind == "debye" else sm.sigma2_eins
+    for f in (str(CU), _variant(tmp_path)):
+        p0 = feffpath(f)
+        for T in (5.0, 77.0, 300.0, 900.0):
+            for th in (90.0, 250.0, 700.0):
+                q = feffpath(f, label="q")
+                q.sigma2 = s2.expand_for_path(f"sigma2_{kind}({T!r}, {th!r})", q._feffdat)
+                assert "sigma2_debye" not in q.sigma2 and "sigma2_eins" not in q.sigma2
+                q.create_path_params(params=param_group())
+                assert q.path_paramvals()["sigma2"] == fn(T, th, p0), (f, T, th)
+
+
+def test_expand_for_path_nested_and_noop():
+    from larch.xafs import feffpath
+    fd = feffpath(str(CU))._feffdat
+    assert s2.expand_for_path("ss1 + 0.001", fd) == "ss1 + 0.001"
+    assert s2.expand_for_path(0.003, fd) == 0.003
+    out = s2.expand_for_path("sigma2_debye(300.0, th*(1 + x)) + sigma2_eins(max(t, 1), th) + ss0", fd)
+    import ast
+    ast.parse(out, mode="eval")
+    assert "sigma2_correldebye(2, max(300.0, 1e-05), max(th * (1 + x), 1e-05)" in out
+    assert "EINS_FACTOR" in out and "max(max(t, 1), 1e-05)" in out and out.endswith("+ ss0")
