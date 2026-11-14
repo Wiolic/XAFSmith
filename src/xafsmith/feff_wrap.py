@@ -71,6 +71,9 @@ def make_feffinp(structure, absorber, edge="K", site_index=None, rcluster=8.0, r
     return "\n".join(lines) + "\n"
 
 
+RUN_DIR, FAILED_DIR = "_feffrun", "_feff_failed"    # run_feff 的运行中 / 失败现场子目录（不是 FEFF 结果目录）
+
+
 def run_feff(folder, feffinp_text=None, verbose=False, code=None):
     """在 folder 下的临时子目录 _feffrun 里运行 FEFF；成功（至少一条 feff[0-9]*.dat）才替换 folder 里的旧结果，
     失败则 folder 原样不动，失败现场保留在 folder/_feff_failed（含 feffrun_feff.log、feff.err）。"""
@@ -78,7 +81,7 @@ def run_feff(folder, feffinp_text=None, verbose=False, code=None):
     from larch.xafs import feff6l, feff8l
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
-    tmp, failed = folder / "_feffrun", folder / "_feff_failed"
+    tmp, failed = folder / RUN_DIR, folder / FAILED_DIR
     shutil.rmtree(tmp, ignore_errors=True)
     tmp.mkdir()
     if feffinp_text is not None:
@@ -94,10 +97,12 @@ def run_feff(folder, feffinp_text=None, verbose=False, code=None):
     except Exception as e:                 # noqa: BLE001  先保留失败现场再原样抛出
         err = e
     if err is None and any(tmp.glob("feff[0-9]*.dat")):
-        for old in folder.glob("feff*.dat"):
-            old.unlink()
-        for f in list(tmp.iterdir()):
+        new = {f.name for f in tmp.iterdir()}
+        for f in list(tmp.iterdir()):          # 先换入新文件（同名覆盖），再删多余的旧路径：中途出错也不会一条路径都没有
             os.replace(f, folder / f.name)
+        for old in folder.glob("feff*.dat"):
+            if old.name not in new:
+                old.unlink()
         tmp.rmdir()
         shutil.rmtree(failed, ignore_errors=True)     # 旧的失败现场已过时
         return list_paths(folder)
@@ -163,7 +168,7 @@ def build(structure, absorber, edge, out, site_index=None, rmax=6.0, rcluster=8.
         df = run_feff(out, txt, code=code)
         if len(df):
             return df
-    raise RuntimeError(f"FEFF 未生成路径，失败现场见 {Path(out) / '_feff_failed'}（feffrun_feff.log、feff.err）；原有结果未改动")
+    raise RuntimeError(f"FEFF 未生成路径，失败现场见 {Path(out) / FAILED_DIR}（feffrun_feff.log、feff.err）；原有结果未改动")
 
 
 def main():

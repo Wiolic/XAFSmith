@@ -127,7 +127,10 @@ def load_cfg():
 
 def err_lines(ex):
     """ValueError（save_config 的多行消息）→ (标题, 明细行)，供 Page.notice 显示。"""
+    from .widgets import T
     ls = str(ex).splitlines() or [str(ex)]
+    if getattr(ex, "config_errors", None) is not None:      # save_config 拒写：标题按界面语言，明细为校验原文
+        return T("配置有错误，未保存", "The configuration has errors; not saved"), list(ex.config_errors)
     return ls[0], ls[1:]
 
 
@@ -257,8 +260,9 @@ def idents(expr):
 def feff_dirs():
     if not paths.FEFF.exists():
         return []
+    from xafsmith import feff_wrap as xfeff
     return sorted([d for d in paths.FEFF.rglob("*") if d.is_dir() and list(d.glob("feff0001.dat"))
-                   and not {"_feffrun", "_feff_failed"} & set(d.parts)])      # E6 的运行中 / 失败现场目录不算
+                   and not {xfeff.RUN_DIR, xfeff.FAILED_DIR} & set(d.parts)])      # E6 的运行中 / 失败现场目录不算
 
 
 def saved_models():
