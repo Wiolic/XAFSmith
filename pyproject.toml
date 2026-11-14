@@ -32,7 +32,7 @@ dependencies = [
 # 直接生成 Origin 工程（.opju）：需要本机装有 Origin 2021 及以上；没有时“图片导出”只写数据与 build_origin.py
 origin = ["originpro"]
 # 开发与测试：python -m pytest tests/unit
-dev = ["pytest", "ruff"]
+dev = ["pytest", "pytest-cov", "ruff"]
 
 [project.urls]
 Homepage = "https://github.com/Wiolic/XAFSmith"
@@ -45,6 +45,9 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 xafsmith = ["templates/*", "docs/*.md", "docs/images/basics/*/*.png", "assets/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit", "tests/benchmark"]
 
 [tool.ruff]
 line-length = 130

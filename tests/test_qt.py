@@ -20,7 +20,8 @@ ap = argparse.ArgumentParser()
 DEMO = Path(__file__).resolve().parent / "data" / "demo_project"
 ap.add_argument("--project", default=str(DEMO), help="项目目录；默认是公开数据的演示项目（不读 XAFSMITH_PROJECT，避免误测真实项目）")
 ap.add_argument("--quick", action="store_true", help="跳过 FEFF8L 与稳健性检查（较慢）")
-ARGS = ap.parse_args()
+# 被 pytest 收集/导入时不解析 sys.argv（用默认参数）；脚本方式运行才读命令行
+ARGS = ap.parse_args() if __name__ == "__main__" else ap.parse_args([])
 os.environ["XAFSMITH_PROJECT"] = str(Path(ARGS.project).resolve())
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ["XAFSMITH_NO_RECENT"] = "1"          # 不写入用户的“最近的项目”
