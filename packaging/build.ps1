@@ -45,6 +45,9 @@ if (-not $SkipTests) {
 Step "3/5 PyInstaller + 体积护栏"
 Run $py @("-m", "PyInstaller", "packaging\xafsmith.spec", "--noconfirm", "--distpath", "dist", "--workpath", "build\pyi")
 Run $py @("packaging\size_report.py", "dist\XAFSmith", "--limit-mb", "$LimitMB")
+# 许可与第三方许可原文随程序分发（安装包与便携 zip 都取自 dist\XAFSmith）
+Copy-Item LICENSE, NOTICE -Destination "dist\XAFSmith" -Force
+Copy-Item third_party_licenses -Destination "dist\XAFSmith\third_party_licenses" -Recurse -Force
 
 Step "4/5 冒烟测试（打包后的程序）"
 $cli = Join-Path $root "dist\XAFSmith\xafsmith-cli.exe"

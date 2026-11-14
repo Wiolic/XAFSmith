@@ -38,11 +38,16 @@ Copyright (C) 2026 Eggy. https://github.com/Wiolic/XAFSmith
   - FEFF6L / FEFF8L：作为独立可执行程序随 xraylarch 分发，XAFSmith 以子进程调用（xafsmith feff），不链接，
     按各自许可：FEFF8L 见 https://github.com/xraypy/feff85exafs/blob/master/LICENSE ；
     FEFF6L 见 https://github.com/xraypy/feff85exafs/blob/master/LICENSE_Feff6L.txt （University of Washington）。
-    本文件不转述其条款，使用与再分发请查阅上述许可。
+    两份许可原文逐字收在 third_party_licenses/（随安装包分发）。FEFF6L 原文末尾另有一段旧版说明
+    （“FEFF6 is copyright protected software and users must obtain a license from the University of Washington
+    Office of Technology Transfer for its use”），以原文为准。
     FEFF6L / FEFF8L: separate executables distributed with xraylarch and called by XAFSmith as subprocesses
     (`xafsmith feff`), not linked; each under its own license: FEFF8L see
     https://github.com/xraypy/feff85exafs/blob/master/LICENSE ; FEFF6L (University of Washington) see
-    https://github.com/xraypy/feff85exafs/blob/master/LICENSE_Feff6L.txt . Their terms are not restated here.
+    https://github.com/xraypy/feff85exafs/blob/master/LICENSE_Feff6L.txt . Verbatim copies of both are in
+    third_party_licenses/ (shipped with the installer). The FEFF6L text also ends with an older notice stating that
+    FEFF6 is copyright protected and users must obtain a license from the University of Washington Office of
+    Technology Transfer for its use; the original text governs.
   - PySide6 / Qt for Python：按其发行包元数据，许可为 LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only。
     Per its package metadata: LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only.
   - 其他依赖 / Other dependencies：xraydb、lmfit、numpy、scipy、matplotlib、pandas、pymatgen 等，见各自的发行包。
