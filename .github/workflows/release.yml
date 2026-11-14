@@ -80,11 +80,16 @@ jobs:
     needs: [windows]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0                 # 要全部 tag：说明里的 compare 链接只在上一版 tag 存在时给出
       - uses: actions/download-artifact@v4
         with:
           path: assets
           merge-multiple: true
+      # Release 说明 = CHANGELOG.md 中本版本的一节（改了什么都写在那里）；缺这一节则发布失败
+      - run: python3 tools/release_notes.py "${GITHUB_REF_NAME}" -o release_notes.md
       - uses: softprops/action-gh-release@v2
         with:
           files: assets/*
-          generate_release_notes: true
+          body_path: release_notes.md

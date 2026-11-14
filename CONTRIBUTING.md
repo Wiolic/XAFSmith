@@ -72,7 +72,10 @@ python -m ruff check src tests tools               # 0 errors; do not run `ruff 
 7. **Test data must be public** and recorded in `tests/data/demo_project/SOURCES.md` with source and license.
    Do not commit your own measurements.
 8. Keep `LICENSE`, `NOTICE`, `CITATION.cff` and the citation text in `src/xafsmith/about.py` intact.
-9. Add an entry under *Unreleased* in [CHANGELOG.md](CHANGELOG.md).
+9. Add an entry under *Unreleased* in [CHANGELOG.md](CHANGELOG.md). At release the section is renamed to the version
+   and becomes the GitHub Release notes verbatim (`tools/release_notes.py`, used by `release.yml`), so write
+   **everything that changed** there; a release without its CHANGELOG section fails.
+   发布时这一节就是 GitHub Release 说明的全文：改了什么都写在这里。
 
 ## AI assistants / AI 助手
 
