@@ -18,9 +18,9 @@ dependencies = [
     "xraylarch>=2026.3.1,<2026.4",
     "xraydb>=4.5.8",
     "lmfit>=1.3.4",
-    # numpy 2.5.4 / scipy 1.18.1 要求 Python >=3.12，而本项目支持 3.11，故不加下界（避免误导 3.11 解析）
-    "numpy",
-    "scipy",
+    # numpy / scipy 下界 = CI Python 3.11 实装版本（2026-11-14，run 43587685886）；本机 3.12 为 2.5.4 / 1.18.1（要求 Py>=3.12）
+    "numpy>=2.4.6",
+    "scipy>=1.17.1",
     "matplotlib>=3.11.2",
     "pandas>=3.1.0",
     "pymatgen>=2026.10.24",
