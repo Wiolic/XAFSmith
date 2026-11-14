@@ -721,10 +721,13 @@ def build_parser():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--project", help="项目目录（默认：从当前目录向上查找 xafsmith.json）")
     ap.add_argument("--version", action="store_true")
+    ap.add_argument("--debug", action="store_true", help="出错时显示完整 traceback（缺省只打印一行错误）")
     sp = ap.add_subparsers(dest="cmd")
     # --project 既可写在子命令前（xafsmith --project D gui），也可写在后（xafsmith gui --project D）
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--project", default=argparse.SUPPRESS, help="项目目录")
+    common.add_argument("--debug", action="store_true", default=argparse.SUPPRESS,
+                        help="出错时显示完整 traceback")
     _add = sp.add_parser
     sp.add_parser = lambda *a, **k: _add(*a, parents=[common], **k)
     p = sp.add_parser("new", help="新建标准项目"); p.add_argument("dir"); p.set_defaults(f=cmd_new)
@@ -834,6 +837,8 @@ def build_parser():
 def main(argv=None):
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
+    if hasattr(sys.stderr, "reconfigure"):   # 错误行含中文，与 stdout 一致用 UTF-8
+        sys.stderr.reconfigure(encoding="utf-8")
     ap = build_parser()
     a = ap.parse_args(argv)
     if a.version:
@@ -850,7 +855,19 @@ def main(argv=None):
     if project:                              # 必须在导入 paths 之前设置
         Path(project).mkdir(parents=True, exist_ok=True) if a.cmd == "new" else None
         os.environ["XAFSMITH_PROJECT"] = str(Path(project).resolve())
-    a.f(a)
+    try:
+        a.f(a)
+    except KeyboardInterrupt:
+        print("已中断 / Interrupted", file=sys.stderr)
+        sys.exit(130)
+    except Exception as e:                   # noqa: BLE001  顶层兜底：一行错误 + 日志，不打 traceback
+        if getattr(a, "debug", False):
+            raise
+        logs.log.error("命令 %s 出错：%s", a.cmd, e, exc_info=True)
+        print(f"错误 / Error: {type(e).__name__}: {e}", file=sys.stderr)
+        if any(getattr(h, "baseFilename", None) for h in logs.log.handlers):   # 未配置日志文件则省略
+            print(f"日志 / Log: {logs.LOG_FILE}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
