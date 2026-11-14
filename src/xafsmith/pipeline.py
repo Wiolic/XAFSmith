@@ -185,7 +185,9 @@ def save_config(cfg, path=None):
     schema.check_config(rep, cfg)
     errs = [f"{w}：{m}" for lv, w, m in rep.items if lv == "错误"]
     if errs:
-        raise ValueError("配置有错误，未保存 / configuration has errors, not saved:\n" + "\n".join(errs))
+        ex = ValueError("配置有错误，未保存 / configuration has errors, not saved:\n" + "\n".join(errs))
+        ex.config_errors = errs                  # 供图形界面按界面语言显示标题
+        raise ex
     write_text_atomic(path or paths.CONFIG, json.dumps(cfg, ensure_ascii=False, indent=2))
 
 
