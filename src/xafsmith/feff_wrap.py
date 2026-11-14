@@ -10,6 +10,7 @@ FEFF6L：非自洽 muffin-tin 势，几秒；FEFF8L：自洽势（SCF），约 1
 （推荐用 xafsmith feff，输出目录自动按标准命名）
 """
 import argparse
+import os
 import re
 from pathlib import Path
 
@@ -71,18 +72,39 @@ def make_feffinp(structure, absorber, edge="K", site_index=None, rcluster=8.0, r
 
 
 def run_feff(folder, feffinp_text=None, verbose=False, code=None):
+    """在 folder 下的临时子目录 _feffrun 里运行 FEFF；成功（至少一条 feff[0-9]*.dat）才替换 folder 里的旧结果，
+    失败则 folder 原样不动，失败现场保留在 folder/_feff_failed（含 feffrun_feff.log、feff.err）。"""
+    import shutil
     from larch.xafs import feff6l, feff8l
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
+    tmp, failed = folder / "_feffrun", folder / "_feff_failed"
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir()
     if feffinp_text is not None:
-        (folder / "feff.inp").write_text(feffinp_text, encoding="utf-8")
-    for old in folder.glob("feff*.dat"):
-        old.unlink()
+        (tmp / "feff.inp").write_text(feffinp_text, encoding="utf-8")
+    else:
+        shutil.copyfile(folder / "feff.inp", tmp / "feff.inp")
     if code is None:                       # 由 feff.inp 判断
-        code = "feff8" if re.search(r"^\s*(EDGE|SCF)\b", (folder / "feff.inp").read_text(encoding="utf-8", errors="ignore"),
+        code = "feff8" if re.search(r"^\s*(EDGE|SCF)\b", (tmp / "feff.inp").read_text(encoding="utf-8", errors="ignore"),
                                     re.M | re.I) else "feff6"
-    (feff8l if code == "feff8" else feff6l)(folder=str(folder), feffinp="feff.inp", verbose=verbose)
-    return list_paths(folder)
+    err = None
+    try:
+        (feff8l if code == "feff8" else feff6l)(folder=str(tmp), feffinp="feff.inp", verbose=verbose)
+    except Exception as e:                 # noqa: BLE001  先保留失败现场再原样抛出
+        err = e
+    if err is None and any(tmp.glob("feff[0-9]*.dat")):
+        for old in folder.glob("feff*.dat"):
+            old.unlink()
+        for f in list(tmp.iterdir()):
+            os.replace(f, folder / f.name)
+        tmp.rmdir()
+        return list_paths(folder)
+    shutil.rmtree(failed, ignore_errors=True)
+    os.replace(tmp, failed)
+    if err is not None:
+        raise err
+    return pd.DataFrame()
 
 
 def feff_info(folder):
@@ -140,7 +162,7 @@ def build(structure, absorber, edge, out, site_index=None, rmax=6.0, rcluster=8.
         df = run_feff(out, txt, code=code)
         if len(df):
             return df
-    raise RuntimeError(f"FEFF 未生成路径，见 {out}/feffrun_feff.log")
+    raise RuntimeError(f"FEFF 未生成路径，失败现场见 {Path(out) / '_feff_failed'}（feffrun_feff.log、feff.err）；原有结果未改动")
 
 
 def main():
