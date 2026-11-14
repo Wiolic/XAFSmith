@@ -29,7 +29,7 @@ def load_settings():
     try:
         return json.loads(SETTINGS.read_text(encoding="utf-8"))
     except Exception:
-        logs.log.debug("update.load_settings 出错（已忽略或已提示）", exc_info=True)
+        logs.log.debug("update.load_settings 出错（已忽略或已提示）：%s", SETTINGS, exc_info=True)
         return {}
 
 
@@ -58,7 +58,7 @@ def latest_release(timeout=4.0):
             tag = json.loads(r.read().decode("utf-8", "replace")).get("tag_name", "")
         return tag.lstrip("vV") or None
     except Exception:
-        logs.log.debug("update.latest_release 出错（已忽略或已提示）", exc_info=True)
+        logs.log.debug("update.latest_release 出错（已忽略或已提示）：%s", RELEASE_API, exc_info=True)
         return None
 
 
@@ -73,7 +73,7 @@ def latest_version(timeout=4.0):
         m = re.search(r'^version\s*=\s*"([^"]+)"', txt, re.M)
         return m.group(1) if m else None
     except Exception:
-        logs.log.debug("update.latest_version 出错（已忽略或已提示）", exc_info=True)
+        logs.log.debug("update.latest_version 出错（已忽略或已提示）：%s", RAW_URL, exc_info=True)
         return None
 
 

@@ -255,7 +255,7 @@ def k_limits(cfg, meta, min_span_frac=0.9):
             else:
                 out[(sample, ek)] = (kl, f"数据末端 {emax:.0f} eV", None)
         except Exception:                           # noqa: BLE001  xraydb 查不到时不阻断校验
-            logs.log.debug("schema.k_limits 出错（已忽略或已提示）", exc_info=True)
+            logs.log.debug("schema.k_limits 出错（已忽略或已提示）：%s %s", sample, ek, exc_info=True)
             continue
     return out
 
@@ -293,7 +293,7 @@ def check_preedge(rep, cfg, meta):
         try:
             df = pre_edge_edges(sample_elements(cfg, ek, sample), c["element"], c["edge"], nm["pre1"], 0.0)
         except Exception:                           # noqa: BLE001  xraydb 查不到时不阻断校验
-            logs.log.debug("schema.check_preedge 出错（已忽略或已提示）", exc_info=True)
+            logs.log.debug("schema.check_preedge 出错（已忽略或已提示）：%s %s", sample, ek, exc_info=True)
             continue
         if len(df):
             where = "; ".join(f"{r.element} {r.edge} {r.energy:.0f} eV（E0{r.dE:+.0f}，"
@@ -521,7 +521,7 @@ def check_models(rep, meta, klim=None):
         try:
             m = json.loads(f.read_text(encoding="utf-8-sig"))
         except Exception as ex:
-            logs.log.debug("schema.check_models 出错（已忽略或已提示）", exc_info=True)
+            logs.log.debug("schema.check_models 出错（已忽略或已提示）：%s", at, exc_info=True)
             rep.err(at, f"JSON 解析失败：{_json_error(ex)}")
             continue
         if not isinstance(m, dict):
@@ -557,7 +557,7 @@ def check_structures(rep):
         try:
             read_structure(name)
         except Exception as ex:
-            logs.log.debug("schema.check_structures 出错（已忽略或已提示）", exc_info=True)
+            logs.log.debug("schema.check_structures 出错（已忽略或已提示）：%s", name, exc_info=True)
             rep.err(f"structures/{name}", f"无法读入：{ex}")
 
 
@@ -570,7 +570,7 @@ def validate(structures=True):
         try:
             cfg = json.loads(paths.CONFIG.read_text(encoding="utf-8-sig"))
         except Exception as ex:
-            logs.log.debug("schema.validate 出错（已忽略或已提示）", exc_info=True)
+            logs.log.debug("schema.validate 出错（已忽略或已提示）：%s", paths.CONFIG, exc_info=True)
             rep.err(paths.MARKER, f"JSON 解析失败：{_json_error(ex)}")
     if cfg:
         check_config(rep, cfg)
@@ -579,7 +579,7 @@ def validate(structures=True):
         try:
             meta = load_meta()
         except Exception as ex:
-            logs.log.debug("schema.validate 出错（已忽略或已提示）", exc_info=True)
+            logs.log.debug("schema.validate 出错（已忽略或已提示）：%s", paths.META, exc_info=True)
             rep.err(paths.rel(paths.META), f"无法读入：{ex}")
         if meta is not None:
             check_meta(rep, meta, cfg)

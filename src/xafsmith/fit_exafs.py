@@ -759,7 +759,7 @@ def robustness(data, model: dict, root=None, variants=None,
                     row[k] = v["value"]
                     row[k + "_err"] = v["stderr"]
         except Exception as ex:
-            logs.log.warning("fit_exafs.robustness 出错（已忽略或已提示）", exc_info=True)
+            logs.log.warning("fit_exafs.robustness 出错（已忽略或已提示）：%s", name, exc_info=True)
             row = dict(条件=name, 错误=str(ex))
         rows.append(row)
         if progress:

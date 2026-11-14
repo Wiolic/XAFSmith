@@ -19,7 +19,7 @@ def _valid_symbol(s):
     try:
         return bool(s) and xraydb.atomic_number(s) is not None
     except Exception:                          # noqa: BLE001
-        logs.log.debug("readers.formats._valid_symbol 出错（已忽略或已提示）", exc_info=True)
+        logs.log.debug("readers.formats._valid_symbol 出错（已忽略或已提示）：%s", s, exc_info=True)
         return False
 
 
@@ -157,7 +157,7 @@ class AthenaXmuReader(Reader):
                     if emin <= float(xraydb.xray_edge(s, edge).energy) <= emax:
                         hit.append(s)
                 except Exception:              # noqa: BLE001
-                    logs.log.debug("readers.formats._element 出错（已忽略或已提示）", exc_info=True)
+                    logs.log.debug("readers.formats._element 出错（已忽略或已提示）：%s", s, exc_info=True)
                     pass
             if len(hit) == 1:
                 return hit[0]

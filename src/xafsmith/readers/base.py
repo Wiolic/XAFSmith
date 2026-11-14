@@ -318,7 +318,7 @@ def guess_element_edge(energy, mu, window=25.0):
         try:
             edges = xraydb.xray_edges(sym)
         except Exception:                      # noqa: BLE001
-            logs.log.debug("readers.base.guess_element_edge 出错（已忽略或已提示）", exc_info=True)
+            logs.log.debug("readers.base.guess_element_edge 出错（已忽略或已提示）：%s", sym, exc_info=True)
             continue
         for nm in ("K", "L3", "L2", "L1"):
             if nm in edges and abs(edges[nm].energy - e_d) <= window:
@@ -339,7 +339,7 @@ def nearest_edge(energy, window=10.0):
         try:
             edges = xraydb.xray_edges(sym)
         except Exception:                      # noqa: BLE001
-            logs.log.debug("readers.base.nearest_edge 出错（已忽略或已提示）", exc_info=True)
+            logs.log.debug("readers.base.nearest_edge 出错（已忽略或已提示）：%s", sym, exc_info=True)
             continue
         for nm in ("K", "L3", "L2", "L1"):
             if nm in edges:

@@ -28,7 +28,7 @@ def _versions():
         try:
             out[mod] = __import__(mod).__version__
         except Exception:
-            logs.log.debug("methods_text._versions 出错（已忽略或已提示）", exc_info=True)
+            logs.log.debug("methods_text._versions 出错（已忽略或已提示）：%s", mod, exc_info=True)
             out[mod] = "?"
     from . import __version__
     out["xafsmith"] = __version__
@@ -118,7 +118,7 @@ def _restraint_items(models):
         try:
             rs = normalize_model(json.loads(f.read_text(encoding="utf-8-sig")))["restraints"]
         except Exception:
-            logs.log.debug("methods_text._restraint_items 出错（已忽略或已提示）", exc_info=True)
+            logs.log.debug("methods_text._restraint_items 出错（已忽略或已提示）：%s", f, exc_info=True)
             continue
         for r in rs:
             t = (r["expr"], r["value"], r["sigma"])
@@ -139,7 +139,7 @@ def _feff_code(model_name):
         d = (paths.ROOT / model_path_files(m)[0]).parent      # 多数据集模型同样取第一条路径
         return feff_info(d)["code"]
     except Exception:
-        logs.log.debug("methods_text._feff_code 出错（已忽略或已提示）", exc_info=True)
+        logs.log.debug("methods_text._feff_code 出错（已忽略或已提示）：%s", f, exc_info=True)
         return "feff6"
 
 

@@ -108,7 +108,7 @@ def scan_raw(raw_dir=None, meta_path=None):
         try:
             gs = xio.read_file(p, fmt=fmt)
         except Exception as ex:                      # noqa: BLE001
-            logs.log.warning("pipeline.scan_raw 出错（已忽略或已提示）", exc_info=True)
+            logs.log.warning("pipeline.scan_raw 出错（已忽略或已提示）：%s", p, exc_info=True)
             skipped.append((rel, str(ex)))
             continue
         for g in gs:
@@ -202,7 +202,7 @@ def meta_row(rel):
         hit = m[m.file == rel]
         return hit.iloc[0].to_dict() if len(hit) else {}
     except Exception:                                # noqa: BLE001
-        logs.log.warning("pipeline.meta_row 出错（已忽略或已提示）", exc_info=True)
+        logs.log.warning("pipeline.meta_row 出错（已忽略或已提示）：%s", rel, exc_info=True)
         return {}
 
 

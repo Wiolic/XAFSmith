@@ -113,7 +113,7 @@ def cmd_formats(a):
         from . import pipeline as pl
         tpl = (pl.load_config().get("formats") or {}) if paths.CONFIG.exists() else {}
     except Exception:                      # noqa: BLE001
-        logs.log.debug("cli.cmd_formats 出错（已忽略或已提示）", exc_info=True)
+        logs.log.debug("cli.cmd_formats 出错（已忽略或已提示）：%s", paths.CONFIG, exc_info=True)
         tpl = {}
     if tpl:
         print(f"{paths.MARKER} 中保存的列映射模板：")
