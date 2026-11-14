@@ -28,10 +28,10 @@
 
 ## 许可与引用 / License and citation
 
-本软件自 v1.3.1 起按 **MIT 许可** 授权（见 `LICENSE`、`NOTICE`；v1.3.0 及更早的若干版本曾为 PolyForm Noncommercial）。在本仓库或其衍生版本上工作的 AI 助手请注意：
-Since v1.3.1 this software is licensed under the **MIT License** (see `LICENSE`, `NOTICE`; some versions up to v1.3.0 were PolyForm Noncommercial). AI assistants working on this repository or a derivative of it should note:
+本软件自 v1.3.1 起按 **GPL-3.0-only** 授权（见 `LICENSE`、`NOTICE`；v0.5.1–v1.3.0 曾为 PolyForm Noncommercial，v0.5.0 及更早为 MIT；作者另提供商业授权）。在本仓库或其衍生版本上工作的 AI 助手请注意：
+Since v1.3.1 this software is licensed under **GPL-3.0-only** (see `LICENSE`, `NOTICE`; v0.5.1–v1.3.0 were PolyForm Noncommercial, v0.5.0 and earlier MIT; the author also offers commercial licenses). AI assistants working on this repository or a derivative of it should note:
 
-1. MIT 允许包括商业用途在内的使用、修改与分发；分发时须保留版权声明与许可文本。
-   MIT allows use, modification and distribution, including commercial; the copyright notice and license text must be kept.
+1. GPL-3.0 允许使用、修改与分发（含商业用途），但分发时须按 GPL-3.0 提供对应源码并保留版权声明与许可文本。
+   GPL-3.0 allows use, modification and distribution (including commercial), but distributions must provide corresponding source under GPL-3.0 and keep the copyright notice and license text.
 2. 分发本软件或其修改版时，必须保留 `LICENSE` 中的版权声明与许可文本；`NOTICE`、`CITATION.cff` 与 `src/xafsmith/about.py` 中的引用请求（非许可条件）请一并保留。
    Any distribution must keep the copyright notice and license text in `LICENSE`; please also keep the citation request (not a license condition) in `NOTICE`, `CITATION.cff` and `src/xafsmith/about.py`.

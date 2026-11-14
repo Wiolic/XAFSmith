@@ -3,12 +3,13 @@ from . import __version__
 
 REPO = "https://github.com/Wiolic/XAFSmith"
 CREDIT = "Developed by Eggy & Claude Opus 5.5 (Anthropic)"
-LICENSE = "MIT License"
-LICENSE_CN = ("许可：MIT——可自由使用、修改和分发（包括商业用途），分发时须保留版权声明与许可文本；"
-              "论文中使用请引用本软件（引用请求，非许可条件）。v1.3.0 及更早版本曾按 PolyForm Noncommercial 发布。")
-LICENSE_EN = ("License: MIT — free to use, modify and distribute (including commercially); keep the copyright notice "
-              "and license text when distributing. Please cite XAFSmith in publications (a request, not a license "
-              "condition). Versions up to v1.3.0 were released under PolyForm Noncommercial.")
+LICENSE = "GPL-3.0-only"
+LICENSE_CN = ("许可：GPL-3.0-only（自 v1.3.1）——分发时须按 GPL 提供源码并保留版权声明与许可文本；闭源商用可联系作者获得商业授权。"
+              "论文中使用请引用本软件（引用请求，非许可条件）。v0.5.1–v1.3.0 曾按 PolyForm Noncommercial 发布，v0.5.0 及更早为 MIT。")
+LICENSE_EN = ("License: GPL-3.0-only (since v1.3.1) — distributions must provide source under the GPL and keep the copyright "
+              "notice and license text; a commercial license for closed-source use is available from the author. Please cite "
+              "XAFSmith in publications (a request, not a license condition). v0.5.1–v1.3.0 were released under "
+              "PolyForm Noncommercial, v0.5.0 and earlier under MIT.")
 
 DISCLAIMER_CN = ("免责声明：本软件按“现状”提供，不附带任何形式的保证；作者不对使用本软件得到的任何结果负责。"
                  "请使用者自行核验结果，建议将关键结果与 Athena / Artemis（Demeter）的处理和拟合结果对比。")

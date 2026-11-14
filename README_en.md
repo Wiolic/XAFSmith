@@ -282,7 +282,7 @@ and the programs it builds on:
 
 Developed by **Eggy** & **Claude Opus 5.5** (Anthropic).
 
-License: [MIT License](LICENSE) since v1.3.1 (see also [NOTICE](NOTICE)): free to use, modify and distribute, including commercially, as long as the copyright notice and license text are kept.
+License: [GPL-3.0-only](LICENSE) since v1.3.1 (see also [NOTICE](NOTICE)). A commercial license for closed-source use is available from the author.
 
 - **Citation request (not a license condition)**: please cite XAFSmith, Larch and FEFF as above in publications;
 - **History**: v0.5.1 through v1.3.0 were released under PolyForm Noncommercial 1.0.0, v0.5.0 and earlier under MIT; versions already released are unaffected by the change.

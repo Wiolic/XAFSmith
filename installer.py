@@ -86,8 +86,8 @@ class Installer(tk.Tk):
             "论文中使用本软件，请引用本仓库：Eggy & Claude, XAFSmith, https://github.com/Wiolic/XAFSmith\n"
             "If you use XAFSmith in a publication, please cite the repository above.")).pack(anchor="w")
         tk.Message(note, width=590, font=("Microsoft YaHei", 9), fg="#444", text=(
-            "许可：MIT（自 v1.3.1）——可自由使用、修改、分发；分发时保留版权声明与许可文本。\n"
-            "License: MIT (since v1.3.1) — free to use, modify and distribute; keep the copyright notice and license text.")).pack(anchor="w")
+            "许可：GPL-3.0-only（自 v1.3.1）——分发时须按 GPL 提供源码并保留版权声明与许可文本。\n"
+            "License: GPL-3.0-only (since v1.3.1) — distributions must provide source under the GPL and keep the copyright notice and license text.")).pack(anchor="w")
         self.agree = tk.BooleanVar(value=False)
         ttk.Checkbutton(note, text="我已阅读并同意 / I have read and agree", variable=self.agree,
                         command=lambda: self.btn.configure(state="normal" if self.agree.get() else "disabled")

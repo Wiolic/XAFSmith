@@ -3,8 +3,8 @@
 Thank you for helping improve XAFSmith. Issues and pull requests may be written in English or Chinese.
 欢迎提交问题和改进；Issue 与 PR 用中文或英文均可。
 
-XAFSmith is licensed under the [MIT License](LICENSE). By contributing you agree that
-your contribution is distributed under the same license. 贡献的代码按同一许可发布。
+XAFSmith is licensed under the [GPL-3.0-only](LICENSE). By contributing you agree that
+your contribution is distributed under the same license (the author may additionally offer commercial licenses). 贡献的代码按同一许可发布。
 
 ## Reporting a problem / 报告问题
 
