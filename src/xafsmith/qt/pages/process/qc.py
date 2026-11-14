@@ -47,7 +47,7 @@ class QCPage(Page):
                             xnorm.normalize(g, **par)
                         rows.append(xqc.check(g))
                     except Exception as ex:      # noqa: BLE001
-                        logs.log.warning("qt.pages.process.run 出错（已忽略或已提示）", exc_info=True)
+                        logs.log.warning("qt.pages.process.run 出错（已忽略或已提示）：%s", k, exc_info=True)
                         rows.append(dict(label=k, error=str(ex)))
                 return pd.DataFrame(rows)
 

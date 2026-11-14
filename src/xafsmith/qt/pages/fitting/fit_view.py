@@ -218,7 +218,7 @@ class FitView(QWidget):
                                                e0=getattr(g, "e0", None) if g is not None else None,
                                                kweight=getattr(self, "_kw", 2))
             except Exception as ex:      # noqa: BLE001
-                logs.log.warning("qt.pages.fitting._dg 出错（已忽略或已提示）", exc_info=True)
+                logs.log.warning("qt.pages.fitting._dg 出错（已忽略或已提示）：%s", self.fit["summ"]["sample"], exc_info=True)
                 self._dg_cache = ex
         return self._dg_cache
 

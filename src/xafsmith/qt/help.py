@@ -63,7 +63,7 @@ def render_math(md, size=14):
                 fig.text(0, 0, f"${_tex(tex)}$", fontsize=size * (1.3 if display else 1.0), color=col)
                 fig.savefig(str(f), dpi=96 * 1.05 * dpr, transparent=True, bbox_inches="tight", pad_inches=0.02, format="png")
             except Exception:     # noqa: BLE001  无法渲染时保留原文
-                logs.log.debug("qt.help.img 出错（已忽略或已提示）", exc_info=True)
+                logs.log.debug("qt.help.img 出错（已忽略或已提示）：%s", tex, exc_info=True)
                 return None
         return f.name
 

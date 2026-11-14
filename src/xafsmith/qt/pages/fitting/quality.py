@@ -80,7 +80,7 @@ def quality_checks(fit, dg=None):
         out.append((not hi, (T("强相关（|r| &gt; 0.9），结论中要说明：", "Strong correlations (|r| &gt; 0.9) to report: ") + "; ".join(hi))
                     if hi else T("没有 |r| &gt; 0.9 的强相关参数对", "No parameter pair with |r| &gt; 0.9")))
     except Exception:
-        logs.log.warning("qt.pages.fitting.quality_checks 出错（已忽略或已提示）", exc_info=True)
+        logs.log.warning("qt.pages.fitting.quality_checks 出错（已忽略或已提示）：%s", s.get("sample"), exc_info=True)
         pass
     kws = md.get("kweight")
     if not (isinstance(kws, list) and len(kws) > 1):

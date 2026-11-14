@@ -103,7 +103,7 @@ def recent_projects():
     try:
         return [p for p in json.loads(RECENT.read_text(encoding="utf-8-sig")) if paths.is_project(p)]
     except Exception:
-        logs.log.debug("qt.state.recent_projects 出错（已忽略或已提示）", exc_info=True)
+        logs.log.debug("qt.state.recent_projects 出错（已忽略或已提示）：%s", RECENT, exc_info=True)
         return []
 
 
@@ -116,7 +116,7 @@ def remember(root):
         RECENT.parent.mkdir(parents=True, exist_ok=True)
         RECENT.write_text(json.dumps(lst[:10], ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception:
-        logs.log.warning("qt.state.remember 出错（已忽略或已提示）", exc_info=True)
+        logs.log.warning("qt.state.remember 出错（已忽略或已提示）：%s", RECENT, exc_info=True)
         pass
 
 
@@ -151,7 +151,7 @@ def _known_format(xio, p):
     try:
         return xio.detect_format(p)[0] is not None
     except Exception:                      # noqa: BLE001
-        logs.log.warning("qt.state._known_format 出错（已忽略或已提示）", exc_info=True)
+        logs.log.warning("qt.state._known_format 出错（已忽略或已提示）：%s", p, exc_info=True)
         return False
 
 

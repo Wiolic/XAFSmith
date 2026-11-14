@@ -307,7 +307,7 @@ class FitPage(Page):
                 md_ = json.loads((paths.MODELS / mf.value()).read_text(encoding="utf-8-sig"))
                 msmp, multi_ = md_.get("sample", ""), "datasets" in md_
             except Exception:
-                logs.log.warning("qt.pages.fitting.upd 出错（已忽略或已提示）", exc_info=True)
+                logs.log.warning("qt.pages.fitting.upd 出错（已忽略或已提示）：%s", mf.value(), exc_info=True)
                 msmp = ""
             smp.setEnabled(not multi_)
             hint.setVisible(multi_)

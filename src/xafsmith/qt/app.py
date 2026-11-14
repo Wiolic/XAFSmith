@@ -528,7 +528,7 @@ class MainWindow(QMainWindow):
         try:
             xup.save_settings(lang=lang)
         except Exception:
-            logs.log.debug("qt.app.set_lang 出错（已忽略或已提示）", exc_info=True)
+            logs.log.debug("qt.app.set_lang 出错（已忽略或已提示）：%s", lang, exc_info=True)
             pass
         self.rebuild()
 
@@ -803,7 +803,7 @@ class FlowButton(QPushButton):
         try:
             nfit = len(pd.read_csv(paths.FITS_CSV, encoding="utf-8-sig")) if paths.FITS_CSV.exists() else 0
         except Exception:
-            logs.log.debug("qt.app.counts 出错（已忽略或已提示）", exc_info=True)
+            logs.log.debug("qt.app.counts 出错（已忽略或已提示）：%s", paths.FITS_CSV, exc_info=True)
             nfit = 0
         c = dict(meta=len(pl.load_meta()) if paths.META.exists() else 0, cal=len(S.calib),
                  proc=len(list(paths.PROC.glob("*"))) if paths.PROC.exists() else 0, feff=len(feff_dirs()), fit=nfit,

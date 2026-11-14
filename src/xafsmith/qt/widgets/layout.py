@@ -208,7 +208,7 @@ class Page(QScrollArea):
         try:
             self.build()
         except Exception as ex:          # 页面出错时显示错误，不让整个程序退出
-            logs.log.warning("qt.widgets.refresh 出错（已忽略或已提示）", exc_info=True)
+            logs.log.warning("qt.widgets.refresh 出错（已忽略或已提示）：%s", type(self).__name__, exc_info=True)
             ERRORS.append(f"{type(self).__name__}: {ex}\n{traceback.format_exc()}")
             self.add(Banner("err", f"{type(ex).__name__}: {ex}"))
             self.add(code_block(traceback.format_exc()))

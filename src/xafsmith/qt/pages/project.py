@@ -166,7 +166,7 @@ class DataPage(Page):
                     shutil.copy2(f, dst)
                     copied.append(dst.name)
                 except Exception as ex:      # noqa: BLE001
-                    logs.log.warning("qt.pages.project.add_files 出错（已忽略或已提示）", exc_info=True)
+                    logs.log.warning("qt.pages.project.add_files 出错（已忽略或已提示）：%s", f, exc_info=True)
                     failed.append(f"{Path(f).name}: {ex}")
             meta, nreg = pl.scan_raw()           # 复制后直接登记
             try:

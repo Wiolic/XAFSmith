@@ -60,7 +60,7 @@ class NormPage(Page):
                 try:
                     xnorm.normalize(S.groups[k], **{**S.norm_par, "e0": S.norm_par.get("e0") if len(v) == 1 else None})
                 except Exception as ex:      # noqa: BLE001
-                    logs.log.warning("qt.pages.process.update 出错（已忽略或已提示）", exc_info=True)
+                    logs.log.warning("qt.pages.process.update 出错（已忽略或已提示）：%s", k, exc_info=True)
                     errs.append(f"{k}: {ex}")
             if errs:
                 self._set_update_notice(errs)
@@ -129,7 +129,7 @@ class NormPage(Page):
                               bkg=S.bkg_par, ft=S.ft_par)
                 W.toast(self, T(f"已导出 {paths.rel(fn)}（{len(sel.value())} 条谱）", f"Exported {paths.rel(fn)} ({len(sel.value())} spectra)"))
             except Exception as ex:      # noqa: BLE001
-                logs.log.warning("qt.pages.process.export_prj 出错（已忽略或已提示）", exc_info=True)
+                logs.log.warning("qt.pages.process.export_prj 出错（已忽略或已提示）：%s", prj_name.text(), exc_info=True)
                 self.notice("err", T("导出 .prj 失败", "Export .prj failed"), [str(ex)])
         exp.add(W.hbox(W.button(T("导出所选归一化数据到 output/gui/norm/", "Export selected to output/gui/norm/"), icon_name="download",
                                 slot=export_nor), None))

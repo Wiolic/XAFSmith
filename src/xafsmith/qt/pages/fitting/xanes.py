@@ -26,7 +26,7 @@ class XanesPage(Page):
             try:
                 ensure_norm(S, g)
             except Exception:
-                logs.log.warning("qt.pages.fitting.build 出错（已忽略或已提示）", exc_info=True)
+                logs.log.warning("qt.pages.fitting.build 出错（已忽略或已提示）：%s %s", getattr(g, "label", None), exc_info=True)
                 pass
         cands = [k for k, g in S.groups.items() if hasattr(g, "flat")]
         if not cands:
@@ -135,7 +135,7 @@ class XanesPage(Page):
                 try:
                     cal = xx.valence_calibration(pos, val)
                 except Exception as ex:      # noqa: BLE001
-                    logs.log.warning("qt.pages.fitting.calc 出错（已忽略或已提示）", exc_info=True)
+                    logs.log.warning("qt.pages.fitting.calc 出错（已忽略或已提示）：%s", st_, exc_info=True)
                     out.layout().addWidget(Banner("info", str(ex)))
                     return
                 out.layout().addWidget(W.label(T(f"E = <b>{cal['a']:.3f}</b>·价态 + <b>{cal['b']:.2f}</b> eV；R² = {cal['r2']:.4f}；斜率误差 {cal['a_err']:.3f} eV/价（{cal['n']} 个标样）",

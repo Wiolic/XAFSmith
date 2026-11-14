@@ -63,7 +63,7 @@ class FeffPage(Page):
                 fn.currentIndexChanged.connect(lambda *_: (self.state.__setitem__("file", fn.value()), self.refresh()))
                 pick = W.field(T("结构文件", "Structure file"), fn)
         except Exception as ex:      # noqa: BLE001
-            logs.log.warning("qt.pages.fitting.export_builtin 出错（已忽略或已提示）", exc_info=True)
+            logs.log.warning("qt.pages.fitting.export_builtin 出错（已忽略或已提示）：%s", self.state.get("file"), exc_info=True)
             card.add(Banner("err", str(ex)))
             self.add(card)
             return

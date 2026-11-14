@@ -55,7 +55,7 @@ class LoadPage(Page):
                         try:
                             out[s], _ = pl.build_sample(s, cfg, meta)
                         except Exception as ex:      # noqa: BLE001
-                            logs.log.warning("qt.pages.process.work 出错（已忽略或已提示）", exc_info=True)
+                            logs.log.warning("qt.pages.process.work 出错（已忽略或已提示）：%s", s, exc_info=True)
                             errs.append(f"{s}: {ex}")
                     return out, errs, cfg
 
@@ -156,7 +156,7 @@ class LoadPage(Page):
                     fpaths = [paths.ROOT / r] + [p for p in fpaths if p != paths.ROOT / r]
                     W.toast(self, T(f"参比 {Path(r).name}：ΔE = {rc['delta_e']:+.3f} eV", f"Reference {Path(r).name}: ΔE = {rc['delta_e']:+.3f} eV"))
                 except Exception as ex:      # noqa: BLE001
-                    logs.log.warning("qt.pages.process.read 出错（已忽略或已提示）", exc_info=True)
+                    logs.log.warning("qt.pages.process.read 出错（已忽略或已提示）：%s", r, exc_info=True)
                     W.toast(self, f"{r}: {ex}", "err")
                     return
             for p in fpaths:
@@ -189,7 +189,7 @@ class LoadPage(Page):
                         S.groups.pop(lab)
                         errs.append(T(f"{p.name}：吸收边 {edge_key(g)} 与参比不同，未读入", f"{p.name}: edge {edge_key(g)} differs from the reference; skipped"))
                 except Exception as ex:      # noqa: BLE001
-                    logs.log.warning("qt.pages.process.read 出错（已忽略或已提示）", exc_info=True)
+                    logs.log.warning("qt.pages.process.read 出错（已忽略或已提示）：%s", p, exc_info=True)
                     errs.append(f"{p.name}: {ex}")
             S.emit("groups")
             if errs:

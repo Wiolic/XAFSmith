@@ -28,7 +28,7 @@ class LCFPage(Page):
             try:
                 ensure_norm(S, g)
             except Exception:
-                logs.log.warning("qt.pages.fitting.build 出错（已忽略或已提示）", exc_info=True)
+                logs.log.warning("qt.pages.fitting.build 出错（已忽略或已提示）：%s %s", getattr(g, "label", None), exc_info=True)
                 pass
         card = Card()
         keys = list(S.groups)
