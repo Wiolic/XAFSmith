@@ -38,7 +38,8 @@ def path_atoms(file, root=None) -> list:
     f = Path(file)
     if root and not f.is_absolute():
         f = Path(root) / f
-    key = str(f)
+    st = f.stat()                      # 键含 mtime/size：FEFF 重跑改写文件后不会取到旧几何
+    key = (str(f), st.st_mtime_ns, st.st_size)
     if key not in _geom_cache:
         from larch.xafs import feffpath
         p = feffpath(str(f))
