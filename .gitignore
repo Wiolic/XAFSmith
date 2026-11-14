@@ -19,3 +19,8 @@ tests/local/
 .coverage
 coverage.xml
 htmlcov/
+
+# 工具缓存（P5）
+.ruff_cache/
+.pytest_cache/
+.scratch_dl/
