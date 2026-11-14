@@ -278,6 +278,14 @@ def _multi_groups(S, model, groups=None):
         return {d["id"]: S.groups[d["sample"]] for d in nm["datasets"]}
 
 
+def group_snapshot(S, names):
+    """后台线程用的会话快照：只含 S.groups 中 names 里已有的谱，且是深拷贝（须在界面线程调用）。
+    返回只有 .groups 的对象，可直接当 run_model 的 S 传入（run_model 只读 S.groups）。"""
+    import copy
+    from types import SimpleNamespace
+    return SimpleNamespace(groups={k: copy.deepcopy(S.groups[k]) for k in dict.fromkeys(names) if k in S.groups})
+
+
 def run_model(S, model, group=None):
     """运行一个模型（dict），返回会话中的拟合记录（不保存文件）。
     多数据集模型：group 可给 {数据集 id: Group}；不给则同命令行（按项目配置建，缺则取会话中的谱）。"""

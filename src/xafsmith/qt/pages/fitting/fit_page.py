@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from xafsmith import logs
+import copy
 import json
 import re
 from pathlib import Path
@@ -11,7 +12,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QWidget
 from xafsmith import paths
 from ... import widgets as W
-from ...state import feff_dirs, has_chi, idents, load_model, run_model, saved_models
+from ...state import feff_dirs, group_snapshot, has_chi, idents, load_model, run_model, saved_models
 from ...theme import C, SP
 from ...widgets import T, Banner, Card, Page
 
@@ -296,12 +297,21 @@ class FitPage(Page):
         def go():
             todo = [None] if not smp.isEnabled() else (smp.value() or [None])
             names = list(todo)
+            mf_v = mf.value()                    # 控件只在界面线程读；后台线程只用普通值
+            need = []                            # run_model 回退时会读的会话谱：在界面线程深拷贝
+            for s_ in names:
+                try:
+                    m_ = load_model(mf_v, s_)
+                    need += [d["sample"] for d in m_["datasets"]] if "datasets" in m_ else [m_["sample"]]
+                except Exception:                # 模型有误：留给后台 load_model 照旧报错
+                    logs.log.debug("qt.pages.fitting.go 预读模型失败（后台会重新报错）", exc_info=True)
+            S_snap = group_snapshot(S, need)
 
             def work(progress):
                 out = []
                 for i, s_ in enumerate(names):
                     progress(i / len(names), s_ or "")
-                    out.append(run_model(S, load_model(mf.value(), s_)))
+                    out.append(run_model(S_snap, load_model(mf_v, s_)))
                 return out
 
             def done(fits):
@@ -925,20 +935,22 @@ class FitPage(Page):
                     d["paths"] = mk_paths(used_by[k])
                     dsl.append(d)
                 model = dict(name=mname.text(), params=params, **rng, datasets=dsl, norm=dict(S.norm_par), bkg=dict(S.bkg_par), **extra)
-                groups = {ids[k]: S.groups[k] for k in keys}
+                groups = {ids[k]: copy.deepcopy(S.groups[k]) for k in keys}      # 界面线程里复制（同 lcf.py）
             else:
                 model = dict(name=mname.text(), sample=data_k, **rng, params=params, paths=mk_paths(used_by[data_k]),
                              norm=dict(S.norm_par), bkg=dict(S.bkg_par), **extra)
                 if data_k in tvals:
                     model["temperature"] = tvals[data_k]
-                groups = S.groups[data_k]
+                groups = copy.deepcopy(S.groups[data_k])
+
+            S_snap = group_snapshot(S, [])      # 给了 groups 时 run_model 不读 S；传空快照而非活的会话
 
             def done(fit):
                 S.fits.append(fit)
                 S.emit("fits")
                 self._show_result(fit)          # 只更新右侧：左侧的设置与滚动位置不变
                 self.ack()
-            W.run_task(self, lambda: run_model(S, model, groups), done, T("拟合中…", "Fitting…"), btn,
+            W.run_task(self, lambda: run_model(S_snap, model, groups), done, T("拟合中…", "Fitting…"), btn,
                        key="fit", excl="fit")
         btn.clicked.connect(go)
         self._fit_go = go

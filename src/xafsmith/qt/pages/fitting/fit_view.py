@@ -295,13 +295,15 @@ class FitView(QWidget):
 
         def go():
             from xafsmith import fit_exafs as fx, pipeline as pl
-            g = page.S.groups.get(fit["summ"]["sample"])
+            import copy
+            g = copy.deepcopy(page.S.groups.get(fit["summ"]["sample"]))     # 界面线程里复制；None 则后台按项目重建
+            fit_model, smp_name = fit["model"], fit["summ"]["sample"]
 
             def work(progress):
                 gg = g
                 if gg is None:
-                    gg, _ = pl.build_sample(fit["summ"]["sample"])
-                return fx.robustness(gg, fit["model"], progress=lambda f, n: progress(f, n))
+                    gg, _ = pl.build_sample(smp_name)
+                return fx.robustness(gg, fit_model, progress=lambda f, n: progress(f, n))
             W.run_task(page, work, lambda r: (fit.__setitem__("robust", r), show()), T("稳健性检查…", "Robustness…"), btn, progress=True,
                        key="fit_robust")
         btn.clicked.connect(go)
