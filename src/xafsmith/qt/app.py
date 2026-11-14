@@ -538,6 +538,31 @@ class MainWindow(QMainWindow):
         self.rebuild()
         QTimer.singleShot(0, self.start_session)
 
+    def clear_workspace(self):
+        """清空工作区：移出所有已载入的谱、拟合与各页设置，删除上次的会话快照（数据文件与 output/ 结果不动）。
+        用于同一项目里换一批样品从头处理。"""
+        if self._block_for_tasks(("清空工作区", "clearing the workspace")):
+            return
+        n, nf = len(self.S.groups), len(self.S.fits)
+        if not W.ask(self, T("清空工作区", "Clear workspace"), T(
+                f"移出全部 {n} 条已载入的谱、{nf} 个本次拟合和各页设置，从头开始？\n"
+                "原始数据、meta.csv、xafsmith.json 和 output/ 中已保存的结果都不会删除；拟合草稿也保留。",
+                f"Remove all {n} loaded spectra, {nf} fits of this session and page settings, and start over?\n"
+                "Raw data, meta.csv, xafsmith.json and saved results in output/ are kept; fit drafts are kept too.")):
+            return
+        from . import session
+        self._session_timer.stop()
+        try:
+            session.session_file().unlink(missing_ok=True)
+        except Exception:                      # noqa: BLE001
+            logs.log.warning("删除会话快照失败（已忽略）", exc_info=True)
+        self.S.reset()
+        self.S.extra["page"] = "load"
+        self.S.emit("groups")
+        self.rebuild()
+        self.go("load")
+        self.toast(T("工作区已清空，可以读入新的样品", "Workspace cleared; load new samples"), "info")
+
     # ------------------------------------------------------------------ 会话快照（关闭时保存，打开时恢复）
     def save_session_later(self):
         if self._session_ready:
@@ -613,7 +638,8 @@ class MainWindow(QMainWindow):
             if page in self.pages:
                 self.pages[page].refresh()
             if not quiet:
-                msg = T(f"已恢复上次状态（{len(out)} 条谱）", f"Restored the last session ({len(out)} spectra)")
+                msg = T(f"已恢复上次状态（{len(out)} 条谱；要换样品从头开始：“载入谱”页的“清空工作区”）",
+                        f"Restored the last session ({len(out)} spectra; to start over with other samples: “Clear workspace” on the Load spectra page)")
                 if lost:
                     msg += T(f"；{len(lost)} 条未能恢复（不在 meta.csv 登记表中，需重新读入）：" + ", ".join(lost[:3]),
                              f"; {len(lost)} could not be restored (not in meta.csv — load again): " + ", ".join(lost[:3]))
@@ -827,7 +853,9 @@ class FlowPopup(QFrame):
         g.setSpacing(6)
         for txt, ic, fn in ((T("项目文件夹", "Project folder"), "folder", lambda: W.open_folder(paths.ROOT)),
                             ("output", "external", lambda: W.open_folder(paths.OUT)),
-                            (T("保存处理参数", "Save parameters"), "save", save_session)):
+                            (T("保存处理参数", "Save parameters"), "save", save_session),
+                            (T("清空工作区", "Clear workspace"), "refresh",
+                             lambda: (self.btn.close_pop(), self.win.clear_workspace()))):
             g.addWidget(W.button(txt, icon_name=ic, slot=fn))
         v.addSpacing(4)
         v.addLayout(g)

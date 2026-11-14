@@ -215,7 +215,11 @@ class LoadPage(Page):
 
     def _loaded(self):
         S = self.S
-        card = Card(T(f"已载入 {len(S.groups)} 条谱", f"{len(S.groups)} spectra loaded"))
+        card = Card(T(f"已载入 {len(S.groups)} 条谱", f"{len(S.groups)} spectra loaded"),
+                    actions=[W.button(T("清空工作区", "Clear workspace"), icon_name="refresh",
+                                      slot=lambda: self.window().clear_workspace(),
+                                      tip=T("移出全部已载入的谱和本次拟合，在同一项目里换一批样品从头处理（文件与 output/ 不删）",
+                                            "Remove all loaded spectra and fits to start over with other samples in this project (files and output/ kept)"))])
         rows = [dict(label=k, element=g.element, edge=g.edge, mode=g.mode, npts=len(g.energy),
                      E_range=f"{g.energy[0]:.0f}–{g.energy[-1]:.0f}", time=getattr(g, "timestamp", ""),
                      dE_cal=round(getattr(g, "e_shift", 0.0) or 0.0, 3),

@@ -1538,6 +1538,15 @@ def main():
         f"U5：帮助目录 {pane.toc.count()} 项、#锚点跳转、查找、后退")
     hw.close()
 
+    # 清空工作区：同一项目换一批样品从头处理
+    n = len(W.ERRORS)
+    ng = len(w.S.groups)
+    w.clear_workspace()
+    pump(app)
+    step("清空工作区", n)
+    say(ng > 0 and not w.S.groups and not w.S.fits and w.S.extra.get("page") == "load",
+        f"清空工作区：{ng} 条谱 → {len(w.S.groups)} 条，回到“载入谱”页")
+
     # 英文界面逐页（不保存语言设置）
     W.LANG["v"] = "en"
     w.rebuild()

@@ -4,6 +4,12 @@
 [语义化版本](https://semver.org/lang/zh-CN/)。
 All notable changes are recorded here (format: Keep a Changelog; versioning: SemVer).
 
+## [未发布 / Unreleased]
+
+### 新增 / Added
+- **清空工作区**（“载入谱”页“已载入”卡片右上角，和左上角流程弹窗“本项目”一栏）：确认后移出全部已载入的谱、本次拟合与各页设置，并删除上次的会话快照，回到“载入谱”页，便于在同一项目里换一批样品从头处理；原始数据、meta.csv、xafsmith.json、output/ 与拟合草稿都不动。恢复上次状态的提示里也指向这个按钮。
+  **Clear workspace** (Load spectra page and the flow pop-up): removes all loaded spectra, fits of this session and page settings, and deletes the saved session snapshot, to start over with other samples in the same project; files, output/ and fit drafts are kept.
+
 ## [1.3.0] — 2026-11-14
 
 ### 新增 / Added
