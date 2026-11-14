@@ -135,7 +135,7 @@ class ChiPage(Page):
                                                   f"Data end k = {g0.k[-1]:.2f} Å⁻¹; usable k limit with interfering edges ≈ <b>{kl_:.2f} Å⁻¹</b>"), rich=True))
                 kres.layout().addWidget(W.Table(df))
             except Exception as ex:      # noqa: BLE001
-                logs.log.warning("qt.pages.process.update 出错（已忽略或已提示）：%s %s", getattr(g0, "label", None), exc_info=True)
+                logs.log.warning("qt.pages.process.update 出错（已忽略或已提示）：%s", getattr(g0, "label", None), exc_info=True)
                 kres.layout().addWidget(Banner("err", str(ex)))
             kres.layout().addWidget(W.label(
                 T(f"ΔR 分辨率 = π/(2Δk) = <b>{r_resolution(f['kmin'], f['kmax']):.3f} Å</b>；N_idp = 2ΔkΔR/π = "

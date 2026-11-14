@@ -26,7 +26,7 @@ class XanesPage(Page):
             try:
                 ensure_norm(S, g)
             except Exception:
-                logs.log.warning("qt.pages.fitting.build 出错（已忽略或已提示）：%s %s", getattr(g, "label", None), exc_info=True)
+                logs.log.warning("qt.pages.fitting.build 出错（已忽略或已提示）：%s", getattr(g, "label", None), exc_info=True)
                 pass
         cands = [k for k, g in S.groups.items() if hasattr(g, "flat")]
         if not cands:

@@ -46,7 +46,7 @@ class _Worker(QObject):
         except Cancelled:
             self.cancelled.emit()
         except Exception as ex:          # noqa: BLE001
-            logs.log.warning("qt.widgets.run 出错（已忽略或已提示）：%s %s", getattr(self.fn, "__name__", self.fn), exc_info=True)
+            logs.log.warning("qt.widgets.run 出错（已忽略或已提示）：%s", getattr(self.fn, "__name__", self.fn), exc_info=True)
             self.failed.emit(f"{type(ex).__name__}: {ex}\n\n{traceback.format_exc()}")
 
 
@@ -317,7 +317,7 @@ def wait_cursor(fn):
     try:
         return fn()
     except Exception as ex:        # noqa: BLE001
-        logs.log.warning("qt.widgets.wait_cursor 出错（已忽略或已提示）：%s %s", getattr(fn, "__name__", fn), exc_info=True)
+        logs.log.warning("qt.widgets.wait_cursor 出错（已忽略或已提示）：%s", getattr(fn, "__name__", fn), exc_info=True)
         QApplication.restoreOverrideCursor()
         ERRORS.append(f"{type(ex).__name__}: {ex}\n{traceback.format_exc()}")
         if QUIET["v"]:
