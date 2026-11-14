@@ -32,7 +32,7 @@ $venv = Join-Path $root ".venv-build"
 if (-not (Test-Path (Join-Path $venv "Scripts\python.exe"))) { Run $Python @("-m", "venv", $venv) }
 $py = Join-Path $venv "Scripts\python.exe"
 Run $py @("-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel", "--quiet")
-Run $py @("-m", "pip", "install", "-e", ".[dev]", "pyinstaller", "--quiet")
+Run $py @("-m", "pip", "install", "-e", ".[dev]", "pyinstaller", "-c", "packaging\constraints-win-py312.txt", "--quiet")
 $ErrorActionPreference = "Continue"; & $py -m pip uninstall -y mkl_fft mkl; $ErrorActionPreference = "Stop"   # 未安装时报错无妨
 $left = & $py -m pip list --format=freeze | Select-String -Pattern "^(mkl|mkl_fft)=="
 if ($left) { throw "mkl 仍在构建环境里：$left" }
