@@ -9,6 +9,8 @@ from PySide6.QtCore import QByteArray, QRectF, Qt
 from PySide6.QtGui import QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 
+from .. import logs
+
 LIGHT = dict(
     bg="#FAF9F5", side="#F3F1EA", card="#FFFFFF", raised="#FFFFFF",
     border="#E6E3D9", border2="#D9D5C8", hover="#ECE9DF", select="#E6E2D6",
@@ -39,7 +41,7 @@ def force_light(app):
     try:
         app.styleHints().setColorScheme(Qt.ColorScheme.Light)
     except Exception:
-        pass
+        logs.log.debug("qt.theme.force_light 出错（已忽略）", exc_info=True)
     c = C
     p = QPalette()
     R = QPalette.ColorRole

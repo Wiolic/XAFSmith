@@ -705,6 +705,7 @@ def _splash():
         qa.processEvents()
         return sp
     except Exception:                          # noqa: BLE001
+        logs.log.debug("cli._splash 出错（已忽略）", exc_info=True)
         return None
 
 

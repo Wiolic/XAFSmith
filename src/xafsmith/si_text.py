@@ -258,6 +258,7 @@ def _restraint_txt(model, row):
     try:
         fitted = json.loads(row["restraints"]) if isinstance(row.get("restraints"), str) else {}
     except Exception:
+        logs.log.debug("si_text._restraint_txt 出错（已忽略）：%s", row.get("restraints"), exc_info=True)
         fitted = {}
     en, zh = [], []
     for r in rs:

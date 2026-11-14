@@ -22,6 +22,8 @@ import random
 import re
 from pathlib import Path
 
+from . import logs
+
 SS_TOL = 0.05            # 单散射行匹配 |reff − r_X| 容差（Å）
 BOND_TOL = 0.05          # 规则 3 等价键：腿长与单散射 reff 的容差（Å）
 COLLINEAR_DEG = 5.0      # 规则 2 共线判据：A 处夹角 < 5° 或 > 175°
@@ -122,6 +124,7 @@ def equivalent(a, b) -> bool:
                 return False
         return True
     except Exception:
+        logs.log.debug("msbind.equivalent 出错（已忽略）：%s", a, exc_info=True)
         return False
 
 
@@ -132,6 +135,7 @@ def _bool(v):
     try:
         return bool(v)
     except Exception:
+        logs.log.debug("msbind._bool 出错（已忽略）：%s", v, exc_info=True)
         return False
 
 
@@ -161,6 +165,7 @@ def suggest(rows, root=None) -> list[dict]:
             try:
                 el = geom_of(r)[1][0]
             except Exception:
+                logs.log.debug("msbind.suggest 出错（已忽略）：%s", r.get("file"), exc_info=True)
                 continue
             singles.append(dict(i=i, el=el, reff=float(r["reff"]), dir=dirof(r), deltar=str(r.get("deltar", "")).strip(),
                                 sigma2=str(r.get("sigma2", "")).strip(), label=str(r.get("label", ""))))
