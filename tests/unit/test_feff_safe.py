@@ -53,7 +53,10 @@ def test_exception_preserves_folder_and_reraises(tmp_path, monkeypatch):
 def test_success_replaces_old(tmp_path):
     (tmp_path / "feff.inp").write_text("OLD\n", encoding="utf-8")
     (tmp_path / "feff0099.dat").write_text("stale extra\n", encoding="utf-8")
+    (tmp_path / "_feff_failed").mkdir()                       # 上一次的失败现场：成功后清掉
+    (tmp_path / "_feff_failed" / "feff0001.dat").write_text("x\n", encoding="utf-8")
     df = feff_wrap.run_feff(tmp_path, _inp())
+    assert not (tmp_path / "_feff_failed").exists()
     assert len(df) >= 2
     assert not (tmp_path / "feff0099.dat").exists()
     assert (tmp_path / "feff0001.dat").stat().st_size > 100
