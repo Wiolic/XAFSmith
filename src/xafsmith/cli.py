@@ -852,11 +852,11 @@ def main(argv=None):
     if a.cmd is None:
         ap.print_help()
         return
-    project = a.dir if a.cmd == "new" else a.project
-    if project:                              # 必须在导入 paths 之前设置
-        Path(project).mkdir(parents=True, exist_ok=True) if a.cmd == "new" else None
-        os.environ["XAFSMITH_PROJECT"] = str(Path(project).resolve())
     try:
+        project = a.dir if a.cmd == "new" else a.project
+        if project:                          # 必须在导入 paths 之前设置
+            Path(project).mkdir(parents=True, exist_ok=True) if a.cmd == "new" else None
+            os.environ["XAFSMITH_PROJECT"] = str(Path(project).resolve())
         a.f(a)
     except KeyboardInterrupt:
         print("已中断 / Interrupted", file=sys.stderr)
