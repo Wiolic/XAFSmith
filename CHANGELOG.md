@@ -15,8 +15,8 @@ All notable changes are recorded here (format: Keep a Changelog; versioning: Sem
   **Splash screen** shown before the heavy imports.
 
 ### 改进 / Changed
-- **许可证改为 MIT**（自 v1.3.1 起；v1.3.0 及更早版本仍为 PolyForm Noncommercial，已发出的版本不变）：LICENSE、NOTICE、README、关于对话框、安装程序同步更新；“论文中引用”改为引用请求，不再是许可条件。
-  **License changed to MIT** (from v1.3.1; v1.3.0 and earlier remain PolyForm Noncommercial, released versions are unchanged): LICENSE, NOTICE, READMEs, About dialog and installer updated; citing in publications is now a request, not a license condition.
+- **许可证改为 GPL-3.0-only**（自 v1.3.1 起；作者另提供商业授权；v0.5.1–v1.3.0 仍为 PolyForm Noncommercial，已发出的版本不变）：LICENSE、NOTICE、README、关于对话框、安装程序同步更新；“论文中引用”改为引用请求，不再是许可条件。
+  **License changed to GPL-3.0-only** (from v1.3.1; commercial licenses also offered by the author; v0.5.1–v1.3.0 remain PolyForm Noncommercial, released versions are unchanged): LICENSE, NOTICE, READMEs, About dialog and installer updated; citing in publications is now a request, not a license condition.
 - `normalize` 模块不在导入时载入 Larch / SciPy（只在函数里用到时导入），图形界面窗口出现前少等约 0.3 s。
   `normalize` imports Larch / SciPy lazily, so the main window appears sooner.
 
