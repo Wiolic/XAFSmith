@@ -3,6 +3,10 @@
 快照 = 演示项目全流程（校准 → 处理全部边）的 .nor/.chik/.chir 全列全点 + process_summary.csv
        + Cu 箔 EXAFS 拟合 + Fe LCF（二元、三元）。写成 JSON（tests/golden/demo.json）。
 比较：每列容差 = rtol × max|gold 列|（按列尺度的绝对容差）；标量容差 = rtol × max(|gold|, 1e-300)。
+     .nor（%.7g）/ .chik、.chir（%.6g）是按有效数字写出的文本：逐点容差再取 max(上式, 该点印刷精度的末位 1 个单位)，
+     因为底层双精度的 ~1e-9 差异会让个别点末位进位翻转。
+     缺省 rtol = 1e-7（跨平台）：2026-11-14 CI 四组合首跑实测最大相对差 3.9e-9（拟合/LCF 误差，优化器与 BLAS 差异），
+     余量约 25 倍；重构造成的真实数值变化远大于此。同机逐位不变由 tests/local（sha256 + rtol 1e-12）保证。
 
 用法（在 XAFSmith 仓库根目录）：
     python tools/golden.py demo --write     重写 tests/golden/demo.json
@@ -180,7 +184,7 @@ def _walk(new, gold, path, rtol, out, scale=None):
             out.append(f"{path}: 长度不同（新 {len(new)}，基线 {len(gold)}）")
             return
         if all(isinstance(v, (int, float)) or v is None for v in gold):
-            _array(new, gold, path, rtol, out)
+            _array(new, gold, path, rtol, out, _print_digits(path))
         else:
             for i, (a, b) in enumerate(zip(new, gold)):
                 _walk(a, b, f"{path}[{i}]", rtol, out)
@@ -200,7 +204,19 @@ def _walk(new, gold, path, rtol, out, scale=None):
     out.append(f"{path}: 无法比较的类型 {type(gold).__name__}")
 
 
-def _array(new, gold, path, rtol, out):
+PRINT_DIGITS = {".nor": 7, ".chik": 6, ".chir": 6}      # 写出格式 %.7g / %.6g（io.write_cols、pipeline.process_all）
+DEFAULT_RTOL = 1e-7
+
+
+def _print_digits(path: str):
+    """processed/<文件名>/<列> → 该文件的有效数字位数；其他路径 None。"""
+    parts = path.split("/")
+    if len(parts) == 3 and parts[0] == "processed":
+        return PRINT_DIGITS.get(Path(parts[1]).suffix)
+    return None
+
+
+def _array(new, gold, path, rtol, out, digits=None):
     nn = [i for i, (a, b) in enumerate(zip(new, gold)) if (a is None) != (b is None)]
     if nn:
         out.append(f"{path}: NaN 位置不同，首个下标 {nn[0]}（共 {len(nn)} 处）")
@@ -211,16 +227,21 @@ def _array(new, gold, path, rtol, out):
     g = np.array([gold[i] for i in idx], float)
     n = np.array([new[i] for i in idx], float)
     scale = float(np.max(np.abs(g)))
-    tol = rtol * scale
+    tol = np.full(g.shape, rtol * scale)
+    if digits:                                   # 印刷精度末位 1 个单位
+        nz = g != 0
+        ulp = np.zeros_like(g)
+        ulp[nz] = 10.0 ** (np.floor(np.log10(np.abs(g[nz]))) - (digits - 1))
+        tol = np.maximum(tol, ulp * (1 + 1e-9))
     d = np.abs(n - g)
     bad = np.flatnonzero(~(d <= tol))
     if bad.size:
         j = int(bad[np.argmax(d[bad])])
         out.append(f"{path}: {bad.size}/{len(g)} 点超差；最大差 {d[j]:.3e}（相对列尺度 {d[j] / max(scale, 1e-300):.3e}，"
-                   f"容差 {tol:.3e}）位于下标 {idx[j]}：新 {n[j]!r} vs 基线 {g[j]!r}")
+                   f"容差 {tol[j]:.3e}）位于下标 {idx[j]}：新 {n[j]!r} vs 基线 {g[j]!r}")
 
 
-def compare(new: dict, gold: dict, rtol: float = 1e-9) -> list[str]:
+def compare(new: dict, gold: dict, rtol: float = DEFAULT_RTOL) -> list[str]:
     """返回全部不一致项（空列表 = 一致）。数组按"列尺度绝对容差" rtol × max|gold 列|。"""
     out: list[str] = []
     _walk(new, gold, "", rtol, out)
@@ -253,7 +274,7 @@ def main(argv=None) -> int:
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--write", action="store_true")
     g.add_argument("--check", action="store_true")
-    ap.add_argument("--rtol", type=float, default=1e-9)
+    ap.add_argument("--rtol", type=float, default=DEFAULT_RTOL)
     a = ap.parse_args(argv)
     if a.what == "demo":
         path, run, rtol = GOLDEN, run_demo_tmp, a.rtol
