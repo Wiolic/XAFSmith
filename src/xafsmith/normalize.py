@@ -10,8 +10,7 @@ import argparse
 import copy
 
 import numpy as np
-from larch import Group
-from scipy.ndimage import gaussian_filter1d
+# larch / scipy 在函数里导入：图形界面启动时只需要 DEFAULT_NORM，不必等这两个大库（约 0.8 s）载入
 
 DEFAULT_NORM = dict(pre1=-150.0, pre2=-30.0, norm1=100.0, norm2=None, nnorm=2, nvict=0,
                     e0_method="deriv", e0=None, smooth_ev=1.0)
@@ -20,6 +19,7 @@ DEFAULT_NORM = dict(pre1=-150.0, pre2=-30.0, norm1=100.0, norm2=None, nnorm=2, n
 def find_e0(energy, mu, e_guess=None, window=40.0, smooth_ev=1.0, step=0.05):
     """一阶导数最大值。先插值到细网格，再高斯平滑（σ=smooth_ev eV）。
     e_guess 给出时只在 ±window eV 内搜索。返回 (e0, egrid, dmu)。"""
+    from scipy.ndimage import gaussian_filter1d
     energy = np.asarray(energy, float)
     mu = np.asarray(mu, float)
     if e_guess is None:
@@ -76,6 +76,7 @@ def merge_scans(groups, label="merge", ref_index=0, reject=None, tol_sigma=4.0, 
     检查：每条归一化谱与中位谱的 RMS 偏差，超过 tol_sigma×(中位 RMS) 记为异常。
     reject：手动剔除的 label 列表。
     返回 (merged_group, report_list)"""
+    from larch import Group
     reject = set(reject or [])
     # 能量范围明显短的扫描（中断/只测 XANES）不参与合并，否则会截断公共范围
     span = [g.energy[-1] - g.energy[0] for g in groups]
