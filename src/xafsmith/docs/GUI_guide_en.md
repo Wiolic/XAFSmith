@@ -159,7 +159,7 @@ Opening a project takes you to **Register data**.
 | Background and Fourier transform | rbkg, k-weight, kmin, kmax, dk, window |
 | S0² | Value, error, source. Leave empty; fill in after fitting a standard (section 11) |
 
-Click **Save parameters**.
+Click **Save parameters**. Saving keeps a `.bak` of the previous version next to the file (`xafsmith.json.bak`, `meta.csv.bak`; only the latest one), and is refused when the configuration has errors: the errors are listed at the top of the page and the file is left unchanged.
 
 **Second: batch run**, click in turn:
 
