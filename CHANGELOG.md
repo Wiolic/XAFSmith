@@ -4,6 +4,13 @@
 [语义化版本](https://semver.org/lang/zh-CN/)。
 All notable changes are recorded here (format: Keep a Changelog; versioning: SemVer).
 
+## [未发布 / Unreleased]
+
+### 改进 / Changed
+- GitHub Release 说明改为 CHANGELOG 中该版本一节的全文（`tools/release_notes.py`，`release.yml` 发布时调用；缺这一节则发布失败）；v1.0.0–v1.3.1 的 Release 说明已按 CHANGELOG 补写。
+  GitHub Release notes are now the version's full CHANGELOG section (`tools/release_notes.py`, used by `release.yml`; a release without its section fails); notes for v1.0.0–v1.3.1 were backfilled.
+- `.gitignore` 加入工具缓存目录。 Tool caches added to `.gitignore`.
+
 ## [1.3.1] — 2026-11-14
 
 补丁版：稳定性修复与工程护栏；已有数值结果逐位不变（黄金基线 `tests/golden/demo.json` 与本机项目快照核对）。
