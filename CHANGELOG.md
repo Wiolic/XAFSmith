@@ -4,7 +4,26 @@
 [语义化版本](https://semver.org/lang/zh-CN/)。
 All notable changes are recorded here (format: Keep a Changelog; versioning: SemVer).
 
-## [未发布 / Unreleased]
+## [1.3.1] — 2026-11-14
+
+补丁版：稳定性修复与工程护栏；已有数值结果逐位不变（黄金基线 `tests/golden/demo.json` 与本机项目快照核对）。
+Patch release: stability fixes and engineering guard rails; existing numerical results are bit-identical (checked against the golden baseline and a local project snapshot).
+
+### 修复 / Fixed
+- 处理参数页：`norm2 = 0` 不再被改成 −10；窗函数下拉列出 larch 支持的全部 6 种，配置里其他写法原样保留（以前保存时被改成 hanning）；FT `kweight` 为列表时不再崩溃，原样显示并保存。
+  Processing-parameter page: `norm2 = 0` is kept; all six larch windows are offered and other spellings kept (previously saved as hanning); a list-valued FT `kweight` no longer crashes and is kept.
+- 后台线程不再读界面控件、不再与界面共用同一份谱对象（运行已保存模型、自定义拟合、稳健性检查、FEFF 运行）：谱在界面线程里先复制。
+  Background tasks no longer read widgets or share live spectra with the UI (saved-model run, custom fit, robustness, FEFF).
+- FEFF 在临时子目录运行，成功后才替换旧结果；失败时旧的 `feff*.dat` 与 `feff.inp` 原样保留，失败现场在 `_feff_failed/`（`feffrun_feff.log`、`feff.err`），报错指向它。多重散射向导的几何缓存随 FEFF 文件更新失效。
+  FEFF runs in a temporary subfolder and replaces old results only on success; on failure old files are kept and the failed run is kept in `_feff_failed/`. The multiple-scattering geometry cache follows file changes.
+- `xafsmith.json`、`meta.csv`、模型 JSON 改为原子写入（写到一半中断不留坏文件），旧版本保留为同名 `.bak`；配置写入前按数据标准校验，有“错误”级问题则拒绝保存并在页面上说明。
+  `xafsmith.json`, `meta.csv` and model JSON are written atomically with a `.bak` of the previous version; a configuration with errors is refused before writing.
+
+### 改进 / Changed
+- 命令行出错时只打印一行中英文原因与日志位置，完整 traceback 写入日志；`--debug` 显示 traceback；Ctrl+C 退出码 130。日志消息补上出错对象（文件、样品、模型名），原先静默忽略的异常记入调试日志。
+  CLI errors print one line plus the log location (`--debug` shows the traceback); log messages name the object; previously silent exceptions are debug-logged.
+- 工程护栏：黄金基线回归测试（`tools/golden.py`、`tests/benchmark/test_golden.py`）；核心依赖设下界、`xraylarch` 设上界 <2026.4 并加 larch 内部函数金丝雀测试；`requires-python >=3.11`；`pytest` 默认只收集 `tests/unit` 与 `tests/benchmark`；CI 出覆盖率报告、每周定时运行；Windows 发布构建使用约束文件；删除过时的 `requirements.txt`；版本号一致性测试。
+  Guard rails: golden-baseline regression, dependency bounds and a larch canary test, Python ≥ 3.11, pytest test paths, coverage report and weekly CI, build constraints, version consistency test.
 
 ### 新增 / Added
 - **清空工作区**（“载入谱”页“已载入”卡片右上角，和左上角流程弹窗“本项目”一栏）：确认后移出全部已载入的谱、本次拟合与各页设置，并删除上次的会话快照，回到“载入谱”页，便于在同一项目里换一批样品从头处理；原始数据、meta.csv、xafsmith.json、output/ 与拟合草稿都不动。恢复上次状态的提示里也指向这个按钮。
