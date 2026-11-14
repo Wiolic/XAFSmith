@@ -13,7 +13,7 @@ AppPublisher=Eggy & Claude
 AppPublisherURL=https://github.com/Wiolic/XAFSmith
 AppSupportURL=https://github.com/Wiolic/XAFSmith/issues
 AppUpdatesURL=https://github.com/Wiolic/XAFSmith/releases
-AppCopyright=Copyright (C) 2026 Eggy & Claude. PolyForm Noncommercial License 1.0.0
+AppCopyright=Copyright (C) 2026 Eggy & Claude. MIT License
 ; 安装程序文件属性（资源管理器 → 属性 → 详细信息）
 VersionInfoVersion={#AppVersion}
 VersionInfoProductName=XAFSmith
@@ -42,7 +42,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 ; 欢迎页与完成页：署名、许可、免责声明、引用（文字与 src/xafsmith/about.py 一致）。Inno 6 无官方简体中文语言文件，界面保持英文，这里中英双语。
 [Messages]
-WelcomeLabel2=This will install [name/ver] on your computer.%n%nDeveloped by Eggy & Claude Opus 5.5 (Anthropic).%nLicense: PolyForm Noncommercial 1.0.0 (noncommercial use only).%n%nXAFSmith is provided "as is", without warranty of any kind. Please validate your results, e.g. against Athena / Artemis.%n%n本软件由 Eggy 与 Claude Opus 5.5（Anthropic）开发，仅限非商业用途。软件按“现状”提供，不附带任何保证，请自行核验结果。
+WelcomeLabel2=This will install [name/ver] on your computer.%n%nDeveloped by Eggy & Claude Opus 5.5 (Anthropic).%nLicense: MIT.%n%nXAFSmith is provided "as is", without warranty of any kind. Please validate your results, e.g. against Athena / Artemis.%n%n本软件由 Eggy 与 Claude Opus 5.5（Anthropic）开发。软件按“现状”提供，不附带任何保证，请自行核验结果。
 FinishedLabel=Setup has finished installing [name] on your computer.%n%nA demo project built from public data is in the "examples\demo_project" folder of the installation; copy it to your own folder before opening it.%n%nIf you use XAFSmith in a publication, please cite it (and Larch and FEFF): Eggy & Claude. XAFSmith, version {#AppVersion}. https://github.com/Wiolic/XAFSmith%n%n论文中使用请引用本软件及 Larch、FEFF。
 
 [Tasks]

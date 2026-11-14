@@ -282,10 +282,7 @@ AI 仍可能出错，**关键结论请在图形界面中核对**，必要时与 
 
 Developed by **Eggy** & **Claude Opus 5.5** (Anthropic).
 
-许可：[PolyForm Noncommercial License 1.0.0](LICENSE)（详见 [NOTICE](NOTICE)）。
+许可：自 v1.3.1 起为 [MIT License](LICENSE)（详见 [NOTICE](NOTICE)）：可自由使用、修改、分发，包括商业用途，分发时保留版权声明与许可文本。
 
-- **允许**：个人、学术研究、教学等非商业用途的使用、修改和分发；
-- **不允许**：任何商业用途，包括出售本软件或其修改版、收费分发、作为收费产品或服务的一部分；
-- **分发时**：必须附上许可条款和 LICENSE 中以 “Required Notice:” 开头的引用说明；论文中使用请按上文引用。
-
-商业使用请联系作者另行授权。0.5.0 及更早版本按当时附带的 MIT 许可发布。
+- **引用请求（非许可条件）**：论文中使用请按上文引用本软件及 Larch、FEFF；
+- **历史版本**：v0.5.1 至 v1.3.0 按 PolyForm Noncommercial 1.0.0 发布，v0.5.0 及更早按 MIT 发布；已发出的版本不受后来变更影响。

@@ -82,7 +82,7 @@ This folder is an **XAFSmith project** for synchrotron XAFS (XANES + EXAFS) anal
 4. 变量数 ≤ N_idp/2；加壳层必须 F 检验；结论要通过稳健性检查。 Variables ≤ N_idp/2; F-test every added shell; check robustness.
 5. 结论分“实测 / 拟合 / 推测”；不编造数据、误差或文献值。 Label conclusions as measured / fitted / inferred; never invent data.
 6. 用户可以在图形界面（`xafsmith gui`）中打开你建立的模型与结果检查。 The user can inspect everything you produce in the GUI.
-7. XAFSmith 按 PolyForm Noncommercial 1.0.0 授权：只限非商业用途；论文中使用请引用 Eggy & Claude, XAFSmith, https://github.com/Wiolic/XAFSmith（以及 Larch 与 FEFF）。生成的方法段落与报告中保留这条引用。 XAFSmith is licensed for noncommercial use only (PolyForm Noncommercial 1.0.0); publications must cite it (and Larch and FEFF) — keep this citation in generated methods text and reports.
+7. XAFSmith 按 MIT 许可授权；论文中请求引用 Eggy & Claude, XAFSmith, https://github.com/Wiolic/XAFSmith（以及 Larch 与 FEFF）。生成的方法段落与报告中保留这条引用。 XAFSmith is MIT-licensed; publications are asked to cite it (and Larch and FEFF) — a request, not a license condition — keep this citation in generated methods text and reports.
 {END}
 """
 

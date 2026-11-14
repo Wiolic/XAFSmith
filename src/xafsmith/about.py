@@ -3,12 +3,12 @@ from . import __version__
 
 REPO = "https://github.com/Wiolic/XAFSmith"
 CREDIT = "Developed by Eggy & Claude Opus 5.5 (Anthropic)"
-LICENSE = "PolyForm Noncommercial License 1.0.0"
-LICENSE_CN = ("许可：PolyForm Noncommercial 1.0.0——允许非商业用途（个人、学术研究、教学）的使用、修改和分发；"
-              "禁止任何商业用途（包括出售或收费分发本软件及其修改版）。分发时须附上许可条款与引用说明。")
-LICENSE_EN = ("License: PolyForm Noncommercial 1.0.0 — noncommercial use (personal, academic, teaching), modification "
-              "and distribution are allowed; any commercial use, including selling or paid distribution of the software "
-              "or a modified version, is not. Distributions must include the license terms and the citation notice.")
+LICENSE = "MIT License"
+LICENSE_CN = ("许可：MIT——可自由使用、修改和分发（包括商业用途），分发时须保留版权声明与许可文本；"
+              "论文中使用请引用本软件（引用请求，非许可条件）。v1.3.0 及更早版本曾按 PolyForm Noncommercial 发布。")
+LICENSE_EN = ("License: MIT — free to use, modify and distribute (including commercially); keep the copyright notice "
+              "and license text when distributing. Please cite XAFSmith in publications (a request, not a license "
+              "condition). Versions up to v1.3.0 were released under PolyForm Noncommercial.")
 
 DISCLAIMER_CN = ("免责声明：本软件按“现状”提供，不附带任何形式的保证；作者不对使用本软件得到的任何结果负责。"
                  "请使用者自行核验结果，建议将关键结果与 Athena / Artemis（Demeter）的处理和拟合结果对比。")
