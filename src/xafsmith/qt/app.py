@@ -491,7 +491,14 @@ class MainWindow(QMainWindow):
         if not self._confirm_leave():
             e.ignore()
             return
-        self.save_session()
+        act = self._ask_save_on_close()
+        if act is None:                        # 取消关闭
+            e.ignore()
+            return
+        if act == "save":
+            self.save_session()
+        else:                                  # 不保存：删除快照，下次打开从空白开始
+            self._discard_session()
         self._save_geometry("main", self)
         hw = getattr(self, "_help", None)
         if hw is not None:
@@ -564,6 +571,51 @@ class MainWindow(QMainWindow):
         self.toast(T("工作区已清空，可以读入新的样品", "Workspace cleared; load new samples"), "info")
 
     # ------------------------------------------------------------------ 会话快照（关闭时保存，打开时恢复）
+    def _discard_session(self):
+        from . import session
+        self._session_timer.stop()
+        self._session_ready = False
+        if is_project() and session.enabled():
+            try:
+                session.session_file().unlink(missing_ok=True)
+            except Exception:                  # noqa: BLE001
+                logs.log.warning("删除会话快照失败（已忽略）", exc_info=True)
+
+    def _ask_save_on_close(self):
+        """关闭窗口时：询问是否保存当前进度（下次打开时恢复）。返回 "save" / "discard" / None（取消）。
+        设置 close_action：ask（默认）/ save / discard；没有载入的谱和拟合、或关闭了“恢复上次状态”时不问。"""
+        from . import session
+        from xafsmith import update as xup
+        if not is_project() or not session.enabled():
+            return "save"
+        act = xup.load_settings().get("close_action", "ask")
+        if act in ("save", "discard"):
+            return act
+        if not (self.S.groups or self.S.fits) or W.QUIET["v"]:
+            return "save"
+        from PySide6.QtWidgets import QMessageBox, QCheckBox
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setWindowTitle(T("关闭 XAFSmith", "Close XAFSmith"))
+        box.setText(T(f"保存当前进度吗？（{len(self.S.groups)} 条已载入的谱、各页设置、做到一半的拟合设置）",
+                      f"Save the current progress? ({len(self.S.groups)} loaded spectra, page settings, half-done fit setup)"))
+        box.setInformativeText(T("保存：下次打开本项目时自动恢复。\n不保存：下次从空白开始。\n"
+                                 "两种情况下数据文件和 output/ 中已保存的结果都不受影响。",
+                                 "Save: restored next time you open this project.\nDon't save: start blank next time.\n"
+                                 "Data files and results saved in output/ are kept either way."))
+        b_save = box.addButton(T("保存", "Save"), QMessageBox.ButtonRole.AcceptRole)
+        b_drop = box.addButton(T("不保存", "Don't save"), QMessageBox.ButtonRole.DestructiveRole)
+        box.addButton(T("取消", "Cancel"), QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(b_save)
+        cb = QCheckBox(T("记住选择，不再询问（可在“项目”页改回）", "Remember and don't ask again (change it on the Project page)"))
+        box.setCheckBox(cb)
+        box.exec()
+        clicked = box.clickedButton()
+        act = "save" if clicked is b_save else ("discard" if clicked is b_drop else None)
+        if act and cb.isChecked():
+            xup.save_settings(close_action=act)
+        return act
+
     def save_session_later(self):
         if self._session_ready:
             self._session_timer.start()
@@ -926,13 +978,15 @@ def _error_dialog(text):
     box.exec()
 
 
-def run(project=None):
+def run(project=None, splash=None):
     _no_console_output()
     from xafsmith import logs
     logs.install_excepthook(_error_dialog)
     app, w = make_window(project)
     w.restore_geometry()
     w.show()
+    if splash is not None:
+        splash.finish(w)
     QTimer.singleShot(400, w.start_background)
     QTimer.singleShot(0, w.start_session)
     return app.exec()

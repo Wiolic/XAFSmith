@@ -1547,6 +1547,13 @@ def main():
     say(ng > 0 and not w.S.groups and not w.S.fits and w.S.extra.get("page") == "load",
         f"清空工作区：{ng} 条谱 → {len(w.S.groups)} 条，回到“载入谱”页")
 
+    # 关闭时询问保存（自动测试不弹窗 → 视为保存）；启动画面
+    from xafsmith.cli import _splash
+    sp = _splash()
+    say(w._ask_save_on_close() == "save" and sp is not None, "关闭询问（测试中按保存）、启动画面")
+    if sp is not None:
+        sp.close()
+
     # 英文界面逐页（不保存语言设置）
     W.LANG["v"] = "en"
     w.rebuild()

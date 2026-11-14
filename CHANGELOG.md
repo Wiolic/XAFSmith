@@ -9,6 +9,14 @@ All notable changes are recorded here (format: Keep a Changelog; versioning: Sem
 ### 新增 / Added
 - **清空工作区**（“载入谱”页“已载入”卡片右上角，和左上角流程弹窗“本项目”一栏）：确认后移出全部已载入的谱、本次拟合与各页设置，并删除上次的会话快照，回到“载入谱”页，便于在同一项目里换一批样品从头处理；原始数据、meta.csv、xafsmith.json、output/ 与拟合草稿都不动。恢复上次状态的提示里也指向这个按钮。
   **Clear workspace** (Load spectra page and the flow pop-up): removes all loaded spectra, fits of this session and page settings, and deletes the saved session snapshot, to start over with other samples in the same project; files, output/ and fit drafts are kept.
+- **关闭时询问是否保存进度**：有载入的谱或拟合时关闭窗口，弹框选择“保存”（下次打开自动恢复）/“不保存”（删除快照，下次从空白开始）/“取消”；可勾选“记住选择”，在“项目”页“关闭窗口时保存当前进度”改回（每次询问 / 总是保存 / 不保存）。设置键 `close_action`。
+  **Ask to save progress on close** (Save / Don't save / Cancel, with “remember”; Project-page setting `close_action`: ask / save / discard).
+- **启动画面**：从桌面或开始菜单打开时先显示 XAFSmith 启动画面，再载入 pandas / SciPy / Larch 等大库，冷启动时不再像“没反应”。
+  **Splash screen** shown before the heavy imports.
+
+### 改进 / Changed
+- `normalize` 模块不在导入时载入 Larch / SciPy（只在函数里用到时导入），图形界面窗口出现前少等约 0.3 s。
+  `normalize` imports Larch / SciPy lazily, so the main window appears sooner.
 
 ## [1.3.0] — 2026-11-14
 

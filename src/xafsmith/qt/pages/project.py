@@ -91,6 +91,11 @@ class HomePage(Page):
                      xup.load_settings().get("restore_session", True))
         rs.toggled.connect(lambda on: xup.save_settings(restore_session=bool(on)))
         card.add(rs)
+        ca = W.combo(["ask", "save", "discard"], xup.load_settings().get("close_action", "ask"),
+                     fmt=lambda v: {"ask": T("每次询问", "Ask every time"), "save": T("总是保存", "Always save"),
+                                    "discard": T("不保存（下次从空白开始）", "Don't save (start blank next time)")}[v])
+        ca.currentIndexChanged.connect(lambda _i: xup.save_settings(close_action=ca.value()))
+        card.add(W.hbox(W.label(T("关闭窗口时保存当前进度：", "On closing, save the current progress:")), ca, None))
         return card
 
 
