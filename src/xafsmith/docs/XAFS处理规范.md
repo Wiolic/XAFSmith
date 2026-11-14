@@ -21,7 +21,7 @@
 | `calib` | 用参比箔做能量校准（一阶导数最大值），记录每条谱的 ΔE |
 | `normalize` | 合并扫描、边前/边后拟合、归一化、E₀ 定义 |
 | `autobk` | 背景扣除（rbkg、k 权重、spline 参数可设），得到 χ(k) |
-| `ft` | k 空间窗函数（Hanning/Kaiser）、傅里叶变换；输出 |χ(R)|、Re/Im；画图时标注"未相移校正" |
+| `ft` | k 空间窗函数（Hanning/Kaiser）、傅里叶变换、反变换；输出 |χ(R)|、Re/Im；画图时标注"未相移校正" |
 | `wavelet` | 小波变换（Morlet/Cauchy），用于区分轻/重散射体、重叠壳层 |
 | `feff_wrap` | 由 CIF 或手写结构生成 FEFF 输入（可调吸收边、RMAX），运行 FEFF6/8，读入 feffNNNN.dat |
 | `fit_exafs` | EXAFS 拟合：路径、参数绑定、约束、多 k 权重同时拟合、R 空间或 k 空间；输出参数、误差、R 因子、χ²_ν |
@@ -33,20 +33,7 @@
 
 ## 3. 项目目录与配置
 
-标准项目目录（`xafsmith new` 生成；每个文件的含义见数据标准.md）：
-
-```
-project/
-├── AGENTS.md / CLAUDE.md   # 给 AI 助手的说明（xafsmith agent --write 生成）
-├── project.md              # 体系特定信息：样品、测量清单、结构模型、已有结论、注意事项
-├── xafsmith.json           # 处理参数（每个吸收边一套；个别样品例外写 overrides + 理由）
-├── data/raw/               # 原始数据，只读
-├── data/meta.csv           # 每个文件的样品、边、模式、角色、参比、use 标记、备注
-├── structures/             # 结构文件（CIF）
-├── models/                 # 拟合模型 JSON
-├── output/                 # 全部结果：qc/ calib/ processed/ feff/ fits/ figs/ reports/ gui/
-└── notes/                  # 每次分析的记录
-```
+标准项目目录、每个文件的含义与格式见 **数据标准.md**（唯一来源，此处不重复；`xafsmith new` 按它生成）。
 
 `project.md` 模板（新体系时由用户填写，AI 助手可引导）：
 
@@ -143,7 +130,7 @@ project/
 
 ## 10. 启动清单（首次使用）
 
-1. `xafsmith new <目录>` 建项目（或在图形界面“打开 / 新建项目”），`xafsmith validate` 应 0 错误；
+1. `xafsmith new <目录>` 建项目（或 `xafsmith init` 登记已有数据；或在图形界面“打开 / 新建项目”），`xafsmith validate` 应 0 错误；
 2. 填写 `project.md`；
 3. 将原始数据放进 `data/raw/`，`xafsmith init` 生成 `meta.csv`，运行 `xafsmith qc`；
 4. 用一个结构已知的标样跑通全流程（校准 → 归一化 → χ(k) → FT → FEFF 拟合），确定 S₀²，并与 Athena/Artemis 结果对照；
