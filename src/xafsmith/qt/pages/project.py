@@ -16,6 +16,23 @@ from ..theme import C, icon
 from ..widgets import T, Banner, Card, Page
 
 
+# 处理参数页的下拉选项：配置里已有、但不在常用列表中的取值原样加入选项，保存时不被改写（E4）
+FT_WINDOW_NAMES = ["hanning", "kaiser", "parzen", "welch", "gaussian", "sine"]   # larch xafsft.ftwindow 支持的全部窗
+
+
+def options_keeping(base, current):
+    """常用选项 + 当前值（若不在其中，例如 FT kweight 为列表 [1, 2, 3]、窗写作 "Kaiser-Bessel"）。"""
+    opts = list(base)
+    if current is not None and current not in opts:
+        opts.append(current)
+    return opts
+
+
+def norm2_shown(v):
+    """norm2 为 None（未设）时显示 −10（normalize 对 None、0、−10 都取“距末端 10 eV”，数值等价）；0 原样显示。"""
+    return -10 if v is None else v
+
+
 class HomePage(Page):
     """打开或新建项目（侧栏“打开 / 新建项目”进入；不在导航中显示）。流程进度与本项目信息在侧栏“流程与本项目”的悬浮窗口中。"""
     title_zh, title_en, icon_name = "打开或新建项目", "Open or create a project", "home"
@@ -344,18 +361,17 @@ class BatchPage(Page):
                            "All elements in the sample (comma-separated; for interfering edges and the k limit)"), el))
         n, b, f = c["norm"], c["bkg"], c["ft"]
         pre1, pre2 = W.num(n["pre1"], -2000, -1, 5, 1), W.num(n["pre2"], -2000, -1, 5, 1)
-        norm1, norm2 = W.num(n["norm1"], step=10), W.num(n.get("norm2") or -10, step=10)
-        nnorm = W.combo([1, 2, 3], int(n["nnorm"]))
+        norm1, norm2 = W.num(n["norm1"], step=10), W.num(norm2_shown(n.get("norm2")), step=10)
+        nnorm = W.combo(options_keeping([1, 2, 3], n["nnorm"]), n["nnorm"])
         sm = W.num(n.get("smooth_ev", 1.0), 0, 10, 0.5)
         card.add(W.label(T("归一化", "Normalization"), "h3"))
         card.add(W.fields(("pre1", pre1), ("pre2", pre2), ("norm1", norm1), (T("norm2（≤0 距末端）", "norm2 (≤0: from end)"), norm2),
                           ("nnorm", nnorm), (T("E0 平滑 σ", "E0 smoothing σ"), sm)))
         rbkg = W.num(b["rbkg"], 0.3, 4, 0.1)
-        bkw = W.combo([1, 2, 3], int(b["kweight"]))
+        bkw = W.combo(options_keeping([1, 2, 3], b["kweight"]), b["kweight"])
         kmin, kmax, dk = W.num(f["kmin"], 0, 30, 0.1), W.num(f["kmax"], 0, 30, 0.1), W.num(f["dk"], 0, 5, 0.1)
-        wins = ["hanning", "kaiser", "sine"]
-        win = W.combo(wins, f["window"] if f["window"] in wins else "hanning")
-        fkw = W.combo([1, 2, 3], int(f["kweight"]))
+        win = W.combo(options_keeping(FT_WINDOW_NAMES, f["window"]), f["window"])
+        fkw = W.combo(options_keeping([1, 2, 3], f["kweight"]), f["kweight"])
         card.add(W.label(T("背景扣除与傅里叶变换", "Background removal & Fourier transform"), "h3"))
         card.add(W.fields(("rbkg", rbkg), (T("背景 k 权重", "bkg k-weight"), bkw), ("kmin", kmin), ("kmax", kmax),
                           ("dk", dk), (T("窗", "Window"), win), (T("FT k 权重", "FT k-weight"), fkw)))
