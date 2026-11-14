@@ -1,27 +1,43 @@
 XAFSmith
 Copyright (c) 2026 Eggy. https://github.com/Wiolic/XAFSmith
 
-Required Notice: If you use XAFSmith or software based on it in a publication, cite: Eggy & Claude. XAFSmith: XAFS processing and fitting software. https://github.com/Wiolic/XAFSmith
-
 许可 / License
-  自 0.5.1 起，XAFSmith 按 PolyForm Noncommercial License 1.0.0 授权（全文见 LICENSE）：
-  - 允许：个人、学术研究、教学与其他非商业用途的使用、修改和分发；
-  - 不允许：任何商业用途，包括出售本软件或其修改版、收费分发、作为收费产品或服务的一部分；
-  - 分发本软件或其修改版时，必须附上许可条款（或其网址）和上面以 “Required Notice:” 开头的引用说明。
-  商业使用请联系作者另行授权。0.5.0 及更早的版本按当时附带的 MIT 许可发布。
+  自 v1.3.1 起，XAFSmith 按 MIT 许可授权（全文见 LICENSE）：可自由使用、修改、分发，包括商业用途；
+  分发时须保留版权声明与许可文本。软件按“现状”提供，不附带任何保证。
+  历史版本：v0.5.1 至 v1.3.0 按 PolyForm Noncommercial License 1.0.0（仅限非商业用途）发布；
+  v0.5.0 及更早按 MIT 许可发布。已按某一许可发出的版本，其许可不因后来的变更而收回，使用者仍可依该版本附带的许可使用该版本。
 
-  Since 0.5.1, XAFSmith is licensed under the PolyForm Noncommercial License 1.0.0 (full text in LICENSE):
-  - allowed: personal, academic, teaching and other noncommercial use, modification and distribution;
-  - not allowed: any commercial use, including selling the software or a modified version, paid distribution,
-    or use as part of a paid product or service;
-  - anyone distributing the software or a modified version must pass on the license terms (or their URL) and the
-    line above that begins with "Required Notice:".
-  For commercial use, contact the author for a separate license. Versions 0.5.0 and earlier were released under
-  the MIT License that accompanied them.
+  Since v1.3.1, XAFSmith is licensed under the MIT License (full text in LICENSE): free to use, modify and
+  distribute, including for commercial purposes, provided the copyright notice and license text are kept.
+  The software is provided "as is", without warranty of any kind.
+  History: v0.5.1 through v1.3.0 were released under the PolyForm Noncommercial License 1.0.0 (noncommercial
+  use only); v0.5.0 and earlier were released under the MIT License. A license already granted for a released
+  version is not withdrawn by a later change; those versions may still be used under the license they shipped with.
+
+引用请求（非许可条件）/ Citation request (not a condition of the license)
+  如果在论文中使用了 XAFSmith，请引用 / If you use XAFSmith in a publication, please cite:
+  Eggy & Claude. XAFSmith: XAFS processing and fitting software. https://github.com/Wiolic/XAFSmith
+  使用 FEFF 计算的结果发表时，请同时引用 FEFF 与 Larch。When publishing FEFF-based results, also cite FEFF and Larch.
 
 第三方组件 / Third-party components
-  XAFSmith 依赖的软件按各自的许可证授权，不受上述条款约束，例如 xraylarch（含 FEFF6L / FEFF8L）、xraydb、
-  lmfit、numpy、scipy、matplotlib、pandas、pymatgen、PySide6（LGPL）。使用 FEFF 计算的结果发表时，请同时引用 FEFF 与 Larch。
-  Dependencies are licensed under their own terms and are not covered by the above, e.g. xraylarch (with FEFF6L /
-  FEFF8L), xraydb, lmfit, numpy, scipy, matplotlib, pandas, pymatgen, PySide6 (LGPL). When publishing FEFF-based
-  results, also cite FEFF and Larch.
+  以下组件按各自的许可证授权，不受上述条款约束。
+  The following are licensed under their own terms, not those above.
+
+  - xraylarch (Larch)：MIT 许可。其版权声明（取自 xraylarch 2026.3.1 发行包的 LICENSE）：
+    "Copyright (c) 2010-2025 Matthew Newville, The University of Chicago; Mauro Rovezzi, University Grenoble
+    Alpes, CNRS; Bruce Ravel, National Institute of Science and Technology; Margaret Koker, Lawrence University;
+    Ryuichi Shimogawa, Stony Brook University".
+    src/xafsmith/_feffit_restrained.py 改编自 Larch 的 larch/xafs/feffit.py 中的 feffit 函数（加入软约束），
+    该文件沿用 Larch 的上述版权与 MIT 许可声明。
+    MIT-licensed. Copyright line as in the LICENSE of the xraylarch 2026.3.1 distribution (quoted above).
+    src/xafsmith/_feffit_restrained.py is adapted from the feffit function in Larch's larch/xafs/feffit.py
+    (with soft restraints added) and keeps Larch's copyright and MIT license notice.
+  - FEFF6L / FEFF8L（随 xraylarch 分发的可执行文件，由 xafsmith feff 调用）：其许可条款见其上游发行包
+    （xraylarch / feff85exafs），本仓库不重新分发其许可文本，也未在此转述其条款；使用与再分发请查阅上游。
+    FEFF6L / FEFF8L (executables shipped with xraylarch and called by `xafsmith feff`): see their upstream
+    distributions (xraylarch / feff85exafs) for the license terms; they are not restated here.
+  - PySide6 / Qt for Python：按其发行包元数据，许可为 LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only（或 Qt 商业许可）；
+    以 LGPL 方式使用。Per its package metadata: LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+    (or a Qt commercial license); used under the LGPL.
+  - 其他依赖 / Other dependencies：xraydb、lmfit、numpy、scipy、matplotlib、pandas、pymatgen 等，见各自的发行包。
+    xraydb, lmfit, numpy, scipy, matplotlib, pandas, pymatgen etc.: see their own distributions.
