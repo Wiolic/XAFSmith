@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QGridLayout, QPushButton, QWidget
 
 from xafsmith import paths
 from .. import widgets as W
-from ..state import fit_label, has_chi, load_cfg, plain_rc, save_cfg, save_fit
+from ..state import err_lines, fit_label, has_chi, load_cfg, plain_rc, save_cfg, save_fit
 from ..theme import C, FS
 from ..widgets import T, Banner, Card, Page
 
@@ -110,7 +110,11 @@ class MethodsPage(Page):
         def save_ins():
             c = load_cfg()
             c["instrument"] = {k: e.text() for k, e in eds.items()}
-            save_cfg(c)
+            try:
+                save_cfg(c)
+            except ValueError as ex:
+                self.notice("err", *err_lines(ex))
+                return
             W.toast(self, T("已保存到 xafsmith.json", "Saved to xafsmith.json"))
         samples = list(dict.fromkeys(pl.load_meta()["sample"])) if paths.META.exists() else []
         sel = W.MultiSelect(samples, self.state.get("mt", []), T("全部使用中的样品", "All samples in use"))

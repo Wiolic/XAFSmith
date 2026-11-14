@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from xafsmith import paths
 from ... import widgets as W
-from ...state import save_cfg
+from ...state import err_lines, save_cfg
 from ...theme import C
 from ...widgets import T, Banner, Card, Page
 
@@ -144,7 +144,11 @@ class QCPage(Page):
                 else:
                     dg.pop(s, None); why.pop(s, None)
             cfg["deglitch"], cfg["deglitch_reason"] = dg, why
-            save_cfg(cfg)
+            try:
+                save_cfg(cfg)
+            except ValueError as ex:
+                self.notice("err", *err_lines(ex))
+                return
             for s in v:
                 S.groups[s], _ = pl.build_sample(s, cfg, meta)
             S.qc = None

@@ -125,6 +125,12 @@ def load_cfg():
     return pl.load_config() if pl.CONFIG.exists() else {"edges": {}}
 
 
+def err_lines(ex):
+    """ValueError（save_config 的多行消息）→ (标题, 明细行)，供 Page.notice 显示。"""
+    ls = str(ex).splitlines() or [str(ex)]
+    return ls[0], ls[1:]
+
+
 def save_cfg(cfg):
     from xafsmith import pipeline as pl
     pl.save_config(cfg)                                    # 校验 + 原子写入；有错误级问题抛 ValueError

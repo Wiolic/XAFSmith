@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QFileDialog, QListWidget, QListWidgetItem
 from xafsmith import paths
 from xafsmith.common import atomic_path
 from .. import widgets as W
-from ..state import is_project, load_cfg, recent_projects, save_cfg
+from ..state import err_lines, is_project, load_cfg, recent_projects, save_cfg
 from ..theme import C, icon
 from ..widgets import T, Banner, Card, Page
 
@@ -169,7 +169,11 @@ class DataPage(Page):
                     logs.log.warning("qt.pages.project.add_files 出错（已忽略或已提示）", exc_info=True)
                     failed.append(f"{Path(f).name}: {ex}")
             meta, nreg = pl.scan_raw()           # 复制后直接登记
-            pl.init_config(meta)
+            try:
+                pl.init_config(meta)
+            except ValueError as ex:
+                self.notice("err", *err_lines(ex))
+                return
             msg = T(f"复制 {len(copied)} 个文件到 {paths.rel(d)}", f"Copied {len(copied)} files to {paths.rel(d)}")
             if skipped:
                 msg += T(f"；{len(skipped)} 个同名文件已存在，未覆盖", f"; {len(skipped)} already there, not overwritten")
@@ -184,7 +188,11 @@ class DataPage(Page):
             if not self.confirm_leave():           # 登记会改写 meta.csv：先保存或放弃表格里未保存的编辑
                 return
             meta, n = pl.scan_raw()
-            cfg = pl.init_config(meta)
+            try:
+                cfg = pl.init_config(meta)
+            except ValueError as ex:
+                self.notice("err", *err_lines(ex))
+                return
             W.toast(self, T(f"新增 {n} 行；吸收边 {list(cfg['edges'])}", f"{n} new rows; edges {list(cfg['edges'])}"))
             self.refresh()
         up.add(W.hbox(W.field(T("批次文件夹", "Batch folder"), batch),
@@ -399,7 +407,11 @@ class BatchPage(Page):
             c2["bkg"].update(rbkg=rbkg.value(), kweight=bkw.value())
             c2["ft"].update(kmin=kmin.value(), kmax=kmax.value(), dk=dk.value(), window=win.value(), kweight=fkw.value())
             c2["s02_recommended"] = dict(s0, value=s0v.value(), err=s0e.value(), source=s0s.text())
-            save_cfg(cfg2)
+            try:
+                save_cfg(cfg2)
+            except ValueError as ex:               # 配置有错误级问题：拒绝保存，原文件不动
+                self.notice("err", *err_lines(ex))
+                return
             self._par_dirty = False
             W.toast(self, T("已保存到 xafsmith.json；改动后请重新“③ 处理全部样品”。",
                             "Saved to xafsmith.json; run “③ Process all samples” again."))
