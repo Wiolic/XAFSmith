@@ -3,8 +3,18 @@
 Thank you for helping improve XAFSmith. Issues and pull requests may be written in English or Chinese.
 欢迎提交问题和改进；Issue 与 PR 用中文或英文均可。
 
-XAFSmith is licensed under the [GPL-3.0-only](LICENSE). By contributing you agree that
-your contribution is distributed under the same license (the author may additionally offer commercial licenses). 贡献的代码按同一许可发布。
+XAFSmith is licensed under the [GPL-3.0-only](LICENSE), and the author also offers separate commercial licenses
+(dual licensing). By submitting a contribution (pull request, patch or code in an issue) you confirm that you wrote it
+or have the right to submit it, and you agree that:
+1. it is distributed under GPL-3.0-only, and
+2. you grant the author (Eggy) a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to use,
+   modify and relicense your contribution, including under commercial license terms.
+You keep the copyright in your contribution. Please say so in the pull request if you do not agree; the change can then
+not be merged.
+
+XAFSmith 按 [GPL-3.0-only](LICENSE) 发布，作者另外提供商业授权（双重许可）。提交贡献（PR、补丁或 Issue 中的代码）即表示：
+你是作者或有权提交；同意贡献按 GPL-3.0-only 发布；并授予作者（Eggy）永久、全球、非独占、免费、不可撤销的许可，
+可使用、修改并以其他许可（包括商业许可）再授权你的贡献。贡献的版权仍归你。若不同意，请在 PR 中说明，该改动将无法合并。
 
 ## Reporting a problem / 报告问题
 
