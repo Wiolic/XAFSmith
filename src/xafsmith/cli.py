@@ -673,10 +673,46 @@ def cmd_si(a):
     print(f"\n→ {paths.rel(p)}、SI_EXAFS拟合参数表.csv")
 
 
+def _splash():
+    """先显示启动画面，再导入 pandas / scipy / larch 等大库（冷启动时要十几秒，不显示会以为没打开）。失败就不显示。"""
+    try:
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QPixmap, QColor, QPainter, QFont
+        from PySide6.QtWidgets import QApplication, QSplashScreen
+        from . import update as xup
+        qa = QApplication.instance() or QApplication(sys.argv)
+        en = xup.load_settings().get("lang", "zh") == "en"
+        pix = QPixmap(420, 160)
+        pix.fill(QColor("#ffffff"))
+        p = QPainter(pix)
+        logo = QPixmap(str(Path(__file__).parent / "assets" / "xafsmith.png"))
+        if not logo.isNull():
+            p.drawPixmap(24, 40, logo.scaled(80, 80, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        p.setPen(QColor("#1f2937"))
+        f = QFont()
+        f.setPointSize(18)
+        f.setBold(True)
+        p.setFont(f)
+        p.drawText(124, 76, "XAFSmith")
+        f.setPointSize(10)
+        f.setBold(False)
+        p.setFont(f)
+        p.setPen(QColor("#6b7280"))
+        p.drawText(124, 104, "Starting…" if en else "正在启动…")
+        p.end()
+        sp = QSplashScreen(pix, Qt.WindowType.WindowStaysOnTopHint)
+        sp.show()
+        qa.processEvents()
+        return sp
+    except Exception:                          # noqa: BLE001
+        return None
+
+
 def cmd_gui(a):
     from . import paths
+    splash = _splash()
     from .qt.app import run                   # PySide6 原生窗口
-    sys.exit(run(paths.ROOT if paths.is_project(paths.ROOT) else None))
+    sys.exit(run(paths.ROOT if paths.is_project(paths.ROOT) else None, splash=splash))
 
 
 # ---------------------------------------------------------------- 入口
