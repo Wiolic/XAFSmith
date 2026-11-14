@@ -10,6 +10,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFileDialog, QListWidget, QListWidgetItem
 
 from xafsmith import paths
+from xafsmith.common import atomic_path
 from .. import widgets as W
 from ..state import is_project, load_cfg, recent_projects, save_cfg
 from ..theme import C, icon
@@ -217,7 +218,8 @@ class DataPage(Page):
             tab.edited.connect(lambda: setattr(self, "_meta_dirty", True))
 
             def save():
-                tab.df().to_csv(paths.META, index=False, encoding="utf-8-sig")
+                with atomic_path(paths.META) as tmp:
+                    tab.df().to_csv(tmp, index=False, encoding="utf-8-sig")
                 self._meta_dirty = False
                 W.toast(self, T("已保存 meta.csv。改了 ref_file 或 role 后请在“校准与处理”中重新校准。",
                                 "meta.csv saved. After changing ref_file or role, recalibrate under “Calibrate & process”."))

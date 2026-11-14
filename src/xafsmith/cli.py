@@ -413,7 +413,7 @@ def cmd_ftest(a):
 def cmd_msbind(a):
     """B5：多重散射路径的 ΔR / σ² 绑定建议；只打印，加 --out 才另存新模型（不覆盖已有模型）。"""
     from . import paths, msbind as mb
-    from .common import write_params
+    from .common import write_params, write_text_atomic
     model = _load_model(a.model)
     blocks = [(d.get("id") or d.get("sample"), d) for d in model["datasets"]] if "datasets" in model         else [(model.get("sample", ""), model)]
     if a.dataset:
@@ -455,7 +455,7 @@ def cmd_msbind(a):
     if out_name:
         new["name"] = out_name
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(new, ensure_ascii=False, indent=2), encoding="utf-8")
+        write_text_atomic(target, json.dumps(new, ensure_ascii=False, indent=2))
         write_params(target.with_suffix(".params.json"),
                      dict(source_model=a.model, dataset=a.dataset, changed=allchanged, suggestions=rowsout,
                           SS_TOL=mb.SS_TOL, BOND_TOL=mb.BOND_TOL, COLLINEAR_DEG=mb.COLLINEAR_DEG), "xafsmith msbind")

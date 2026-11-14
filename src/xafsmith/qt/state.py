@@ -11,6 +11,7 @@ import numpy as np
 from PySide6.QtCore import QObject, Signal
 
 from xafsmith import paths
+from xafsmith.common import write_text_atomic
 
 FUNCS = {"sqrt", "exp", "log", "abs", "min", "max", "pi", "sin", "cos", "tan", "reff", "degen", "e", "log10",
          "sigma2_debye", "sigma2_eins", "tempK"}      # B6：σ² 温度模型的函数与保留符号不是参数名
@@ -125,7 +126,8 @@ def load_cfg():
 
 
 def save_cfg(cfg):
-    paths.CONFIG.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    from xafsmith import pipeline as pl
+    pl.save_config(cfg)                                    # 校验 + 原子写入；有错误级问题抛 ValueError
     bump()
 
 
@@ -360,7 +362,7 @@ def save_fit(fit):
     base = safe(s_["model"])
     paths.MODELS.mkdir(parents=True, exist_ok=True)
     paths.FITS.mkdir(parents=True, exist_ok=True)
-    (paths.MODELS / f"{base}.json").write_text(json.dumps(md, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_text_atomic(paths.MODELS / f"{base}.json", json.dumps(md, ensure_ascii=False, indent=2))
     (paths.FITS / f"{base}.fit_report.txt").write_text(fit["report"], encoding="utf-8")
     if s_.get("multi"):
         with plain_rc():
