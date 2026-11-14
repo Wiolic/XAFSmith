@@ -15,6 +15,21 @@ from .._common import rlabel
 from .quality import quality_checks
 
 
+def robust_job(S, fit):
+    """稳健性检查的后台任务（须在界面线程调用）：谱在此深拷贝；会话里没有则后台按项目重建。"""
+    import copy
+    from xafsmith import fit_exafs as fx, pipeline as pl
+    g = copy.deepcopy(S.groups.get(fit["summ"]["sample"]))
+    fit_model, smp_name = fit["model"], fit["summ"]["sample"]
+
+    def work(progress):
+        gg = g
+        if gg is None:
+            gg, _ = pl.build_sample(smp_name)
+        return fx.robustness(gg, fit_model, progress=lambda f, n: progress(f, n))
+    return work
+
+
 class FitView(QWidget):
     """一个拟合的结果：指标与按钮、k / R 图；参数、路径、质量检查、诊断、稳健性、完整报告放在标签页里（不用上下翻）。
     adopt：把拟合值写回参数表的回调（EXAFS 拟合页提供；拟合历史页没有）"""
@@ -294,16 +309,7 @@ class FitView(QWidget):
         W.bind_task(btn, "fit_robust")
 
         def go():
-            from xafsmith import fit_exafs as fx, pipeline as pl
-            import copy
-            g = copy.deepcopy(page.S.groups.get(fit["summ"]["sample"]))     # 界面线程里复制；None 则后台按项目重建
-            fit_model, smp_name = fit["model"], fit["summ"]["sample"]
-
-            def work(progress):
-                gg = g
-                if gg is None:
-                    gg, _ = pl.build_sample(smp_name)
-                return fx.robustness(gg, fit_model, progress=lambda f, n: progress(f, n))
+            work = robust_job(page.S, fit)
             W.run_task(page, work, lambda r: (fit.__setitem__("robust", r), show()), T("稳健性检查…", "Robustness…"), btn, progress=True,
                        key="fit_robust")
         btn.clicked.connect(go)
