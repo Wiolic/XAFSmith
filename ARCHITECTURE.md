@@ -37,18 +37,9 @@ Rules / 规则
 
 ## 2. Project on disk / 项目目录
 
-A project is a folder containing `xafsmith.json` (schema 1.0). The full specification is
-[`src/xafsmith/docs/数据标准.md`](src/xafsmith/docs/数据标准.md); `xafsmith validate` (module `schema`) checks it.
-
-| Path | Content |
-|---|---|
-| `data/raw/` | raw data, **read-only** |
-| `data/meta.csv` | one row per file: sample, edge, mode, role, reference file, `use` flag |
-| `xafsmith.json` | processing parameters per edge, per-sample overrides (with reasons), deglitch list, S0² |
-| `models/*.json` | EXAFS fit models (paths, parameters, constraints, k/R ranges) |
-| `structures/` | CIF / structure files for FEFF |
-| `output/` | everything generated: `processed/`, `feff/`, `fits/`, `figs/`, `reports/`, `gui/` (session, drafts) |
-| `notes/` | analysis notes |
+A project is a folder containing `xafsmith.json`. The directory layout and every file format are specified in one
+place only: [`src/xafsmith/docs/数据标准.md`](src/xafsmith/docs/数据标准.md) (section 1); `xafsmith validate`
+(module `schema`) checks it. 项目目录结构只在数据标准.md 中描述，此处不重复。
 
 ## 3. Data flow / 数据流
 
