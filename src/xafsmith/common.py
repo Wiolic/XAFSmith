@@ -1,6 +1,9 @@
 """公共工具：参数记录、k/E 换算、边能量查表。项目路径见 paths.py。"""
-import json
+import contextlib
 import datetime
+import json
+import os
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -47,6 +50,30 @@ def guess_edge(element, energy):
         if d < dmin:
             best, dmin = name, d
     return best
+
+
+@contextlib.contextmanager
+def atomic_path(path, backup=True):
+    """原子写入：产出同目录的临时路径 <name>.tmp，调用方把内容写进去；
+    正常退出时（backup 且原文件存在）先把原文件复制为 <name>.bak（每个文件只留一份，每次覆盖），再 os.replace 换上；
+    出错时删除临时文件并重新抛出，原文件不动。写到一半崩溃不会留下截断的项目文件。"""
+    path = Path(path)
+    tmp = path.with_name(path.name + ".tmp")
+    try:
+        yield tmp
+        if backup and path.exists():
+            shutil.copy2(path, path.with_name(path.name + ".bak"))
+        os.replace(tmp, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+        raise
+
+
+def write_text_atomic(path, text, encoding="utf-8", backup=True):
+    """原子写文本；换行翻译与 Path.write_text 相同（Windows 下 LF 写成 CRLF），字节与旧写法一致。"""
+    with atomic_path(path, backup) as tmp:
+        tmp.write_text(text, encoding=encoding)
 
 
 def write_params(path, params, tool=None):

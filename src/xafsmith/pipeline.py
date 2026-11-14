@@ -24,7 +24,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .common import edge_energy, write_params
+from .common import atomic_path, edge_energy, write_params, write_text_atomic
 from . import paths, logs
 from . import io as xio
 from . import normalize as xnorm
@@ -139,7 +139,8 @@ def scan_raw(raw_dir=None, meta_path=None):
         if not r.ref_file and "ref_file" not in r.note:
             meta.at[i, "note"] = (r.note + "；" if r.note else "") + "本批次无同边参比：请在 ref_file 填参比文件"
     Path(meta_path).parent.mkdir(parents=True, exist_ok=True)
-    meta.to_csv(meta_path, index=False, encoding="utf-8-sig")
+    with atomic_path(meta_path) as tmp:
+        meta.to_csv(tmp, index=False, encoding="utf-8-sig")
     return meta, len(rows)
 
 
@@ -172,8 +173,20 @@ def init_config(meta, path=None):
         if len(refs):
             c["reference"] = refs.file.iloc[0]
         cfg["edges"][ek] = c
-    Path(path).write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    save_config(cfg, path)
     return cfg
+
+
+def save_config(cfg, path=None):
+    """写 xafsmith.json：先按数据标准校验，有错误级问题就抛 ValueError 且不写文件（警告不拦）；
+    再原子写入（写到一半崩溃不留截断文件，旧版本留 .bak）。"""
+    from . import schema
+    rep = schema.Report()
+    schema.check_config(rep, cfg)
+    errs = [f"{w}：{m}" for lv, w, m in rep.items if lv == "错误"]
+    if errs:
+        raise ValueError("配置有错误，未保存 / configuration has errors, not saved:\n" + "\n".join(errs))
+    write_text_atomic(path or paths.CONFIG, json.dumps(cfg, ensure_ascii=False, indent=2))
 
 
 def load_config(path: str | Path | None = None) -> dict:
