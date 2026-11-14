@@ -111,9 +111,12 @@ class FeffPage(Page):
         def go():
             c = code.value()
             s = site.value()
-            W.run_task(self, lambda: xfeff.build(struct, absorber.value(), edge.value(), paths.ROOT / out.text(), site_index=s[0],
-                                                 rmax=rmax.value(), nleg=nleg.value(), title=nm, code=c, scf=scf.value(),
-                                                 exchange=exch.value()),
+            # 控件只在界面线程读；后台线程只用普通值
+            ab_v, edge_v, out_p, rmax_v, nleg_v, scf_v, exch_v = (absorber.value(), edge.value(), paths.ROOT / out.text(),
+                                                                  rmax.value(), nleg.value(), scf.value(), exch.value())
+            W.run_task(self, lambda: xfeff.build(struct, ab_v, edge_v, out_p, site_index=s[0],
+                                                 rmax=rmax_v, nleg=nleg_v, title=nm, code=c, scf=scf_v,
+                                                 exchange=exch_v),
                        lambda df: (W.toast(self, T(f"完成：{len(df)} 条路径 → {out.text()}", f"Done: {len(df)} paths → {out.text()}")),
                                    self.state.__setitem__("dir", str(paths.ROOT / out.text())), self.refresh()),
                        T("FEFF 运行中…（FEFF8L 约 1–3 分钟）", "Running FEFF… (FEFF8L 1–3 min)") if c == "feff8" else T("FEFF 运行中…", "Running FEFF…"),
