@@ -7,7 +7,7 @@ larch 升级若改了 feffit 该测试会失败。
 来源与许可：本文件改编自 xraylarch（Larch）的 feffit 代码，Larch 以 MIT 许可发布，版权声明（取自 xraylarch 2026.3.1 的 LICENSE）：
 Copyright (c) 2010-2025 Matthew Newville, The University of Chicago; Mauro Rovezzi, University Grenoble Alpes, CNRS;
 Bruce Ravel, National Institute of Science and Technology; Margaret Koker, Lawrence University;
-Ryuichi Shimogawa, Stony Brook University. MIT 许可全文见 xraylarch 发行包，本文件沿用该声明。
+Ryuichi Shimogawa, Stony Brook University. MIT 许可全文见 xraylarch 发行包；larch 部分按 MIT 许可（声明见上），XAFSmith 整体按 GPL-3.0-only。
 
 约束项：c0·((expr − value)/sigma)²，c0 = 同一模型无约束拟合的 χ²_ν（由调用方给出）。
 larch 内部名从 sys.modules["larch.xafs.feffit"] 取（`larch.xafs.feffit` 被同名函数遮住）。
