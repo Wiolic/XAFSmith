@@ -288,7 +288,7 @@ In the left column:
 4. **Parameters**: tick vary for `s02`, `e0`, `dr1`, `ss1`. Four variables, N_idp ≈ 9.1, so ≤ N_idp/2 holds.
 5. Click **Fit** at the bottom left (or Ctrl+Enter); the result appears on the right.
 
-Result in the author's project: **S0² ≈ 0.82, ΔE₀ ≈ 8.9 eV** (Ir L₃, transmission).
+Result in the author's project: **S0² ≈ 0.816, ΔE₀ ≈ 8.93 eV** (Ir L₃, transmission).
 
 6. Enter S0² under **Calibrate & process → Processing parameters → S0²** and **Save parameters**; on EXAFS fitting click **Save result**.
 

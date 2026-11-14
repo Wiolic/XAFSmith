@@ -17,10 +17,7 @@
 1. 所有项目路径只通过 `xafsmith.paths` 取得，不写死目录名；新输出放在 `output/` 的对应子目录。
 2. 数据标准改动要同步更新 `docs/数据标准.md`、`schema.py`（validate）与 `templates/`。新功能必须 GUI 可达，并同步 `docs/图形界面使用指南.md` 与 `docs/GUI_guide_en.md`；界面文字用 `T("中文","English")`。
 3. 新数据格式：加一个 reader（`detect` + `read`），**需要真实样例文件**，不凭记忆写格式；**列名自动识别规则的改动影响 μ 的计算，须格外谨慎**并加测试。
-4. 改完运行（在 `XAFSmith/` 下，用 `.venv`）：
-   - `python -m pytest tests/unit tests/benchmark`（应全过；基准含 Cu 箔与 larch 逐位一致）
-   - `python tests/test_qt.py`（默认用公开数据演示项目 `tests/data/demo_project`，应“全部通过”；`--project <项目>` 测本机项目，`--quick` 跳过 FEFF8L 与稳健性）
-   - `ruff check src tests`（0 报错；暂不跑 `ruff format`）
+4. 改完运行 `CONTRIBUTING.md` 的“Checks after changing code / 改代码后的检查”一节（唯一权威版本，含黄金基线、回归值与基线重写规则）。
 5. 演示项目只放公开数据，来源与许可记在 `tests/data/demo_project/SOURCES.md`；**不提交任何本人实测数据**，`tests/local/` 已 gitignore。
 6. 拆分或搬移代码用 `tools/check_move.py` 校验顶层定义逐个相同。
 7. 打包与发布：构建产物与 `build/`、`dist/` 不进仓库；本机无法验证的东西（GitHub CI、release.yml、macOS、Inno Setup 在干净机器上的安装）一律写“未验证”，不写“已通过”。提交、推送、打 tag 须先问用户。

@@ -25,15 +25,25 @@ python -m venv .venv
 
 Python 3.11 or 3.12 (the versions tested in CI). Read [ARCHITECTURE.md](ARCHITECTURE.md) first.
 
-## Before you open a pull request / 提交前检查
+## Checks after changing code / 改代码后的检查
+
+This is the only authoritative list; `AGENTS.md` files link here. Run from `XAFSmith/` with the project `.venv`.
+这是唯一权威版本，其他文档只引用本节。
 
 ```bash
-python -m ruff check src tests tools
-python -m pytest tests/unit tests/benchmark
-python tests/test_qt.py            # page-by-page GUI test on the public demo project (offscreen)
+python -m pytest tests/unit tests/benchmark        # includes tests/benchmark/test_golden.py (golden baseline)
+python tests/test_qt.py                            # page-by-page GUI test on the public demo project (offscreen); --quick skips FEFF8L and robustness
+python tests/test_qt.py --project <local project>  # same, on your own project (only on a machine that has one)
+python -m ruff check src tests tools               # 0 errors; do not run `ruff format`
 ```
 
-All three must pass. CI runs them on Windows and Ubuntu with Python 3.11 and 3.12.
+- The first, third and fourth commands must pass; CI runs them on Windows and Ubuntu with Python 3.11 and 3.12.
+- Fitting changes, on a machine that has the private IrTaOx project only: `xafsmith fit IrO2_1shell_ArtemisCompare --nosave`
+  must give S0² ≈ 0.816 and ΔE0 ≈ 8.93; also `python -m pytest tests/local` (git-ignored, includes the
+  `tools/golden.py local` snapshot).
+- If a number changes **on purpose**: rewrite the baseline with `python tools/golden.py demo --write` and state the reason
+  in the commit message (and in the PR). Never loosen a tolerance just to make a test pass.
+  数值有意改变时重写基线并在提交信息里写明原因。
 
 ## Rules / 规则
 
