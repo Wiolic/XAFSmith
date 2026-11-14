@@ -249,7 +249,8 @@ def idents(expr):
 def feff_dirs():
     if not paths.FEFF.exists():
         return []
-    return sorted([d for d in paths.FEFF.rglob("*") if d.is_dir() and list(d.glob("feff0001.dat"))])
+    return sorted([d for d in paths.FEFF.rglob("*") if d.is_dir() and list(d.glob("feff0001.dat"))
+                   and not {"_feffrun", "_feff_failed"} & set(d.parts)])      # E6 的运行中 / 失败现场目录不算
 
 
 def saved_models():

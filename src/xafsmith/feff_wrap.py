@@ -99,6 +99,7 @@ def run_feff(folder, feffinp_text=None, verbose=False, code=None):
         for f in list(tmp.iterdir()):
             os.replace(f, folder / f.name)
         tmp.rmdir()
+        shutil.rmtree(failed, ignore_errors=True)     # 旧的失败现场已过时
         return list_paths(folder)
     shutil.rmtree(failed, ignore_errors=True)
     os.replace(tmp, failed)
