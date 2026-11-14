@@ -46,7 +46,7 @@ jobs:
         run: python -m ruff check src tests tools
 
       - name: Unit tests and numerical benchmarks
-        run: python -m pytest tests/unit tests/benchmark -q
+        run: python -m pytest -q --cov=xafsmith --cov-report=term
 
       - name: GUI test (offscreen, public demo project)
         run: python tests/test_qt.py
