@@ -1,7 +1,9 @@
 """S0² 的标样来源（F1·G2，纯计算，不依赖 Qt）：列出“可供样品载入 S0² 的标样拟合”。
 
 候选 = 本会话拟合记录（S.fits）+ 已保存的拟合（output/fits/exafs_fits.csv）。只收同时满足的：
-  1. 吸收边相同：拟合涉及的每个样品，在 data/meta.csv 里的 edge_key 都等于目标边（查不到的样品 → 不收，不猜）；
+  1. 吸收边相同：拟合涉及的每个样品的吸收边按顺序确定：① data/meta.csv 里该样品唯一的 edge_key；② 会话里该样品的
+     元素 / 吸收边（session_edges）；③ 模型 FEFF 路径目录名里的 `_<元素><边>` 标记（如 …_IrL3/site0）。
+     三者都没有或互相矛盾 → 不收（不猜）；多边样品（meta 里有几个 edge_key）靠 ②、③ 定边；
   2. S0² 是拟合量：会话记录用 summ["params"]["s02"] 的 vary 且无 expr；已保存的用 csv 的 params 列
      （{参数名: [值, 误差]}，误差不为空 ⇔ 该参数当时是变量），并与 models/<名>.json 里 s02 的写法互相核对
      （json 说 s02 是固定值 / 表达式 → 不收）。没有误差的 S0² 不收（载入后无法写 s02_source.stderr）。
@@ -56,11 +58,40 @@ def sample_edges(meta) -> dict:
     return out
 
 
-def _on_edge(samples, edge_key, edges) -> bool:
-    return bool(samples) and all(edges.get(s) == {edge_key} for s in samples)
+_EDGE_MARK = re.compile(r"_([A-Z][a-z]?)(K|L[123]|M[1-5])(?![A-Za-z0-9])")
 
 
-def _from_session(fits, edge_key, edges) -> list:
+def model_edges(model) -> set:
+    """模型里各 FEFF 路径文件的目录名带的 `_<元素><边>` 标记 → {"Ir_L3", …}（没有标记 / 不是模型 dict → 空集）。"""
+    if not isinstance(model, dict):
+        return set()
+    blocks = model["datasets"] if isinstance(model.get("datasets"), list) else [model]
+    out = set()
+    for b in blocks:
+        for p in (b.get("paths") or []) if isinstance(b, dict) else []:
+            f = p.get("file") if isinstance(p, dict) else None
+            if isinstance(f, str):
+                out.update(f"{m.group(1)}_{m.group(2)}" for m in _EDGE_MARK.finditer("/".join(f.replace("\\", "/").split("/")[:-1])))
+    return out
+
+
+def _on_edge(samples, edge_key, edges, session_edges=None, model=None) -> bool:
+    """每个样品的吸收边（meta 唯一值 + 会话元素边 + 模型 FEFF 目录标记，要求一致）都等于 edge_key。"""
+    if not samples:
+        return False
+    from_model = model_edges(model)
+    for s in samples:
+        ev = set(from_model)
+        if len(edges.get(s, ())) == 1:
+            ev |= edges[s]
+        if session_edges and session_edges.get(s):
+            ev.add(session_edges[s])
+        if ev != {edge_key}:
+            return False
+    return True
+
+
+def _from_session(fits, edge_key, edges, session_edges=None) -> list:
     out = []
     for f in fits or []:
         try:
@@ -70,7 +101,7 @@ def _from_session(fits, edge_key, edges) -> list:
                 continue
             samples = tuple(dict.fromkeys(d["sample"] for d in summ["datasets"])) if summ.get("multi") \
                 else (summ["sample"],)
-            if not _on_edge(samples, edge_key, edges):
+            if not _on_edge(samples, edge_key, edges, session_edges, f.get("model")):
                 continue
             rf = summ.get("rfactor")
             out.append(S02Candidate(str(summ["model"]), samples, float(p["value"]), float(p["stderr"]),
@@ -91,6 +122,13 @@ def _model_says_not_fitted(models_dir: Path, name) -> bool:
     return isinstance(spec, dict) and (bool(spec.get("expr")) or spec.get("vary") is False)
 
 
+def _read_model(models_dir: Path, name):
+    try:
+        return json.loads((models_dir / f"{safe(name)}.json").read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return None
+
+
 def _saved_time(models_dir: Path, name) -> str:
     f = models_dir / f"{safe(name)}.json"
     try:
@@ -99,7 +137,7 @@ def _saved_time(models_dir: Path, name) -> str:
         return ""
 
 
-def _from_saved(fits_csv: Path, models_dir: Path, edge_key, edges) -> list:
+def _from_saved(fits_csv: Path, models_dir: Path, edge_key, edges, session_edges=None) -> list:
     import pandas as pd
     if not fits_csv.exists():
         return []
@@ -114,7 +152,7 @@ def _from_saved(fits_csv: Path, models_dir: Path, edge_key, edges) -> list:
         last = rows[-1]["params"]
         grp = [r for r in rows if r["params"] == last]          # 最后一次保存的各路径行（多数据集：各数据集的行）
         samples = tuple(dict.fromkeys(r["sample"] for r in grp))
-        if not _on_edge(samples, edge_key, edges):
+        if not _on_edge(samples, edge_key, edges, session_edges, _read_model(models_dir, model)):
             continue
         try:
             val, err = json.loads(last)["s02"][:2]
@@ -130,8 +168,9 @@ def _from_saved(fits_csv: Path, models_dir: Path, edge_key, edges) -> list:
     return out
 
 
-def list_candidates(edge_key, session_fits=(), root=None) -> list:
+def list_candidates(edge_key, session_fits=(), root=None, session_edges=None) -> list:
     """同吸收边、S0² 为拟合量的标样拟合，新的在前。root：项目根目录（缺省用当前项目）。
+    session_edges：{样品: edge_key}，会话里各样品的元素 / 吸收边（可缺省）。
     会话记录与已保存记录重复（同模型名、同样品、同值）时只留会话的。"""
     import pandas as pd
     from . import paths
@@ -140,9 +179,9 @@ def list_candidates(edge_key, session_fits=(), root=None) -> list:
     if not meta_f.exists() or not edge_key:
         return []
     edges = sample_edges(pd.read_csv(meta_f, dtype=str, encoding="utf-8-sig").fillna(""))
-    out = _from_session(session_fits, edge_key, edges)
+    out = _from_session(session_fits, edge_key, edges, session_edges)
     seen = {(c.model, c.samples, round(c.value, 9)) for c in out}
-    for c in _from_saved(root / "output" / "fits" / "exafs_fits.csv", root / "models", edge_key, edges):
+    for c in _from_saved(root / "output" / "fits" / "exafs_fits.csv", root / "models", edge_key, edges, session_edges):
         if (c.model, c.samples, round(c.value, 9)) not in seen:
             out.append(c)
     out.sort(key=lambda c: c.time, reverse=True)

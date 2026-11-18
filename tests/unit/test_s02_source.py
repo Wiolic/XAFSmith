@@ -103,3 +103,30 @@ def test_no_files_gives_empty(tmp_path):
     assert src.edge_of_samples(["IrO2", "IrCl3"], root=tmp_path) == "Ir_L3"
     assert src.edge_of_samples(["IrO2", "CoO"], root=tmp_path) is None
     assert src.edge_of_samples(["IrCo"], root=tmp_path) is None
+
+
+def _model_with(folder):
+    return {"name": "M", "sample": "X", "paths": [{"file": f"output/feff/{folder}/site0/feff0001.dat"}]}
+
+
+def test_edge_from_session_and_feff_folder_for_multi_edge_sample(tmp_path):
+    rows = [row("A", "IrCo", 0.8, 0.05)]
+    models = {"A": _model_with("IrCo_IrL3")}
+    root = project(tmp_path, rows, models)
+    assert [x.model for x in src.list_candidates("Ir_L3", root=root)] == ["A"]          # meta 两个边；FEFF 目录定边 ③
+    assert src.list_candidates("Co_K", root=root) == []                                  # 与目录标记矛盾
+    models["A"] = {"name": "A", "sample": "IrCo", "paths": []}                           # 没有目录标记
+    (root / "models" / "A.json").write_text(json.dumps(models["A"]), encoding="utf-8")
+    assert src.list_candidates("Ir_L3", root=root) == []
+    assert [x.model for x in src.list_candidates("Ir_L3", root=root, session_edges={"IrCo": "Ir_L3"})] == ["A"]   # ②
+    assert src.list_candidates("Ir_L3", root=root, session_edges={"IrCo": "Co_K"}) == []
+
+
+def test_edge_sources_must_agree(tmp_path):
+    root = project(tmp_path, [row("A", "IrO2", 0.8, 0.05)], {"A": _model_with("IrO2_CoK")})
+    assert src.list_candidates("Ir_L3", root=root) == []        # meta 说 Ir_L3，FEFF 目录说 Co_K
+    assert src.list_candidates("Co_K", root=root) == []
+    fits = [session_fit("S", "IrCo")]
+    fits[0]["model"] = _model_with("IrCo_IrL3")
+    assert [x.model for x in src.list_candidates("Ir_L3", fits, root=root)] == ["S"]
+    assert src.model_edges(_model_with("IrCo_IrL3")) == {"Ir_L3"} and src.model_edges(None) == set()
