@@ -11,6 +11,10 @@ All notable changes are recorded here (format: Keep a Changelog; versioning: Sem
   GitHub Release notes are now the version's full CHANGELOG section (`tools/release_notes.py`, used by `release.yml`; a release without its section fails); notes for v1.0.0–v1.3.1 were backfilled.
 - `.gitignore` 加入工具缓存目录。 Tool caches added to `.gitignore`.
 
+### 修复 / Fixed
+- `xafsmith fit --nosave` 现在真的不写文件：以前只是不追加 `exafs_fits.csv`，仍会写拟合报告、`params.json` 与拟合图。
+  `xafsmith fit --nosave` now writes nothing; previously it only skipped `exafs_fits.csv` and still wrote the report, `params.json` and figures.
+
 ## [1.3.1] — 2026-11-14
 
 补丁版：稳定性修复与工程护栏；已有数值结果逐位不变（黄金基线 `tests/golden/demo.json` 与本机项目快照核对）。

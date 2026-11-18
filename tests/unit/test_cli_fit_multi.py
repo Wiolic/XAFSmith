@@ -60,6 +60,21 @@ def test_fit_multi_cli(proj):
     assert set(rows[rows["dataset"] == "B"]["k_range"]) == {"3-14"}
 
 
+def test_fit_nosave_writes_nothing(proj):
+    """--nosave 只打印：不写报告、params.json、图，也不追加 CSV"""
+    (proj / "models" / "cu_ns.json").write_text(json.dumps(dict(MODEL, name="cu_ns")), encoding="utf-8")
+    out = proj / "output"
+    before = {p for p in out.rglob("*") if p.is_file()} if out.exists() else set()
+    csv = out / "fits" / "exafs_fits.csv"
+    csv_before = csv.read_bytes() if csv.exists() else None
+    r = _cli(proj, "fit", "cu_ns", "--nosave")
+    assert r.returncode == 0, r.stderr[-2000:]
+    assert "联合拟合 2 个数据集" in r.stdout and "--nosave" in r.stdout
+    after = {p for p in out.rglob("*") if p.is_file()} if out.exists() else set()
+    assert after == before
+    assert (csv.read_bytes() if csv.exists() else None) == csv_before
+
+
 def test_robust_refuses_multi(proj):
     r = _cli(proj, "robust", "cu_twin")
     assert r.returncode != 0

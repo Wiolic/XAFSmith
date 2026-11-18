@@ -336,12 +336,15 @@ def cmd_fit(a):
     print(rep)
     for w in summ["warnings"]:
         print("警告:", w)
+    if a.nosave:
+        _print_fit_summary(summ)
+        print("\n（--nosave：只打印，未写任何文件）")
+        return
     base = pl.safe(model["name"])
     for d in (paths.FITS, paths.FIGS):
         d.mkdir(parents=True, exist_ok=True)
     (paths.FITS / f"{base}.fit_report.txt").write_text(rep, encoding="utf-8")
-    if not a.nosave:
-        fx.write_result_row(summ, paths.FITS_CSV)
+    fx.write_result_row(summ, paths.FITS_CSV)
     if summ.get("multi"):
         figs = []
         for d, ds in zip(fx.normalize_model(model)["datasets"], dset):
@@ -354,6 +357,11 @@ def cmd_fit(a):
                       out=paths.FIGS / f"{base}_fit.png")
         fig_txt = f"{paths.rel(paths.FIGS)}/{base}_fit.png"
     write_params(paths.FITS / f"{base}.params.json", model, "xafsmith fit")
+    _print_fit_summary(summ)
+    print(f"→ {paths.rel(paths.FITS)}/{base}.fit_report.txt, {paths.rel(paths.FITS_CSV)}, {fig_txt}")
+
+
+def _print_fit_summary(summ):
     print(f"\n摘要: R={summ['rfactor']:.4f}  χ²_ν={summ['chi2_reduced']:.2f}  "
           f"N_idp={summ['n_idp']:.1f}  nvarys={summ['nvarys']}")
     if summ.get("multi"):
@@ -361,7 +369,6 @@ def cmd_fit(a):
         for d in summ["datasets"]:
             print(f"  {d['id']}: 样品 {d['sample']}  N_idp={d['n_idp']:.1f}  R={d['rfactor']:.4f}  "
                   f"χ² 占比={d['chi2_share']:.2f}")
-    print(f"→ {paths.rel(paths.FITS)}/{base}.fit_report.txt, {paths.rel(paths.FITS_CSV)}, {fig_txt}")
 
 
 def cmd_trend(a):
@@ -771,7 +778,8 @@ def build_parser():
     p.add_argument("--scf", type=float, default=4.5, help="FEFF8 自洽团簇半径 (Å)")
     p.add_argument("--exchange", type=int, default=0, help="FEFF8 交换势：0 Hedin-Lundqvist，2 Dirac-Hara，5 部分非局域")
     p.set_defaults(f=cmd_feff)
-    p = sp.add_parser("fit", help="EXAFS 拟合"); p.add_argument("model"); p.add_argument("--nosave", action="store_true")
+    p = sp.add_parser("fit", help="EXAFS 拟合"); p.add_argument("model")
+    p.add_argument("--nosave", action="store_true", help="只打印，不写文件")
     p.set_defaults(f=cmd_fit)
     p = sp.add_parser("trend", help="联合拟合序列 → 趋势表与趋势图（N、R、σ²、ΔE0、边位置）")
     p.add_argument("model"); p.add_argument("--seq-label", default=None, help="横轴标题（缺省：按序列来源）")
