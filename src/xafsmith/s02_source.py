@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from .pipeline import safe
+
 
 @dataclass
 class S02Candidate:
@@ -36,10 +38,6 @@ class S02Candidate:
     @property
     def sample_text(self) -> str:
         return " + ".join(self.samples)
-
-
-def _safe(name) -> str:
-    return re.sub(r"[^A-Za-z0-9_.-]+", "_", str(name)).strip("_")
 
 
 def _good(x) -> bool:
@@ -85,7 +83,7 @@ def _from_session(fits, edge_key, edges) -> list:
 
 def _model_says_not_fitted(models_dir: Path, name) -> bool:
     """models/<名>.json 里 s02 明确是固定值或表达式 → True（文件读不到 / 没写清 → False）。"""
-    f = models_dir / f"{_safe(name)}.json"
+    f = models_dir / f"{safe(name)}.json"
     try:
         spec = json.loads(f.read_text(encoding="utf-8-sig")).get("params", {}).get("s02")
     except (OSError, ValueError):
@@ -94,7 +92,7 @@ def _model_says_not_fitted(models_dir: Path, name) -> bool:
 
 
 def _saved_time(models_dir: Path, name) -> str:
-    f = models_dir / f"{_safe(name)}.json"
+    f = models_dir / f"{safe(name)}.json"
     try:
         return datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
     except OSError:
