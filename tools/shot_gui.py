@@ -8,9 +8,10 @@
     --scale 1         QT_SCALE_FACTOR（高分屏效果；默认 1）
     --pages a,b       只截这些页面（nav 键，如 norm,fit,pubfig；默认全部页面，文件名 gui_x<缩放>_<键>.png）
     --script FILE.py  先加载样品、操作页面再截图：FILE.py 里定义 run(ctx)，见下
+    --offscreen       用 offscreen 平台（需要 QT_QPA_FONTDIR 提供中文字体，字形与真实界面不同）
     --workdir DIR     项目副本放在 DIR/shot_gui_run/demo_project（默认系统临时目录；截图里会显示项目路径时，用一个不含用户名的目录）
     --max-width N     输出 PNG 最大宽度（像素，默认 1600，超出按比例缩小）
-中文字体需要环境变量 QT_QPA_FONTDIR（默认设为 C:/Windows/Fonts）。
+默认用原生窗口平台（真实字体渲染；窗口移到屏幕外 x=-4000 再 grab，不打扰桌面）；--offscreen 才用 offscreen（CI / 无桌面，字体与真实界面不同）。
 
 脚本接口：run(ctx)，ctx 提供
   ctx.app, ctx.w          QApplication 与主窗口
@@ -58,12 +59,17 @@ def main(argv=None):
     ap.add_argument("--pages", default="")
     ap.add_argument("--script", default="")
     ap.add_argument("--workdir", default="")
+    ap.add_argument("--offscreen", action="store_true")
     ap.add_argument("--max-width", type=int, default=1600)
     a = ap.parse_args(argv)
 
     out = Path(a.out).resolve()
-    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-    os.environ.setdefault("QT_QPA_FONTDIR", "C:/Windows/Fonts")
+    if a.offscreen:          # 无桌面环境 / CI：offscreen 平台用 FreeType 读 QT_QPA_FONTDIR，字体回退与字形渲染与真实界面不同，只做检查用，不用于文档配图
+        os.environ["QT_QPA_PLATFORM"] = "offscreen"
+        os.environ.setdefault("QT_QPA_FONTDIR", "C:/Windows/Fonts")
+    else:                    # 默认走原生平台（Windows 上是 DirectWrite），字体与真实界面一致
+        os.environ.pop("QT_QPA_PLATFORM", None)
+        os.environ.pop("QT_QPA_FONTDIR", None)
     os.environ["QT_SCALE_FACTOR"] = a.scale
     os.environ["XAFSMITH_NO_RECENT"] = "1"
     out.mkdir(parents=True, exist_ok=True)
@@ -88,7 +94,14 @@ def main(argv=None):
         loop.exec()
 
     app, w = make_window(str(tmp), lang=a.lang)
+    from PySide6.QtGui import QFontDatabase         # noqa: E402
+    for ttf in (("seguisym.ttf", "seguiemj.ttf") if a.offscreen else ()):      # 离屏渲染没有系统字体回退：补上符号字体，否则 ℹ ⚠ 等显示成方块
+        fp = Path(os.environ["QT_QPA_FONTDIR"]) / ttf
+        if fp.exists():
+            QFontDatabase.addApplicationFont(str(fp))
     w.resize(wd, ht)
+    if not a.offscreen:
+        w.move(-4000, 0)             # 原生平台要真正 show()：放到屏幕可见区域外
     w.show()
     pump(0.8)
 

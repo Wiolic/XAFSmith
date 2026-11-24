@@ -146,10 +146,10 @@ def run(ctx):
     q._b_det.click()
     ctx.wait()
     det = box.detailed_page
-    click(det, "拟合")
+    click(det, "Fit" if ctx.lang == "en" else "拟合")
     ctx.wait()
     ctx.shot("fit_detailed")
-    ctx.tab(det, "质量检查")
+    ctx.tab(det, "Quality" if ctx.lang == "en" else "质量检查")
     ctx.shot("fit_quality")
 
     # —— Origin 工程：本机有 Origin（originpro）才做；用 Origin 自己渲染三张图拼成一张。没有就保留 docs/images 里的旧图
