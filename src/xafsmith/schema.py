@@ -444,6 +444,49 @@ def _check_s02_source(rep, at, m):
             rep.err(f"{at} s02_source.{k}", f"应为数字，实际是 {src[k]!r}")
 
 
+def _check_quickfit(rep, at, m):
+    """quickfit（可选说明键，计算忽略；快速拟合写入）：{mode: standard|sample|joint, shell: {absorber, scatterer, n_ref, r_cif,
+    members: [{file, label, reff, degen}]}, windows?: {数据集 id: {kmin, kmax, dk, window}}}。只检查类型。"""
+    q = m.get("quickfit")
+    if q is None:
+        return
+    w = f"{at} quickfit"
+    if not isinstance(q, dict):
+        rep.err(w, "应是对象 {mode, shell}")
+        return
+    if q.get("mode") not in ("standard", "sample", "joint"):
+        rep.err(f"{w}.mode", f"应为 standard / sample / joint，实际是 {q.get('mode')!r}")
+    sh = q.get("shell")
+    if not isinstance(sh, dict):
+        rep.err(f"{w}.shell", "应是对象 {absorber, scatterer, n_ref, r_cif, members}")
+        return
+    for k in ("absorber", "scatterer"):
+        if not isinstance(sh.get(k), str):
+            rep.err(f"{w}.shell.{k}", f"应是字符串（元素符号），实际是 {sh.get(k)!r}")
+    for k in ("n_ref", "r_cif"):
+        if not _isnum(sh.get(k)):
+            rep.err(f"{w}.shell.{k}", f"应为数字，实际是 {sh.get(k)!r}")
+    mem = sh.get("members")
+    if not isinstance(mem, list) or not mem:
+        rep.err(f"{w}.shell.members", "应是非空数组 [{file, label, reff, degen}]")
+    else:
+        for i, x in enumerate(mem):
+            if not isinstance(x, dict):
+                rep.err(f"{w}.shell.members[{i}]", "应是对象 {file, label, reff, degen}")
+                continue
+            for k in ("file", "label"):
+                if not isinstance(x.get(k), str):
+                    rep.err(f"{w}.shell.members[{i}].{k}", f"应是字符串，实际是 {x.get(k)!r}")
+            for k in ("reff", "degen"):
+                if not _isnum(x.get(k)):
+                    rep.err(f"{w}.shell.members[{i}].{k}", f"应为数字，实际是 {x.get(k)!r}")
+    if "windows" in q:
+        ws = q["windows"]
+        if not isinstance(ws, dict) or not all(isinstance(v, dict) and all(_isnum(v.get(k)) for k in ("kmin", "kmax", "dk"))
+                                               and isinstance(v.get("window"), str) for v in ws.values()):
+            rep.err(f"{w}.windows", "应是 {数据集 id: {kmin, kmax, dk, window}}")
+
+
 _PATH_EXPR_DEFAULT = dict(e0="e0", s02="s02", sigma2="0.003", deltar="0")
 
 
@@ -547,6 +590,7 @@ def check_models(rep, meta, klim=None):
         if "datasets" in m:
             _check_multi(rep, at, m, klim, samples)
             _check_s02_source(rep, at, m)
+            _check_quickfit(rep, at, m)
             _check_restraints(rep, at, m)
             _check_sigma2(rep, at, m)
             continue
@@ -566,6 +610,7 @@ def check_models(rep, meta, klim=None):
                                          "（XAFS 处理规范：变量数不多于 N_idp 的一半，最好 ≤ N_idp − 3），结果可靠性低")
         _check_paths(rep, at, m, klim, samples)
         _check_s02_source(rep, at, m)
+        _check_quickfit(rep, at, m)
         _check_restraints(rep, at, m)
         _check_sigma2(rep, at, m)
 
