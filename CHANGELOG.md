@@ -4,6 +4,20 @@
 [语义化版本](https://semver.org/lang/zh-CN/)。
 All notable changes are recorded here (format: Keep a Changelog; versioning: SemVer).
 
+## [未发布 / Unreleased]
+
+### 改进 / Changed
+- README、QUICKSTART（中英）按 v1.4 重写：“为什么用 XAFSmith”先讲四个亮点（快速拟合零基础友好、多谱一键归一化、直接导出 Origin 文件、写论文方法与补充材料），其余功能用文字叙述；全部截图按真实字体渲染重拍（Ir 箔与 IrO₂ 标样）。`ARCHITECTURE.md`、`AGENTS.md`、`GLOSSARY.md` 更新到 v1.4 的结构与术语。
+  README and QUICKSTART (Chinese and English) rewritten for v1.4: “Why XAFSmith” leads with four highlights (Quick fit for beginners, one-click normalization of many spectra, direct Origin export, methods and SI), the rest as text; all screenshots retaken with real font rendering (Ir foil and IrO₂ standards). `ARCHITECTURE.md`, `AGENTS.md` and `GLOSSARY.md` describe the v1.4 structure and terms.
+- 免责声明措辞改为“不对计算结果的正确性作任何担保，请自行核验”（关于页、安装程序、安装向导）。
+  The disclaimer now reads “no warranty that the results are correct; please verify them” (About page, installer, setup wizard).
+- 截图工具 `tools/shot_gui.py` 默认用 Windows 原生平台渲染（字体与真实界面一致），`--offscreen` 只用于无桌面环境；`tools/shot_docs.py` 一次生成文档配图。
+  The screenshot tool `tools/shot_gui.py` renders on the native Windows platform by default (fonts as in the real GUI), `--offscreen` only for headless use; `tools/shot_docs.py` regenerates the documentation images.
+
+### 修复 / Fixed
+- 方法导出：没有记录能量平移 ΔE 时写成占位【ΔE】，不再留下空的“( eV)”。
+  Methods export: a missing energy shift ΔE is written as the placeholder [ΔE] instead of an empty “( eV)”.
+
 ## [1.4.0] — 2026-11-24
 
 次版本：新增快速拟合（第一壳层、单样品与联合、人话判定、趋势），原拟合页改名精细拟合；已有模型的拟合数值逐位不变（黄金基线 `tests/golden/demo.json`）。
