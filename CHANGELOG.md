@@ -4,11 +4,14 @@
 [语义化版本](https://semver.org/lang/zh-CN/)。
 All notable changes are recorded here (format: Keep a Changelog; versioning: SemVer).
 
-## [未发布 / Unreleased]
+## [1.4.0] — 2026-11-24
+
+次版本：新增快速拟合（第一壳层、单样品与联合、人话判定、趋势），原拟合页改名精细拟合；已有模型的拟合数值逐位不变（黄金基线 `tests/golden/demo.json`）。
+Minor release: Quick fit (first shell, single and joint, plain-words verdict, trends); the former fit page is now Detailed fit; fit numbers of existing models are unchanged bit for bit (golden baseline `tests/golden/demo.json`).
 
 ### 新增 / Added
-- **快速拟合**（侧栏“EXAFS 拟合”顶部分段开关 **快速拟合 | 精细拟合**，进入页面默认快速拟合）：只拟合第一壳层，用人话判定结果是否可信。你只选样品（可多选）、FEFF 文件夹、用途（标样 / 样品）、Rmax（默认 2.5 Å）与 S0²；k 窗取样品的处理设置，Rmin 自动（|χ(R)| 在 0.7 Å 到第一峰之间的谷，且不低于第一峰 − 0.6 Å、不低于 0.7 Å，没有谷取 1.0 Å），k 权重 1、2、3 同时。第一壳层 = 最近的单散射路径起、并入同一散射元素且与前一条相差 < 0.3 Å 的路径（页内显示 N_ref、R_ref）。
-  **Quick fit** (switch **Quick fit | Detailed fit** at the top of the sidebar page “EXAFS fitting”; the page opens on Quick fit): fits the first shell only and states in plain words whether the result is trustworthy. You choose samples (several allowed), FEFF folder, purpose (Standard / Sample), Rmax (default 2.5 Å) and S0²; the k window comes from the samples' processing settings, Rmin is automatic (the valley of |χ(R)| between 0.7 Å and the first peak, not below first peak − 0.6 Å and not below 0.7 Å, else 1.0 Å), k-weights 1, 2, 3 together. The first shell starts at the nearest single-scattering path and takes in paths of the same scatterer element less than 0.3 Å apart (N_ref and R_ref are shown on the page).
+- **快速拟合**（侧栏“EXAFS 拟合”顶部分段开关 **快速拟合 | 精细拟合**，进入页面默认快速拟合）：只拟合第一壳层，用人话判定结果是否可信。你只选样品（可多选）、FEFF 文件夹、用途（标样 / 样品）、Rmax（默认 2.5 Å）与 S0²；k 窗取样品的处理设置，Rmin 自动（|χ(R)| 在 0.7 Å 到第一峰之间的谷，且不低于第一峰 − 0.6 Å、不低于 0.7 Å，没有谷取 1.0 Å 与第一峰 − 0.6 Å 中较大者），k 权重 1、2、3 同时。第一壳层 = 最近的单散射路径起、并入同一散射元素且与前一条相差 < 0.3 Å 的路径（页内显示 N_ref、R_ref）。
+  **Quick fit** (switch **Quick fit | Detailed fit** at the top of the sidebar page “EXAFS fitting”; the page opens on Quick fit): fits the first shell only and states in plain words whether the result is trustworthy. You choose samples (several allowed), FEFF folder, purpose (Standard / Sample), Rmax (default 2.5 Å) and S0²; the k window comes from the samples' processing settings, Rmin is automatic (the valley of |χ(R)| between 0.7 Å and the first peak, not below first peak − 0.6 Å and not below 0.7 Å, else the larger of 1.0 Å and first peak − 0.6 Å), k-weights 1, 2, 3 together. The first shell starts at the nearest single-scattering path and takes in paths of the same scatterer element less than 0.3 Å apart (N_ref and R_ref are shown on the page).
 - 快速拟合的两种用途：**标样**（N 固定为结构简并度，拟合 S0²）与 **样品**（S0² 固定，拟合 N）。样品的 S0² 手填，或点 **选取标样值…** 从同吸收边、S0² 为拟合量的标样拟合取（本会话的与已保存的 `exafs_fits.csv` 的都列出），来源记入模型的 `s02_source`；标样拟合完成后即可选取，不必先保存。
   Two purposes: **Standard** (N fixed to the structure's degeneracy, S0² fitted) and **Sample** (S0² fixed, N fitted). The sample's S0² is typed or taken with **Pick standard value…** from a standard fit on the same edge with a fitted S0² (session fits and saved `exafs_fits.csv` rows are both listed); the source is recorded in the model's `s02_source`; a standard fit can be picked as soon as it is done, without saving.
 - **联合快速拟合**：样品用途选 ≥ 2 个样品（同一吸收边）自动联合拟合：统一 k 窗（各样品处理 k 窗的交集，不足 6 Å⁻¹ 报错）与 R 窗、共享 ΔE0、共用 S0²，每个样品各自的 N、R、σ²；各样品 dk / 窗函数不一致时提示。标样用途只能选一个样品。
