@@ -969,13 +969,11 @@ def _no_console_output():
 
 def _error_dialog(text):
     """未捕获异常：弹出可复制的错误框（日志已由 logs.install_excepthook 写入）。"""
-    from PySide6.QtWidgets import QApplication, QMessageBox
+    from PySide6.QtWidgets import QApplication
     if QApplication.instance() is None:
         return
-    box = QMessageBox(QMessageBox.Critical, "XAFSmith", T("出错了。详情已写入日志，可在“免责声明与引用”里导出诊断包发给开发者。",
-                      "Something went wrong. Details are in the log; export a diagnostics bundle from the About dialog."))
-    box.setDetailedText(text)
-    box.exec()
+    from .errdialog import show_error
+    show_error(QApplication.activeWindow(), text, detail=text)      # 三段（发生了什么 / 你可以怎么做 / 联系）；堆栈在“详细信息”里
 
 
 def run(project=None, splash=None):

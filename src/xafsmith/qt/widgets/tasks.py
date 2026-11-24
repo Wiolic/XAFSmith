@@ -257,12 +257,8 @@ def run_task(parent, fn, on_done, busy_text=None, button_=None, progress=False, 
         if on_error:
             call(on_error, msg)
         elif not QUIET["v"]:
-            dlg = QMessageBox(parent if _alive(parent) else None)
-            dlg.setIcon(QMessageBox.Icon.Warning)
-            dlg.setWindowTitle(T("出错了", "Error"))
-            dlg.setText(msg.split("\n\n")[0])
-            dlg.setDetailedText(msg)
-            dlg.exec()
+            from ..errdialog import show_error           # 三段：发生了什么 / 你可以怎么做 / 联系；堆栈在“详细信息”里
+            show_error(parent if _alive(parent) else None, msg, detail=msg)
 
     def prog(f, n):
         job["frac"], job["ptext"] = f, n
