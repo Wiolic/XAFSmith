@@ -472,7 +472,16 @@ def _others_note(shell, shell2=None):
     return out
 
 
-def verdict(fit, shell, mode, rmax, peak_amp=None, amp_at_rmax=None, s02_source=None, r_peak=None, shell2=None) -> Verdict:
+def _uncal_item(who=None):
+    """meta.csv 的 ref_file = none（没有参比）：只作 note，不判失败。who：联合拟合里受影响的样品名"""
+    z = "、".join(who) + " " if who else ""
+    e = ", ".join(who) + ": " if who else ""
+    return VerdictItem("note", "uncalibrated", f"{z}未按参比校准：ΔE0 与边位绝对值不可靠，R 与 N 不受影响",
+                       f"{e}Not calibrated against a reference: ΔE0 and the absolute edge position are unreliable; R and N are not affected")
+
+
+def verdict(fit, shell, mode, rmax, peak_amp=None, amp_at_rmax=None, s02_source=None, r_peak=None, shell2=None,
+            uncalibrated=False) -> Verdict:
     """fit：run_model 同形的拟合记录（summ / model / result）；shell：FirstShell；mode：standard / sample。
     peak_amp、amp_at_rmax：|χ(R)| 的第一峰高与 Rmax 处的值（缺省则不做窗口检查）。
     条目：fitcheck 各项（变量数用 Stern 准则）+ R 与 CIF 之差、样品 N / N_ref、Rmax 处残余；
@@ -491,6 +500,8 @@ def verdict(fit, shell, mode, rmax, peak_amp=None, amp_at_rmax=None, s02_source=
     if mode == "sample" and (s02_source or {}).get("manual"):
         items.append(VerdictItem("note", "manual_s02", f"手动 S0² = {s02_source['value']:g}，没有标样依据",
                                  f"Manual S0² = {s02_source['value']:g}, no standard behind it"))
+    if uncalibrated:
+        items.append(_uncal_item())
     items += _others_note(shell, shell2)
     return Verdict(not any(i.level == "fail" for i in items), items)
 
@@ -573,7 +584,8 @@ def run(model, group=None, root=None) -> QuickResult:
         res, dset, summ = fx.run_fit(g, model, root)
     fit = dict(model=model, summ=summ, result=res, curves=fx.model_curves(dset), report=fx.report_text(res),
                time=datetime.now().strftime("%H:%M:%S"))
-    v = verdict(fit, shell, mode, model["rmax"], pk, at_rmax, model.get("s02_source"), r_pk, shell2)
+    v = verdict(fit, shell, mode, model["rmax"], pk, at_rmax, model.get("s02_source"), r_pk, shell2,
+                uncalibrated=bool(getattr(g, "uncalibrated", False)))
     P = summ["params"]
 
     def pv(k):
@@ -823,7 +835,7 @@ def _restrict(summ, ds_id, names):
                 n_idp=row["n_idp"], sample=row["sample"], dataset=ds_id)
 
 
-def verdict_joint(fit, shell, rmax, peaks, s02_source=None, windows=None, r_peaks=None, shell2=None) -> JointVerdict:
+def verdict_joint(fit, shell, rmax, peaks, s02_source=None, windows=None, r_peaks=None, shell2=None, uncalibrated=()) -> JointVerdict:
     """联合模型的两层判定。fit：run_joint 的拟合记录（多数据集 summ）；peaks：{数据集 id: (第一峰高, Rmax 处 |χ(R)|)}；
     windows：{id: 该样品自己的处理 k 窗}（dk / 窗函数不一致 → note）。
     整批：总 R 因子、Stern 准则（对 Σ N_idp）、ΔE0 及其误差 / 边界、强相关；每个样品：自己的 R 因子、R 与结构之差、N 倍数、
@@ -839,6 +851,8 @@ def verdict_joint(fit, shell, rmax, peaks, s02_source=None, windows=None, r_peak
     if (s02_source or {}).get("manual"):
         items.append(VerdictItem("note", "manual_s02", f"手动 S0² = {s02_source['value']:g}，没有标样依据",
                                  f"Manual S0² = {s02_source['value']:g}, no standard behind it"))
+    if uncalibrated:
+        items.append(_uncal_item(list(uncalibrated)))
     items += _others_note(shell, shell2)
     ws = list((windows or {}).items())
     if ws and any((w["dk"], w["window"]) != (ws[0][1]["dk"], ws[0][1]["window"]) for _, w in ws):
@@ -912,7 +926,8 @@ def run_joint(model, groups=None, root=None) -> JointResult:
         res, dsets, summ = fx.fit_multi(groups, model, root)
     fit = dict(model=model, summ=summ, result=res, curves=fx.model_curves_all(dsets, nm), report=fx.report_text(res),
                time=datetime.now().strftime("%H:%M:%S"), multi=True)
-    v = verdict_joint(fit, shell, model["rmax"], peaks, model.get("s02_source"), qk.get("windows"), rps, shell2)
+    v = verdict_joint(fit, shell, model["rmax"], peaks, model.get("s02_source"), qk.get("windows"), rps, shell2,
+                      uncalibrated=[d["sample"] for d in nm["datasets"] if getattr(groups[d["id"]], "uncalibrated", False)])
     P = summ["params"]
     full = dict(win, kweight=model["kweight"], rmin=model["rmin"], rmax=model["rmax"])
     out = []
