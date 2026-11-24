@@ -27,3 +27,15 @@ _Avoid_: S0² origin, reference S0²
 **Verdict** (判定):
 The quick-fit conclusion for one sample: trustworthy, or has problems with each failed check and a suggested action.
 _Avoid_: score, grade
+
+**Joint quick fit** (联合快速拟合):
+A quick fit of two or more samples on one edge in one model: one common k and R window, a shared ΔE0 and S0², and N, R, σ² per sample.
+_Avoid_: batch fit, multi fit
+
+**Second phase** (第二相):
+In a mixed-phase quick fit, the other structure (its own FEFF folder) whose first shell is fitted alongside the first, e.g. metallic Ir next to IrO2.
+_Avoid_: second component, phase B
+
+**Trend order** (趋势顺序):
+The user-chosen order of samples along the trend plot's x axis, stored with the fit; without it the order comes from the sequence variable.
+_Avoid_: sort order, sample order
