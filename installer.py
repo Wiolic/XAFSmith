@@ -79,9 +79,9 @@ class Installer(tk.Tk):
         note = ttk.LabelFrame(self, text="免责声明、引用与许可 / Disclaimer, citation & license")
         note.pack(fill="x", padx=14, pady=(0, 8))
         tk.Message(note, width=590, font=("Microsoft YaHei", 9), fg="#8a4b00", text=(
-            "本软件按“现状”提供，不附带任何保证；作者不对使用本软件得到的结果负责。"
-            "请自行核验结果，建议与 Athena / Artemis 的结果对比。\n"
-            "Provided \"as is\", without warranty. Please cross-check key results with Athena / Artemis.")).pack(anchor="w")
+            "本软件不对计算结果的正确性作任何担保，请自行核验；作者不对使用本软件得到的结果承担责任。"
+            "关键结果建议与 Athena / Artemis 对比。\n"
+            "No warranty that the results are correct; please verify them and cross-check key results with Athena / Artemis.")).pack(anchor="w")
         tk.Message(note, width=590, font=("Microsoft YaHei", 9), fg="#1a4f8a", text=(
             "论文中使用本软件，请引用本仓库：Eggy & Claude, XAFSmith, https://github.com/Wiolic/XAFSmith\n"
             "If you use XAFSmith in a publication, please cite the repository above.")).pack(anchor="w")

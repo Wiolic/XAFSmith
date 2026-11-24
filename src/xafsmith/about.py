@@ -11,10 +11,10 @@ LICENSE_EN = ("License: GPL-3.0-only (since v1.3.1) — distributions must provi
               "XAFSmith in publications (a request, not a license condition). v0.5.1–v1.3.0 were released under "
               "PolyForm Noncommercial, v0.5.0 and earlier under MIT.")
 
-DISCLAIMER_CN = ("免责声明：本软件按“现状”提供，不附带任何形式的保证；作者不对使用本软件得到的任何结果负责。"
-                 "请使用者自行核验结果，建议将关键结果与 Athena / Artemis（Demeter）的处理和拟合结果对比。")
-DISCLAIMER_EN = ("Disclaimer: XAFSmith is provided \"as is\", without warranty of any kind. The authors accept no "
-                 "responsibility for results obtained with it. Please validate your results; we recommend "
+DISCLAIMER_CN = ("免责声明：本软件不对计算结果的正确性作任何担保，请自行核验；作者不对使用本软件得到的结果承担责任。"
+                 "建议将关键结果与 Athena / Artemis（Demeter）的处理和拟合结果对比。")
+DISCLAIMER_EN = ("Disclaimer: XAFSmith is provided without any warranty that its results are correct; please verify "
+                 "them yourself. The authors accept no responsibility for results obtained with it. We recommend "
                  "cross-checking key results against Athena / Artemis (Demeter).")
 
 CITATION_TEXT = f"Eggy & Claude. XAFSmith: XAFS processing and fitting software, version {__version__}. {REPO}"
