@@ -1,0 +1,414 @@
+{
+ "zh": {
+  "good": [
+   [
+    true,
+    "R 因子 0.0120 &lt; 0.02：很好"
+   ],
+   [
+    true,
+    "变量数 4，N_idp/2 = 4.5"
+   ],
+   [
+    true,
+    "残差 / 噪声 = 1.8：已接近数据极限"
+   ],
+   [
+    true,
+    "ΔE0 在 ±10 eV 以内"
+   ],
+   [
+    true,
+    "所有路径 σ² 为正且不过大"
+   ],
+   [
+    true,
+    "所有路径 |ΔR| ≤ 0.2 Å"
+   ],
+   [
+    true,
+    "没有 |r| &gt; 0.9 的强相关参数对"
+   ]
+  ],
+  "rf_mid": [
+   [
+    true,
+    "R 因子 0.0300（0.02–0.05）：第一壳层可接受"
+   ],
+   [
+    true,
+    "变量数 4，N_idp/2 = 4.5"
+   ],
+   [
+    true,
+    "ΔE0 在 ±10 eV 以内"
+   ],
+   [
+    true,
+    "所有路径 σ² 为正且不过大"
+   ],
+   [
+    true,
+    "所有路径 |ΔR| ≤ 0.2 Å"
+   ],
+   [
+    true,
+    "没有 |r| &gt; 0.9 的强相关参数对"
+   ],
+   [
+    null,
+    "尚未运行稳健性检查（见“稳健性”标签）"
+   ]
+  ],
+  "rf_bad_noise_bad": [
+   [
+    false,
+    "R 因子 0.0900 &gt; 0.05：检查模型、R 窗口与数据"
+   ],
+   [
+    true,
+    "变量数 4，N_idp/2 = 4.5"
+   ],
+   [
+    false,
+    "残差 / 噪声 = 6.0：残差是系统性的（见“诊断”标签）"
+   ],
+   [
+    true,
+    "ΔE0 在 ±10 eV 以内"
+   ],
+   [
+    true,
+    "所有路径 σ² 为正且不过大"
+   ],
+   [
+    true,
+    "所有路径 |ΔR| ≤ 0.2 Å"
+   ],
+   [
+    true,
+    "没有 |r| &gt; 0.9 的强相关参数对"
+   ],
+   [
+    null,
+    "尚未运行稳健性检查（见“稳健性”标签）"
+   ]
+  ],
+  "many_problems": [
+   [
+    true,
+    "R 因子 0.0100 &lt; 0.02：很好"
+   ],
+   [
+    false,
+    "变量数 6，N_idp/2 = 4.0：变量太多，请固定或约束参数"
+   ],
+   [
+    false,
+    "s02：误差无法估计（参数可能过多或高度相关）"
+   ],
+   [
+    false,
+    "s02 停在边界 max = 1.5：由限制而非数据决定"
+   ],
+   [
+    false,
+    "ss1 = 0 ± 0.002：误差大于数值，数据不能确定它"
+   ],
+   [
+    false,
+    "ss1 停在边界 min = 0：由限制而非数据决定"
+   ],
+   [
+    false,
+    "n1 = 0.2 ± 0.5：误差大于数值，数据不能确定它"
+   ],
+   [
+    false,
+    "ΔE0 超出 ±10 eV：e0 = 14.0"
+   ],
+   [
+    false,
+    "σ² ≤ 0（非物理）：a: -0.0010"
+   ],
+   [
+    false,
+    "σ² &gt; 0.03 Å²（很大，可能在补偿 N 或别的路径）：b: 0.0500"
+   ],
+   [
+    false,
+    "ΔR 超过 0.2 Å，结构模型可能不合适：a: +0.250 Å; b: -0.300 Å"
+   ],
+   [
+    false,
+    "强相关（|r| &gt; 0.9），结论中要说明：s02–ss1: +0.95"
+   ],
+   [
+    null,
+    "只用了单一 k 权重：同时拟合 k¹、k²、k³ 能降低相关性"
+   ],
+   [
+    null,
+    "尚未运行稳健性检查（见“稳健性”标签）"
+   ]
+  ],
+  "joint": [
+   [
+    true,
+    "R 因子 0.0120 &lt; 0.02：很好"
+   ],
+   [
+    true,
+    "变量数 12，N_idp/2 = 15.0（全部数据集合计）"
+   ],
+   [
+    true,
+    "ΔE0 在 ±10 eV 以内"
+   ],
+   [
+    true,
+    "所有路径 σ² 为正且不过大"
+   ],
+   [
+    true,
+    "所有路径 |ΔR| ≤ 0.2 Å"
+   ],
+   [
+    true,
+    "没有 |r| &gt; 0.9 的强相关参数对"
+   ]
+  ],
+  "no_result_params": [
+   [
+    true,
+    "R 因子 0.0120 &lt; 0.02：很好"
+   ],
+   [
+    true,
+    "变量数 4，N_idp/2 = 4.5"
+   ],
+   [
+    true,
+    "ΔE0 在 ±10 eV 以内"
+   ],
+   [
+    true,
+    "所有路径 σ² 为正且不过大"
+   ],
+   [
+    true,
+    "所有路径 |ΔR| ≤ 0.2 Å"
+   ],
+   [
+    null,
+    "尚未运行稳健性检查（见“稳健性”标签）"
+   ]
+  ]
+ },
+ "en": {
+  "good": [
+   [
+    true,
+    "R-factor 0.0120 &lt; 0.02: very good"
+   ],
+   [
+    true,
+    "4 variables, N_idp/2 = 4.5"
+   ],
+   [
+    true,
+    "Residual / noise = 1.8: close to the data limit"
+   ],
+   [
+    true,
+    "ΔE0 within ±10 eV"
+   ],
+   [
+    true,
+    "All σ² positive and not excessive"
+   ],
+   [
+    true,
+    "All paths |ΔR| ≤ 0.2 Å"
+   ],
+   [
+    true,
+    "No parameter pair with |r| &gt; 0.9"
+   ]
+  ],
+  "rf_mid": [
+   [
+    true,
+    "R-factor 0.0300 (0.02–0.05): acceptable for a first shell"
+   ],
+   [
+    true,
+    "4 variables, N_idp/2 = 4.5"
+   ],
+   [
+    true,
+    "ΔE0 within ±10 eV"
+   ],
+   [
+    true,
+    "All σ² positive and not excessive"
+   ],
+   [
+    true,
+    "All paths |ΔR| ≤ 0.2 Å"
+   ],
+   [
+    true,
+    "No parameter pair with |r| &gt; 0.9"
+   ],
+   [
+    null,
+    "Robustness check not run yet (Robustness tab)"
+   ]
+  ],
+  "rf_bad_noise_bad": [
+   [
+    false,
+    "R-factor 0.0900 &gt; 0.05: check the model, R window and data"
+   ],
+   [
+    true,
+    "4 variables, N_idp/2 = 4.5"
+   ],
+   [
+    false,
+    "Residual / noise = 6.0: systematic residual (see the Diagnosis tab)"
+   ],
+   [
+    true,
+    "ΔE0 within ±10 eV"
+   ],
+   [
+    true,
+    "All σ² positive and not excessive"
+   ],
+   [
+    true,
+    "All paths |ΔR| ≤ 0.2 Å"
+   ],
+   [
+    true,
+    "No parameter pair with |r| &gt; 0.9"
+   ],
+   [
+    null,
+    "Robustness check not run yet (Robustness tab)"
+   ]
+  ],
+  "many_problems": [
+   [
+    true,
+    "R-factor 0.0100 &lt; 0.02: very good"
+   ],
+   [
+    false,
+    "6 variables, N_idp/2 = 4.0: too many; fix or constrain some"
+   ],
+   [
+    false,
+    "s02: error could not be estimated (too many or strongly correlated parameters)"
+   ],
+   [
+    false,
+    "s02 sits at its max = 1.5: held by the bound, not the data"
+   ],
+   [
+    false,
+    "ss1 = 0 ± 0.002: error exceeds the value; not determined by the data"
+   ],
+   [
+    false,
+    "ss1 sits at its min = 0: held by the bound, not the data"
+   ],
+   [
+    false,
+    "n1 = 0.2 ± 0.5: error exceeds the value; not determined by the data"
+   ],
+   [
+    false,
+    "ΔE0 beyond ±10 eV: e0 = 14.0"
+   ],
+   [
+    false,
+    "σ² ≤ 0 (unphysical): a: -0.0010"
+   ],
+   [
+    false,
+    "σ² &gt; 0.03 Å² (very large; may be compensating N or another path): b: 0.0500"
+   ],
+   [
+    false,
+    "ΔR beyond 0.2 Å; the structural model may not fit: a: +0.250 Å; b: -0.300 Å"
+   ],
+   [
+    false,
+    "Strong correlations (|r| &gt; 0.9) to report: s02–ss1: +0.95"
+   ],
+   [
+    null,
+    "Single k-weight: fitting k¹, k², k³ together reduces correlations"
+   ],
+   [
+    null,
+    "Robustness check not run yet (Robustness tab)"
+   ]
+  ],
+  "joint": [
+   [
+    true,
+    "R-factor 0.0120 &lt; 0.02: very good"
+   ],
+   [
+    true,
+    "12 variables, N_idp/2 = 15.0 (all datasets)"
+   ],
+   [
+    true,
+    "ΔE0 within ±10 eV"
+   ],
+   [
+    true,
+    "All σ² positive and not excessive"
+   ],
+   [
+    true,
+    "All paths |ΔR| ≤ 0.2 Å"
+   ],
+   [
+    true,
+    "No parameter pair with |r| &gt; 0.9"
+   ]
+  ],
+  "no_result_params": [
+   [
+    true,
+    "R-factor 0.0120 &lt; 0.02: very good"
+   ],
+   [
+    true,
+    "4 variables, N_idp/2 = 4.5"
+   ],
+   [
+    true,
+    "ΔE0 within ±10 eV"
+   ],
+   [
+    true,
+    "All σ² positive and not excessive"
+   ],
+   [
+    true,
+    "All paths |ΔR| ≤ 0.2 Å"
+   ],
+   [
+    null,
+    "Robustness check not run yet (Robustness tab)"
+   ]
+  ]
+ }
+}
