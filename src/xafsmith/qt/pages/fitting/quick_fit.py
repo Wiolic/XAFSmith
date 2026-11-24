@@ -51,6 +51,41 @@ def quick_job(S, samples, feff, rmax, mode, s02, src, name=None, feff2=None):
     return work
 
 
+# ---------------------------------------------------------------- 判定后的操作按钮（只在界面层映射，不改 quickfit.VerdictItem）
+RMAX_STEP = 0.2         # “Rmax 改为 X”按钮：X = 当前 Rmax − 0.2
+_CONTINUE = ("nvarys", "err_none", "err_big", "at_bound", "correl", "noise", "sigma2_neg", "sigma2_big")
+ACTIONS = {"rmax_leak": ["rmax"], "n_ratio": ["s02"],
+           **{c: ["structure"] for c in ("peak_pos", "r_cif", "dr", "rfactor")}, "e0": ["structure", "calib"],
+           **{c: ["detailed"] for c in _CONTINUE}}
+
+
+def rmax_target(rmax, r_cif_min):
+    """“Rmax 改为 X 并重新拟合”的 X = round(当前 Rmax − 0.2, 2)；X 小于第一壳层 R_CIF（混合相取较短者）→ None（不画按钮）"""
+    x = round(float(rmax) - RMAX_STEP, 2)
+    return None if x < float(r_cif_min) else x
+
+
+def item_actions(item, rmax=None, r_cif_min=None):
+    """未通过条目的操作按钮：[(动作键, 中文, 英文)]；只对 level == "fail" 给"""
+    if item.level != "fail":
+        return []
+    out = []
+    for a in ACTIONS.get(item.code, []):
+        if a == "rmax":
+            x = None if rmax is None or r_cif_min is None else rmax_target(rmax, r_cif_min)
+            if x is not None:
+                out.append((a, f"Rmax 改为 {x:g} Å 并重新拟合", f"Set Rmax to {x:g} Å and refit"))
+        elif a == "structure":
+            out.append((a, "换结构…", "Change structure…"))
+        elif a == "calib":
+            out.append((a, "去能量校准", "Go to energy calibration"))
+        elif a == "s02":
+            out.append((a, "选取标样 S0²…", "Pick a standard's S0²…"))
+        elif a == "detailed":
+            out.append((a, "在精细拟合中继续", "Continue in Detailed fit"))
+    return out
+
+
 class S02Dialog(QDialog):
     """「选取标样值」：列出同吸收边、S0² 为拟合量的标样拟合（会话 + 已保存），选一行。"""
 
@@ -140,7 +175,7 @@ class QuickFitPage(Page):
             self._sel = None
             return
         # ① 样品与 FEFF
-        c1 = Card(T("1  样品与 FEFF", "1  Samples and FEFF"))
+        c1 = self._c1 = Card(T("1  样品与 FEFF", "1  Samples and FEFF"))
         self._smp = W.MultiSelect(samples, [s for s in st.get("samples", []) if s in samples],
                                   T("选择样品（≥ 2 个且为样品用途 → 联合拟合）", "Samples (≥ 2 in sample mode → joint fit)"))
         self._smp.setToolTip(T("可多选。选 ≥ 2 个样品（样品用途）时做联合拟合：共享一个 ΔE0，窗口统一；各自的 N、R、σ² 独立。",
@@ -400,17 +435,49 @@ class QuickFitPage(Page):
     def _vtext(v):
         return T(v.summary("zh"), v.summary("en"))
 
+    def _ctx(self):
+        """操作按钮要用的当前窗口：(Rmax, 第一壳层 R_CIF（混合相取较短者）)"""
+        r = self._results()[0][0]
+        rc = [r.shell.r_cif] + ([r.phase2["shell2"].r_cif] if r.phase2 else [])
+        return r.window["rmax"], min(rc)
+
     def _items_box(self, items):
-        """判定条目逐条：✓ / ✗ / ℹ + 文字，未通过的再给一行建议"""
+        """判定条目逐条：✓ / ✗ / ℹ + 文字，未通过的再给一行建议和操作按钮"""
         col = {"pass": C["ok"], "fail": C["err"], "note": C["text2"]}
         mark = {"pass": "✓", "fail": "✗", "note": "ℹ"}
         box = W.vbox(spacing=4)
+        rmax, rcif = self._ctx() if self._res else (None, None)
         for it in items:
             txt = f'<span style="color:{col[it.level]};font-weight:700">{mark[it.level]}</span>&nbsp;' + T(it.zh, it.en)
             if it.level == "fail" and T(it.advice_zh, it.advice_en):
                 txt += f'<br><span style="color:{C["text2"]}">&nbsp;&nbsp;&nbsp;→ ' + T(it.advice_zh, it.advice_en) + "</span>"
             box.layout().addWidget(W.label(txt, rich=True))
+            acts = item_actions(it, rmax, rcif)
+            if acts:
+                btns = [W.button(T(zh, en), slot=lambda a=a: self._do_action(a)) for a, zh, en in acts]
+                box.layout().addWidget(W.hbox(*btns, None, spacing=8, margins=(24, 0, 0, 0)))
         return box
+
+    def _do_action(self, a):
+        if a == "rmax":
+            rmax, rcif = self._ctx()
+            x = rmax_target(rmax, rcif)
+            if x is not None:
+                self._rmax.setValue(x)              # 视为手改：_rmax_edited 记 rmax_set，不再随第二相自动换缺省
+                self._go()
+        elif a == "structure":
+            self._change_structure()
+        elif a == "calib":
+            self.app.go("calib")
+        elif a == "s02":
+            self._pick_s02()
+        elif a == "detailed":
+            self._to_detailed()
+
+    def _change_structure(self):
+        """滚到 ① 卡片并聚焦 FEFF 下拉"""
+        self.ensureWidgetVisible(self._c1)
+        self._feff.setFocus()
 
     def _show_results(self, error=None):
         if not hasattr(self, "_rbox"):
