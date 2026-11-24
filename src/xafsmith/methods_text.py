@@ -8,6 +8,7 @@
 """
 from xafsmith import logs
 import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -54,8 +55,9 @@ def _rng(vals, nd=1):
     return f"{v[0]:g}" if len(v) == 1 else f"{v[0]:g}–{v[-1]:g}"
 
 
-def collect(samples=None):
-    """收集生成段落所需的事实；samples=None 表示 meta.csv 中 use≠0 的全部样品"""
+def collect(samples=None, fits_csv=None):
+    """收集生成段落所需的事实；samples=None 表示 meta.csv 中 use≠0 的全部样品。
+    fits_csv：拟合记录 CSV，缺省读项目的 exafs_fits.csv（汇报包用它来表达尚未保存的拟合）"""
     from .pipeline import load_meta
     cfg = json.loads(paths.CONFIG.read_text(encoding="utf-8-sig")) if paths.CONFIG.exists() else {}
     meta = load_meta() if paths.META.exists() else pd.DataFrame(columns=["sample", "edge_key", "mode", "use"])
@@ -63,7 +65,8 @@ def collect(samples=None):
     if samples:
         meta = meta[meta["sample"].isin(samples)]
     cal = json.loads(paths.CALIB_JSON.read_text(encoding="utf-8-sig")) if paths.CALIB_JSON.exists() else {}
-    fits = pd.read_csv(paths.FITS_CSV, encoding="utf-8-sig") if paths.FITS_CSV.exists() else pd.DataFrame()
+    fcsv = fits_csv or paths.FITS_CSV
+    fits = pd.read_csv(fcsv, encoding="utf-8-sig") if Path(fcsv).exists() else pd.DataFrame()
     if len(fits) and samples:
         fits = fits[fits["sample"].isin(samples)]
     lcf = pd.read_csv(paths.LCF_CSV, encoding="utf-8-sig") if paths.LCF_CSV.exists() else pd.DataFrame()
@@ -143,9 +146,9 @@ def _feff_code(model_name):
         return "feff6"
 
 
-def build(samples=None):
+def build(samples=None, fits_csv=None):
     """返回 dict(zh=中文段落, en=英文段落, facts=收集到的事实)"""
-    f = collect(samples)
+    f = collect(samples, fits_csv)
     v, ins = f["versions"], f["instrument"]
     zh, en = [], []
     edges = f["edges"]
