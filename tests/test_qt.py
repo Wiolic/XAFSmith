@@ -364,6 +364,20 @@ def mixed_phase_checks(app, w, td):
     say(f4 is not None and diff < 1e-6, f"F2-7 精细拟合重跑混合相模型：参数相同（最大差 {diff:.1e}）")
 
 
+def error_dialog_check(app, w, tmp):
+    """G6：错误框三段 + GitHub Issues 链接 + 导出诊断包（调用已有 logs.diagnostics_zip）；英文堆栈只在详细信息里"""
+    from xafsmith.qt.errdialog import ErrorDialog
+    dlg = ErrorDialog(w, "FileNotFoundError: [Errno 2] No such file or directory: 'data/a.xdi'\n\nTraceback (most recent call last):\n  ...",
+                      detail="Traceback (most recent call last):\n  ...")
+    t = " ".join(lb.text() for lb in dlg.findChildren(QLabel))
+    say("发生了什么" in t and "你可以怎么做" in t and "联系" in t and "找不到文件" in t and "data/a.xdi" in t
+        and "https://github.com/Wiolic/XAFSmith/issues" in t, "G6 错误框：三段、人话、Issues 链接")
+    say("Traceback" not in t and "Traceback" in dlg.details.toPlainText(), "G6 错误框：英文堆栈只在“详细信息”里")
+    z = tmp / "diag_test.zip"
+    say(dlg.export_diagnostics(str(z)) == str(z) and z.is_file() and z.stat().st_size > 100, "G6 错误框：导出诊断包")
+    dlg.close()
+
+
 def guess_checks(app, w):
     """G4：读入时猜的元素 / 吸收边要让用户确认（fe.060 的文件头里没有元素与边）"""
     from xafsmith.readers import read_scan
@@ -1918,6 +1932,8 @@ def main():
     if not IRTAOX:
         quickfit_checks(app, w)
         guess_checks(app, w)
+        import tempfile as _tf
+        error_dialog_check(app, w, Path(_tf.mkdtemp()))
     S, P = w.S, w.pages
 
     # 数据登记：检查
