@@ -1,18 +1,21 @@
 """G4：读入时按能量猜的元素 / 吸收边要让用户确认（纯函数部分）。fe.060 的 XDAC 头里没有元素与边。"""
+from pathlib import Path
+
 import pytest
 
 from xafsmith.qt.pages.process.load import apply_guess, confirm_guess, guess_for, guessed_groups
 from xafsmith.readers import read_scan
-from conftest import demo_raw
+
+PUB = Path(__file__).resolve().parents[1] / "data" / "demo_project" / "data" / "raw" / "public"
 
 
 @pytest.fixture
 def fe():
-    return read_scan(demo_raw() / "fe.060")
+    return read_scan(PUB / "fe.060")
 
 
 def test_guessed_groups_finds_only_guessed(fe):
-    cu = read_scan(demo_raw() / "cu_metal_rt.xdi")
+    cu = read_scan(PUB / "cu_metal_rt.xdi")
     assert set(guessed_groups({"fe": fe, "cu": cu})) == {"fe"}
 
 
