@@ -17,6 +17,8 @@ All notable changes are recorded here (format: Keep a Changelog; versioning: Sem
 ### 修复 / Fixed
 - 方法导出：没有记录能量平移 ΔE 时写成占位【ΔE】，不再留下空的“( eV)”。
   Methods export: a missing energy shift ΔE is written as the placeholder [ΔE] instead of an empty “( eV)”.
+- 英文界面：趋势图上方的序列提示（如 seq 为空、改用时间作横轴）原来只有中文，现在按界面语言显示（`trend.seq_values` 另给 `notes_en`）；拟合结果行、快速拟合判定里的中文全角空格换成英文间隔。
+  English interface: the sequence notes above trend plots (e.g. empty seq, falling back to time) were Chinese only and now follow the interface language (`trend.seq_values` also returns `notes_en`); ideographic spaces in the fit-result line and the quick-fit verdict are replaced by Latin spacing.
 
 ## [1.4.0] — 2026-11-24
 
