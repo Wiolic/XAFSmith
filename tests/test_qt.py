@@ -467,8 +467,36 @@ def quickfit_checks(app, w):
             and len(btn) == (6 if round(rm_now - 0.2, 2) >= rc_now else 5),
             f"G1 判定按钮：{btn}")
         q._rmax.setValue(3.0)
-        q._change_structure()
-        say(True, "G1 换结构：滚动并聚焦 FEFF 下拉不报错")
+        # G2：用内置结构计算 FEFF（对话框 exec 换成直接接受；选第一行 = Cu）
+        import xafsmith.qt.pages.fitting.quick_fit as qk
+        el_, ed_, nm_, have_ = q._builtin_target()
+        say((el_, ed_, nm_) == ("Cu", "K", ["Cu"]), f"G2 对话框内容：吸收元素 / 边 / 内置结构 = {el_} {ed_} {nm_}")
+        orig_exec, qk.BuiltinDialog.exec = qk.BuiltinDialog.exec, lambda self: 1
+        try:
+            q._change_structure()                      # G1 的“换结构…”：滚动、聚焦并打开 G2 对话框（这里直接确定）
+            wait(app)
+            built = td / "output" / "feff" / "Cu_CuK" / "site0"
+            say((built / "feff0001.dat").exists() and q.state.get("feff") == str(built) and q._feff.value() == built,
+                "G1/G2 换结构 → 用内置结构计算：算出 Cu_CuK/site0 并选中")
+            stamp = (built / "feff0001.dat").stat().st_mtime_ns
+            q._builtin_btn.click()
+            wait(app)
+            say((built / "feff0001.dat").stat().st_mtime_ns == stamp, "G2 再次选同一结构：沿用已有，不重算")
+        finally:
+            qk.BuiltinDialog.exec = orig_exec
+        shutil.rmtree(built, ignore_errors=True)
+        q.state["feff"] = str(fdir)
+        q.refresh()
+        say(q._feff.value() == feff, "G2 清理后回到原 FEFF 文件夹")
+        real_dirs, qk.feff_dirs = qk.feff_dirs, lambda: []
+        try:
+            q.refresh()
+            say("还没有 FEFF" in texts(q) and q._builtin_btn.isEnabled() and "已载入并算出" not in texts(q),
+                "G2 有 χ(k) 但没有 FEFF：不拦，提示直接用内置结构计算")
+        finally:
+            qk.feff_dirs = real_dirs
+        q.refresh()
+        say(q._feff.value() == feff, "G2 FEFF 回来后页面恢复")
         w.go("fit")
         # 在精细拟合中继续
         fit = r.fit
