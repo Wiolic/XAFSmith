@@ -37,7 +37,7 @@ def page_specs():
         ("spectra", SpectraTabs), ("norm", pr.NormPage),
         ("chi", pr.ChiPage), ("wavelet", pr.WaveletPage),
         None,
-        ("feff", ft.FeffPage), ("fit", ft.FitPage), ("history", ft.HistoryPage), ("lcf", ft.LCFPage),
+        ("feff", ft.FeffPage), ("fit", ft.FitContainer), ("history", ft.HistoryPage), ("lcf", ft.LCFPage),
         ("xanes", ft.XanesPage),
         None,
         ("summary", op.SummaryPage), ("pubfig", op.PubFigPage), ("methods", op.MethodsPage),

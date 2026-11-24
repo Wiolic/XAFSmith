@@ -78,6 +78,12 @@ def wait(app, timeout=900):
     pump(app, 0.2)
 
 
+def go_fit(w):
+    """进入“EXAFS 拟合”并切到精细拟合（进入页默认是快速拟合）"""
+    w.go("fit")
+    w.pages["fit"].show_detailed()
+
+
 def errors_since(n):
     return W.ERRORS[n:]
 
@@ -152,8 +158,8 @@ def restraint_checks(app, w, S, P, k1, fdir):
     import numpy as np
     import pandas as pd
     from xafsmith.qt import session
-    pg = P["fit"]
-    w.go("fit")
+    pg = P["fit"].detailed_page
+    go_fit(w)
     st = pg.state
     st.update(multi=False, data=k1)
     st["fdirs_" + k1] = [str(PROJ / fdir)]
@@ -212,8 +218,8 @@ def restraint_checks(app, w, S, P, k1, fdir):
 def sigma2_checks(app, w, S, P, k1, fdir):
     """B6：拟合页温度字段与 σ² 温度模型。温度空 → 模型无 temperature 键；写温度 + σ² 写成 sigma2_debye(tempK, thD1)
     → 模型记录 temperature、摘要路径行有 temperature / sigma2_model / theta_param、thD1 默认带 min 50 / max 2000；非法温度不拟合。"""
-    pg = P["fit"]
-    w.go("fit")
+    pg = P["fit"].detailed_page
+    go_fit(w)
     st = pg.state
     st.update(multi=False, data=k1)
     st["fdirs_" + k1] = [str(PROJ / fdir)]
@@ -320,8 +326,8 @@ def msbind_checks(app, w, S, P, k1, fdir):
     deltar / sigma2 / note；note 随模型保存、拟合照常（演示项目只有一条 nleg=2 的 Cu 路径文件：建议用 suggest 的替身，几何计算在单元测试里）。"""
     from xafsmith import msbind
     from xafsmith.qt.pages.fitting import msbind_dialog as md
-    pg = P["fit"]
-    w.go("fit")
+    pg = P["fit"].detailed_page
+    go_fit(w)
     st = pg.state
     st.update(multi=False, data=k1)
     st["fdirs_" + k1] = [str(PROJ / fdir)]
@@ -383,8 +389,8 @@ def sigma2_dialog_checks(app, w, S, P, k1, k2, fdir):
     import numpy as np
     from xafsmith import pipeline as pl
     from xafsmith.qt.pages.fitting import sigma2_dialog as sd
-    pg = P["fit"]
-    w.go("fit")
+    pg = P["fit"].detailed_page
+    go_fit(w)
     st = pg.state
     id1, id2 = (pl.safe(Path(k).name) for k in (k1, k2))
     S.groups[k2] = copy.deepcopy(S.groups[k1])
@@ -513,8 +519,8 @@ def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
     from xafsmith.paths import FITS_CSV
     csv0 = FITS_CSV.read_bytes() if FITS_CSV.exists() else None
     made = []
-    pg = P["fit"]
-    w.go("fit")
+    pg = P["fit"].detailed_page
+    go_fit(w)
     if alias:
         import copy
         S.groups[k2] = copy.deepcopy(S.groups[k1])
@@ -671,7 +677,7 @@ def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
                 tab = next((t for t in hp.findChildren(W.Table) if "vs" in list(t.m.df.columns)), None)
                 say(tab is not None and len(tab.m.df) == len(S.fits) and "嵌套模型" in texts(hp),
                     "模型比较表行数等于所选拟合数，并显示嵌套提示")
-            w.go("fit")
+            go_fit(w)
             # 保存
             n = len(W.ERRORS)
             click(pg, "保存结果")
@@ -693,7 +699,7 @@ def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
                 "模型 json 写入 datasets（顶层无 sample / paths）")
             w.go("pubfig")                       # C2：图片导出页的趋势图（用刚做的联合拟合）
             trend_pubfig_check(app, w, S, P)
-            w.go("fit")
+            go_fit(w)
             # 已保存模型：多数据集，样品框禁用，直接运行
             st["mf"] = mj.name
             st["saved_open"] = True
@@ -839,8 +845,8 @@ def irtaox_suite(app, w, S, P):
         fp.state["code"] = "feff6"
 
     # 拟合：IrO2 第一壳层
-    w.go("fit")
-    pg = P["fit"]
+    go_fit(w)
+    pg = P["fit"].detailed_page
     from xafsmith.qt.state import feff_dirs
     d = [x for x in feff_dirs() if "IrO2_IrL3" in str(x) and "_feff8" not in str(x)][0]
     pg.state["data"] = "IrO2"
@@ -920,7 +926,7 @@ def irtaox_suite(app, w, S, P):
         f"SI 方法文本：{len(r['en'])} 字符，表 {len(r['table'])} 行")
 
     # 已保存模型
-    w.go("fit")
+    go_fit(w)
     pg.state["mf"] = "IrO2_1shell_ArtemisCompare.json"
     pg.refresh()
     n0, n = len(S.fits), len(W.ERRORS)
@@ -1138,8 +1144,8 @@ def demo_suite(app, w, S, P):
     mf.parent.mkdir(exist_ok=True)
     mf.write_text(json.dumps(model, ensure_ascii=False, indent=2), encoding="utf-8")
     try:
-        w.go("fit")
-        pg = P["fit"]
+        go_fit(w)
+        pg = P["fit"].detailed_page
         pg.state["mf"] = mf.name
         pg.refresh()
         n0, n = len(S.fits), len(W.ERRORS)

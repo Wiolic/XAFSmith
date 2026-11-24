@@ -21,6 +21,12 @@ from .fit_view import (  # noqa: F401
 from .fit_page import (  # noqa: F401
     FitPage,
 )
+from .quick_fit import (  # noqa: F401
+    QuickFitPage,
+)
+from .fit_container import (  # noqa: F401
+    FitContainer,
+)
 from .history import (  # noqa: F401
     HistoryPage,
 )
