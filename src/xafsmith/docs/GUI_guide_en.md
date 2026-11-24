@@ -68,7 +68,7 @@ The five groups:
 |---|---|
 | Preparation | Register data, Calibrate & process |
 | Look at the data | Load & check (three tabs: Load spectra, Quality check, Energy calibration), Normalization, χ(k) & FT, Wavelet transform |
-| Analysis | FEFF paths, EXAFS fitting, Fit history, LCF, XANES quantification |
+| Analysis | FEFF paths, EXAFS fitting (Quick fit / Detailed fit), Fit history, LCF, XANES quantification |
 | Export | Report export, Figure export, Methods export |
 | Tools and help | Sample preparation, Edge lookup, AI assistant, Help |
 
@@ -86,7 +86,7 @@ A blue rounded button, always in the same place. Hover over it (or click) for a 
 | Item | How to use it |
 |---|---|
 | Plots | Four buttons at the top right: pan, zoom to rectangle, reset, save image; cursor coordinates at the top left |
-| Tables | Double-click a cell to edit (path and parameter tables of EXAFS fitting edit with a single click); click check boxes directly; numbers accept any number of decimals |
+| Tables | Double-click a cell to edit (path and parameter tables of EXAFS fitting › Detailed fit edit with a single click); click check boxes directly; numbers accept any number of decimals |
 | Multi-select boxes | Open to search and tick; “All / None” for bulk changes |
 | Explanation buttons | Some pages have one at the top right (e.g. “Before you fit · what is a good fit”); it opens a separate window that does not block the page |
 | Long calculations | Processing, QC, calibration, FEFF, fitting, robustness, LCF and reports run in the background; a thin bar at the top (with a percentage when the progress is known) and the progress at the bottom left. Tasks with progress (batch processing, QC, calibration, running saved models, robustness) show a **Cancel** button: it stops **after the current step** (a single fit or FEFF run cannot be interrupted), and a cancelled task writes no result. With several tasks running only their count is shown |
@@ -281,6 +281,52 @@ The table below lists the loaded spectra and their calibration status. You can a
 
 ### 11　EXAFS fitting
 
+A segmented switch **Quick fit | Detailed fit** sits at the top of the page; the page opens on **Quick fit** every time, and each keeps its own settings (switching back and forth loses nothing).
+
+- **Quick fit**: fits the first shell only (N, R, σ², ΔE0; Standard mode also fits S0²), sets Rmin automatically and states in plain words whether the result is trustworthy. You only choose samples, FEFF folder, purpose, S0² and Rmax.
+- **Detailed fit**: set every path and parameter yourself (more shells, multiple scattering, expression constraints, restraints, the σ² temperature model, all joint-fit options). This is the v1.3.1 fit page, only renamed (and with a new path-table column order, see below).
+
+Suggested: quick-fit first; once the verdict is “Trustworthy”, click **Continue in Detailed fit** if you need a second shell or multiple scattering.
+
+#### Quick fit
+
+The page needs registered samples (`data/meta.csv`) and a FEFF calculation; a banner at the top says what is missing. Four cards from top to bottom:
+
+1. **1  Samples and FEFF**
+   - **Samples (several)**: one or more; ≥ 2 in Sample mode = joint fit, which needs one absorption edge (a warning shows otherwise).
+   - **FEFF folder**: a finished FEFF calculation (`feff0001.dat…`; with several sites each site is its own folder); the one matching the samples' edge is preselected.
+   - A line below shows the **first shell**: absorber–scatterer × count, distance range, how many paths were merged, N_ref (the structure's coordination number) and R_ref (degeneracy-weighted mean distance). The first shell starts at the nearest single-scattering path and takes in paths of the same scatterer element whose distance to the previous one is < 0.3 Å; if paths of another element follow within 0.3 Å a note says they are not included.
+2. **2  Purpose, S0² and window**
+   - **Purpose**: **Sample** (S0² fixed, N fitted) or **Standard** (N fixed to N_ref, S0² fitted); Standard takes a single sample.
+   - **S0²** (required in Sample mode): click **Pick standard value…** to take it from a standard fit (the dialog lists fits on the same edge with a fitted S0², from this session and saved ones; choose a row and click **Use**; the value and its source `s02_source` are recorded), or type it (the source is “manual”, and the verdict notes “no standard behind it”). Editing a picked number also makes it “manual”.
+   - **Rmax (Å)**: default 2.5, first shell only. **Rmin (automatic)**: the minimum of |χ(R)| between 0.7 Å and the first peak, but not below the first peak − 0.6 Å and not below 0.7 Å, or 1.0 Å if there is no minimum; shown after the fit. The k window comes from the samples' processing settings (for a joint fit the intersection of their k windows; below 6 Å⁻¹ you get an explanation), k-weights 1, 2, 3 together.
+   - **Model name**: empty = automatic (`QF_<sample>`; joint `QF_joint_<first>__<last>`).
+3. **3  Run**: **Start fit**; the button is greyed out with the reason when something is missing (samples, S0²). The fit runs in the background and can be cancelled. The result goes to this session's fit history (visible under **Fit history** and **Figure export**).
+4. **4  Result**
+   - The window: k, dk, window function, k-weight, R window.
+   - A joint fit first shows the **batch verdict**: the joint R-factor, the shared ΔE0 and the batch-level checks.
+   - **Result table**: Sample, N, R (Å), σ² (Å²), ΔE0 (eV), S0² (marked “fixed” in Sample mode), R-factor, Verdict, with 1σ errors. Click a row: below it you get that sample's |χ(R)| plot of data and fit (grey band = Rmin–Rmax, not phase-corrected) and its checks one by one.
+   - The **verdict** marks each check ✓ passed / ✗ to look at (with one line of advice) / ℹ note, and concludes “✅ Trustworthy” or “⚠ n issue(s) to look at” (joint: one batch layer plus one layer per sample):
+     - R-factor: < 0.02 very good; 0.02–0.05 acceptable for a first shell; > 0.05 to look at;
+     - number of variables (Stern criterion): ≤ N_idp passes, > N_idp is flagged; > N_idp/2 only gives the note “little information”;
+     - parameter errors estimable and not larger than the value, no parameter at its bound; |ΔE0| ≤ 10 eV; σ² positive and ≤ 0.03 Å²; |ΔR| ≤ 0.2 Å; no parameter pair with |r| > 0.9; a note if only one k-weight was used;
+     - fitted R within 0.15 Å of the structure's R_ref;
+     - N of a sample ≤ 1.5 × N_ref;
+     - |χ(R)| at Rmax ≤ 30% of the first peak (otherwise the window may cut into the second shell);
+     - the data's first peak matches the structure's first shell: R_p − R_ref within −0.8 … +0.1 Å (a mismatch means the chosen structure does not fit the sample, e.g. an oxide FEFF for a metallic sample);
+     - notes: a typed S0², other elements in the first layer, differing dk / window function between the samples of a joint fit.
+   - **Trend plot** (joint fit): a drop-down chooses **N / R (Å) / σ² (Å²)**, one point per sample with 1σ error bars; the x axis follows the sequence rules of the joint-fit guide (`seq` → measurement time → sample order), and the page says which `seq` values are missing.
+   - After a Standard fit a line says that **Pick standard value…** in Sample mode can now use this S0².
+   - Buttons:
+     - **Save**: writes `models/<name>.json`, the fit records (`exafs_fits.csv`, report, figure) and the parameter file; a joint fit also writes the trend CSV (`output/fits/<name>_trend.csv`). Same as `xafsmith quickfit --save`; if the model exists you are asked before overwriting.
+     - **Go to Figure export** (joint fits only): opens **Figure export › Trend** with this fit selected; there you can choose which quantities to export (N, R, σ², ΔE0, edge position).
+     - **Continue in Detailed fit**: loads this model (paths, parameters, k / R window, model name; for a joint fit the datasets) into Detailed fit and switches to it; if Detailed fit already has path / parameter tables you confirm the overwrite first (you can save a draft there beforehand).
+   - Command line: `xafsmith quickfit <samples…> --feff <folder> (--standard | --s02 x | --s02-from <standard model>) [--rmax 2.5] [--save]`; see the Manual, section 3.
+
+> Quick fit only answers “what are N, R, σ² of the first shell and can they be trusted”. A “Trustworthy” verdict is a necessary condition, not proof that the structure is right; R-space peak positions are not phase-corrected.
+
+#### Detailed fit
+
 **Layout**
 
 | Area | Content |
@@ -296,7 +342,7 @@ Drag the divider between the columns to resize them. A fit updates only the righ
 
 1. **Data and FEFF**: choose the data (with χ(k)) and FEFF folders (several allowed: phases / sites).
 2. **Fit range**: kmin, kmax, dk, window, k-weights (1, 2, 3 together recommended), Rmin, Rmax, fit space. N_idp and the variable limit N_idp/2 are shown.
-3. **Paths**: tick the paths to use; a single click edits a cell:
+3. **Paths**: tick the paths to use; a single click edits a cell. The path-table columns are, in order, use, label, N, deltar, sigma2, e0, s02, third, note, reff, degen, nleg, amp_ratio, dir (path tables in older drafts / sessions are reordered when opened):
 
 | Column | What to write |
 |---|---|
@@ -411,7 +457,7 @@ Drag the divider between the columns to resize them. A fit updates only the righ
 - All open fits are listed; **Save all to output/fits/** saves them at once.
 - **F-test (Hamilton)**: choose the “simpler” and the “more complex” model (with an extra shell or parameters) and click **Compare**. Only **p < 0.05** makes the extra shell significant.
 - **Model comparison**: tick the fits to compare (at least 2) and click **Compare**: the table is ordered by number of variables and lists R-factor, χ²_ν, χ², variables, N_idp, number of restraints and, for each model, the F-test (F, p) against the previous row. Adjacent models with different data or fit ranges, different restraints or the same number of variables get no F-test (reason in the “note” column); the F-test card's **Compare** also shows a warning in those cases. **The F-test is valid only for nested models (the smaller is a special case of the larger); the software does not check nesting.** **Save as CSV** writes `output/fits/model_compare.csv`; on the command line use `xafsmith compare model1 model2 …`.
-- **View fit**: switch to any fit, shown like the right column of EXAFS fitting.
+- **View fit**: switch to any fit, shown like the right column of Detailed fit.
 
 ### 13　LCF (linear combination fitting)
 
@@ -462,7 +508,7 @@ Load samples and standards first. Three tabs:
 
 The preview is at true size; below it is the English caption (saved with the figure as .txt, including processing parameters).
 
-**Trend** (needs a joint fit of ≥ 2 datasets in the session): choose a joint fit (default: the latest), panels (N, R, σ², ΔE0, edge position), paths and the x-axis title (empty = default for the sequence source); size, palette (one colour per path), formats and file name are as for the other figures. Journal sizes stack the panels in one column, each panel 0.6 × the height of that size; the 16:9 slide size uses a two-column grid. Error-bar style: error-bar and cap line width = 0.7 × the curve line width, cap 0.3 × the font size, filled round markers 0.5 × the font size in the line colour; 1σ. The English caption states the model, number of datasets, edge, sequence source, what the error bars mean, fixed N and shared parameters, what E0 is, and that fit results are model-dependent. The Origin project has X / Y / yErr columns per curve (curves with a fixed N only X / Y) and uses line + symbol plots with 14 pt filled round symbols in the line colour. **Origin is not installed here, so the error-bar width (2 pt), the cap width (16 pt) and the look of the project in Origin are not verified**; without Origin only the data and `build_origin.py` are written, to be run in Origin's script window.
+**Trend** (needs a joint fit of ≥ 2 datasets in the session; the **Go to Figure export** button on the result of a joint Quick fit opens this with that fit selected): choose a joint fit (default: the latest), panels (N, R, σ², ΔE0, edge position), paths and the x-axis title (empty = default for the sequence source); size, palette (one colour per path), formats and file name are as for the other figures. Journal sizes stack the panels in one column, each panel 0.6 × the height of that size; the 16:9 slide size uses a two-column grid. Error-bar style: error-bar and cap line width = 0.7 × the curve line width, cap 0.3 × the font size, filled round markers 0.5 × the font size in the line colour; 1σ. The English caption states the model, number of datasets, edge, sequence source, what the error bars mean, fixed N and shared parameters, what E0 is, and that fit results are model-dependent. The Origin project has X / Y / yErr columns per curve (curves with a fixed N only X / Y) and uses line + symbol plots with 14 pt filled round symbols in the line colour. **Origin is not installed here, so the error-bar width (2 pt), the cap width (16 pt) and the look of the project in Origin are not verified**; without Origin only the data and `build_origin.py` are written, to be run in Origin's script window.
 
 **Save**: **Save to output/figs/journal/**. Arial, 600 dpi TIFF / PNG.
 
@@ -557,7 +603,7 @@ An XAFSmith project can be handed to an AI assistant (Claude Code, Codex, Cursor
 
 | Result | Where |
 |---|---|
-| Fit models | `models/`; rerun them under “Run a saved model” at the top of EXAFS fitting and check quality and diagnosis |
+| Fit models | `models/`; rerun them under “Run a saved model” at the top of EXAFS fitting › Detailed fit and check quality and diagnosis |
 | Numbers | `output/` |
 | Analysis notes | `notes/` |
 | Figures, reports | `output/figs/journal/`, `output/reports/` |
