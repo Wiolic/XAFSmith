@@ -20,8 +20,9 @@ from ...widgets import T, Banner, Card, Page
 
 
 # ---------------------------------------------------------------- 后台任务（须在界面线程调用，返回无控件引用的函数）
-def quick_job(S, samples, feff, rmax, mode, s02, src, name=None):
+def quick_job(S, samples, feff, rmax, mode, s02, src, name=None, feff2=None):
     """快速拟合的后台任务。样品的谱在这里深拷贝（取会话里已有 χ(k) 的，与精细拟合一致）；会话里没有的（仅命令行 / 兜底）在后台线程现建。
+    feff2：第二相（混合相）的 FEFF 文件夹，只用于样品用途。
     返回 work(progress) → dict(kind="single"|"joint", res, table)；res 是 QuickResult 或 JointResult。"""
     from xafsmith import pipeline as pl
     snap = {s: copy.deepcopy(S.groups[s]) for s in samples if s in S.groups and has_chi(S.groups[s])}
@@ -32,12 +33,12 @@ def quick_job(S, samples, feff, rmax, mode, s02, src, name=None):
         if len(samples) == 1:
             s = samples[0]
             g = snap[s] if s in snap else pl.build_sample(s)[0]        # 只建一次，自动 Rmin 与拟合共用
-            model = qf.build_model(s, feff, rmax, mode, s02=s02, s02_source=src, name=name or None, group=g)
+            model = qf.build_model(s, feff, rmax, mode, s02=s02, s02_source=src, name=name or None, group=g, feff_dir2=feff2)
             progress(0.4, T("拟合中…", "Fitting…"))
             res = qf.run(model, group=g)
             return dict(kind="single", res=res, table=None)
         groups = {pl.safe(s): (snap[s] if s in snap else pl.build_sample(s)[0]) for s in samples}
-        model = qf.build_joint_model(samples, feff, rmax, s02=s02, s02_source=src, name=name or None, groups=groups)
+        model = qf.build_joint_model(samples, feff, rmax, s02=s02, s02_source=src, name=name or None, groups=groups, feff_dir2=feff2)
         progress(0.4, T("联合拟合中…", "Joint fitting…"))
         res = qf.run(model, groups)
         progress(0.9, T("趋势表…", "Trend table…"))
@@ -99,6 +100,7 @@ class QuickFitPage(Page):
         super().__init__(app)
         self._res = None            # 最近一次结果（页面重建后仍在）：dict(kind, res, table, mode, samples)
         self._shell_cache = {}
+        self._auto_rmax = False     # 程序改 Rmax 时为 True（区分用户手改）
 
     def stale_extra(self):
         """图片导出里改了趋势图顺序（存在拟合记录上）→ 回到本页时重建，页内趋势图跟着变"""
@@ -154,8 +156,17 @@ class QuickFitPage(Page):
         self._feff = W.combo(dirs, cur, fmt=lambda p: str(p.relative_to(paths.ROOT)))
         self._feff.setToolTip(T("FEFF 计算文件夹（含 feff0001.dat…；多位点时每个位点是一个文件夹）。",
                                 "FEFF calculation folder (feff0001.dat …; with several sites each site is its own folder)."))
+        cur2 = next((d for d in dirs if str(d) == st.get("feff2")), None)
+        self._feff2 = W.combo([None] + list(dirs), cur2, fmt=lambda p: T("（无）", "(none)") if p is None else str(p.relative_to(paths.ROOT)))
+        self._feff2.setToolTip(T("混合相（如金属 + 氧化物）：再选第二个 FEFF 文件夹，两相各拟合第一壳层（N、R、σ² 各一套，ΔE0 共用；"
+                                 "联合拟合时各样品只有自己的 N，两相的 R、σ² 全批共享）。吸收原子须相同；只用于样品用途。选了第二相，"
+                                 "Rmax 缺省改为 3.0 Å。",
+                                 "Mixed phases (e.g. metal + oxide): choose a second FEFF folder; each phase fits its first shell (own N, R, σ²; "
+                                 "shared ΔE0; in a joint fit each sample has its own N while R and σ² of the two phases are shared by the batch). "
+                                 "Same absorber required; Sample mode only. With a second phase the default Rmax becomes 3.0 Å."))
         c1.add(W.field(T("样品（多选）", "Samples (several)"), self._smp))
         c1.add(W.field(T("FEFF 文件夹", "FEFF folder"), self._feff))
+        c1.add(W.field(T("第二相 FEFF（可选）", "Second-phase FEFF (optional)"), self._feff2))
         self._shell_lb = W.label("", rich=True)
         c1.add(self._shell_lb)
         self.add(c1)
@@ -196,7 +207,8 @@ class QuickFitPage(Page):
         self._smp.changed.connect(lambda *_: self._changed())
         self._feff.currentIndexChanged.connect(lambda *_: self._changed())
         self._mode.changed.connect(lambda *_: self._changed())
-        self._rmax.valueChanged.connect(lambda *_: self._changed())
+        self._feff2.currentIndexChanged.connect(lambda *_: self._changed())
+        self._rmax.valueChanged.connect(self._rmax_edited)
         self._name.textChanged.connect(lambda *_: self._changed())
         self._s02.textEdited.connect(self._s02_typed)
         self._run.clicked.connect(self._go)
@@ -208,10 +220,28 @@ class QuickFitPage(Page):
         self.state["s02_src"] = None            # 手改 → 来源变为手动
         self._changed()
 
+    def _feff2_dir(self):
+        """有效的第二相 FEFF 文件夹（字符串）：只在样品用途且选了第二相时有；否则 None"""
+        d = self._feff2.value()
+        return str(d) if d is not None and self._mode.value() == "sample" else None
+
+    def _rmax_edited(self, *_):
+        if self._auto_rmax:
+            return
+        self.state["rmax_set"] = True           # 用户改过 Rmax：不再随第二相自动换缺省
+        self._changed()
+
     def _changed(self, rebuild_results=False):
         st = self.state
+        if not st.get("rmax_set"):              # Rmax 缺省：混合相 3.0 Å，否则 2.5 Å
+            want = qf.default_rmax(self._feff2_dir() is not None)
+            if abs(self._rmax.value() - want) > 1e-9:
+                self._auto_rmax = True
+                self._rmax.setValue(want)
+                self._auto_rmax = False
         st.update(samples=self._smp.value(), feff=str(self._feff.value()), mode=self._mode.value(), s02=self._s02.text().strip(),
-                  rmax=self._rmax.value(), name=self._name.text().strip())
+                  rmax=self._rmax.value(), name=self._name.text().strip(), feff2=self._feff2_dir() or "")
+        self._feff2.setEnabled(st["mode"] == "sample")
         ek_now = self._edge_of(st["samples"])
         if st.get("s02_src") and ek_now and ek_now != st.get("s02_src_edge"):
             st["s02_src"] = None                # 换了吸收边：标样值不再适用，清空让用户重选
@@ -238,7 +268,7 @@ class QuickFitPage(Page):
             return
         rr = [m["reff"] for m in sh.members]
         rng = f"{min(rr):.2f}–{max(rr):.2f}" if len(rr) > 1 else f"{rr[0]:.2f}"
-        txt = T(f"第一壳层：<b>{sh.absorber}–{sh.scatterer} ×{sh.n_ref:g}</b>，{rng} Å（合并 {len(sh.members)} 条路径，"
+        txt = T("相 1　" if self._feff2_dir() else "", "Phase 1  " if self._feff2_dir() else "") + T(f"第一壳层：<b>{sh.absorber}–{sh.scatterer} ×{sh.n_ref:g}</b>，{rng} Å（合并 {len(sh.members)} 条路径，"
                 f"N_ref = {sh.n_ref:g}，R_ref = {sh.r_cif:.3f} Å）",
                 f"First shell: <b>{sh.absorber}–{sh.scatterer} ×{sh.n_ref:g}</b>, {rng} Å ({len(sh.members)} merged path(s), "
                 f"N_ref = {sh.n_ref:g}, R_ref = {sh.r_cif:.3f} Å)")
@@ -246,6 +276,22 @@ class QuickFitPage(Page):
             txt += "<br>" + T("提示：第一层还有 " + "、".join(f"{e}（{r:.2f} Å）" for e, r in sh.other_elements) + "，未考虑。",
                               "Note: the first layer also has " + ", ".join(f"{e} ({r:.2f} Å)" for e, r in sh.other_elements)
                               + ", not included.")
+        d2 = self._feff2_dir()
+        if d2:
+            try:
+                sh2 = self._shell(d2)
+                rr2 = [m["reff"] for m in sh2.members]
+                rng2 = f"{min(rr2):.2f}–{max(rr2):.2f}" if len(rr2) > 1 else f"{rr2[0]:.2f}"
+                txt += "<br>" + T(f"相 2　第一壳层：<b>{sh2.absorber}–{sh2.scatterer} ×{sh2.n_ref:g}</b>，{rng2} Å（合并 {len(sh2.members)} 条路径，"
+                                  f"N_ref = {sh2.n_ref:g}，R_ref = {sh2.r_cif:.3f} Å）",
+                                  f"Phase 2  first shell: <b>{sh2.absorber}–{sh2.scatterer} ×{sh2.n_ref:g}</b>, {rng2} Å "
+                                  f"({len(sh2.members)} merged path(s), N_ref = {sh2.n_ref:g}, R_ref = {sh2.r_cif:.3f} Å)")
+                if sh2.absorber != sh.absorber:
+                    txt += f'<br><span style="color:{C["err"]}">' + T(f"✗ 两相的吸收原子须相同：{sh.absorber} / {sh2.absorber}。",
+                                                                       f"✗ Both phases need the same absorber: {sh.absorber} / {sh2.absorber}.") + "</span>"
+            except Exception as ex:      # noqa: BLE001
+                logs.log.debug("快速拟合：第二相第一壳层读取失败 %s", d2, exc_info=True)
+                txt += f'<br><span style="color:{C["err"]}">' + T(f"无法读取第二相 FEFF 路径：{ex}", f"Cannot read the second-phase FEFF paths: {ex}") + "</span>"
         ek = self._edge_of(st.get("samples", []))
         if ek and sh.absorber and ek.split("_")[0] != sh.absorber:
             txt += f'<br><span style="color:{C["warn"]}">' + T(f"⚠ FEFF 的吸收原子是 {sh.absorber}，所选样品的吸收边是 {ek}。",
@@ -261,6 +307,9 @@ class QuickFitPage(Page):
         n = len(st.get("samples", []))
         if not n:
             return T("先选样品", "Choose samples first")
+        d2 = self._feff2_dir()
+        if d2 and d2 == st.get("feff"):
+            return T("第二相的 FEFF 文件夹与第一相相同", "The second-phase FEFF folder is the same as the first")
         if st["mode"] == "standard" and n > 1:
             return T("标样用途只能选一个样品（联合拟合只用于样品）", "Standard mode takes a single sample (joint fits are for samples)")
         if st["mode"] == "sample":
@@ -316,7 +365,8 @@ class QuickFitPage(Page):
             src = dict(st["s02_src"]) if st.get("s02_src") else None
             s02 = float(src["value"]) if src else float(st["s02"])
             src = src or dict(manual=True, value=s02)
-        work = quick_job(self.S, samples, str(self._feff.value()), float(st["rmax"]), mode, s02, src, st.get("name") or None)
+        work = quick_job(self.S, samples, str(self._feff.value()), float(st["rmax"]), mode, s02, src, st.get("name") or None,
+                         feff2=self._feff2_dir())
         S = self.S
 
         def done(out):
@@ -387,6 +437,13 @@ class QuickFitPage(Page):
                 f"Window: k {w['kmin']:g}–{w['kmax']:g} Å⁻¹ (dk {w['dk']:g}, {w['window']}), k-weight {w['kweight']}, "
                 f"R {w['rmin']:.2f}–{w['rmax']:.2f} Å" + (" (common to the batch)" if joint else ""))
         c4.add(W.label(win, "faint"))
+        if rs[0].phase2:
+            s1, s2_ = rs[0].shell, rs[0].phase2["shell2"]
+            c4.add(W.label(T(f"混合相：相 1 = {s1.absorber}–{s1.scatterer}，相 2 = {s2_.absorber}–{s2_.scatterer}"
+                             + ("；两相的 R、σ² 全批共享，各样品只有自己的 N" if joint else "；ΔE0 两相共用"),
+                             f"Mixed phases: phase 1 = {s1.absorber}–{s1.scatterer}, phase 2 = {s2_.absorber}–{s2_.scatterer}"
+                             + ("; R and σ² of the two phases are shared by the batch, each sample has its own N" if joint
+                                else "; ΔE0 is shared by the two phases"), ), "faint"))
         # 整批判定
         if joint:
             res = self._res["res"]
@@ -396,10 +453,19 @@ class QuickFitPage(Page):
             if batch.items:
                 c4.add(self._items_box(batch.items))
         # 结果表
-        rows = [{T("样品", "Sample"): r.sample, "N": self._ex(r.n, r.n_err, ".2f"), "R (Å)": self._ex(r.r, r.r_err, ".4f"),
-                 "σ² (Å²)": self._ex(r.sigma2, r.sigma2_err, ".5f"), "ΔE0 (eV)": self._ex(r.e0, r.e0_err, ".2f"),
-                 "S0²": self._ex(r.s02, r.s02_err, ".3f") + (T("（固定）", " (fixed)") if r.mode == "sample" else ""),
-                 T("R 因子", "R-factor"): f"{r.rfactor:.4f}", T("判定", "Verdict"): self._vtext(r.verdict)} for r in rs]
+        rows = []
+        for r in rs:
+            row = {T("样品", "Sample"): r.sample, "N": self._ex(r.n, r.n_err, ".2f"), "R (Å)": self._ex(r.r, r.r_err, ".4f"),
+                   "σ² (Å²)": self._ex(r.sigma2, r.sigma2_err, ".5f")}
+            if r.phase2:                                    # 混合相：相 2 的 N、R、σ² 与比例（N / N_ref，仅供参考）
+                p2 = r.phase2
+                row.update({"N₂": self._ex(p2["n"], p2["n_err"], ".2f"), "R₂ (Å)": self._ex(p2["r"], p2["r_err"], ".4f"),
+                            "σ²₂ (Å²)": self._ex(p2["sigma2"], p2["sigma2_err"], ".5f"),
+                            T("相 2 比例", "Phase-2 fraction"): f"{p2['frac']:.2f}"})
+            row.update({"ΔE0 (eV)": self._ex(r.e0, r.e0_err, ".2f"),
+                        "S0²": self._ex(r.s02, r.s02_err, ".3f") + (T("（固定）", " (fixed)") if r.mode == "sample" else ""),
+                        T("R 因子", "R-factor"): f"{r.rfactor:.4f}", T("判定", "Verdict"): self._vtext(r.verdict)})
+            rows.append(row)
         self._tab = W.Table(pd.DataFrame(rows), max_height=300, decimals=5)
         self._tab.setToolTip(T("点一行查看该样品的拟合图与判定", "Click a row to see that sample's fit plot and verdict"))
         c4.add(self._tab)

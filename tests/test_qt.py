@@ -297,6 +297,73 @@ def trend_order_check(app, w, q, jr, td):
     fit.pop("trend_order", None)
 
 
+def mixed_phase_checks(app, w, td):
+    """F2-7：快速拟合选第二相（混合相）：Rmax 缺省、标样禁用、联合拟合、结果表多列、页内趋势图两条线、去图片导出、在精细拟合中继续。"""
+    import numpy as np
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+    S, P = w.S, w.pages
+    box = P["fit"]
+    q, det = box.quick_page, box.detailed_page
+    box.show_quick()
+    w.go("fit")
+    box.show_quick()
+    c2 = next(d for d in q._feff2._vals if d is not None and d.name == "CuO_CuK")
+    q._mode.set("standard", emit=True)
+    say(not q._feff2.isEnabled(), "F2-7 标样用途：第二相下拉禁用")
+    q._mode.set("sample", emit=True)
+    say(q._feff2.isEnabled() and q._feff2.value() is None, "F2-7 样品用途：第二相下拉可用，缺省“（无）”")
+    q._rmax.setValue(2.8)                                          # 用户改过 Rmax：选第二相不再改它
+    q._feff2.setCurrentIndex(q._feff2._vals.index(c2))
+    say(abs(q._rmax.value() - 2.8) < 1e-9, "F2-7 用户改过的 Rmax 不被第二相覆盖")
+    q.state.pop("rmax_set", None)
+    q._feff2.setCurrentIndex(0)
+    q._feff2.setCurrentIndex(q._feff2._vals.index(c2))
+    say(abs(q._rmax.value() - 3.0) < 1e-9 and "相 2" in q._shell_lb.text() and "Cu–O" in q._shell_lb.text(),
+        "F2-7 选第二相：Rmax 缺省 3.0，第一壳层说明显示两相")
+    q._feff2.setCurrentIndex(0)
+    say(abs(q._rmax.value() - 2.5) < 1e-9, "F2-7 取消第二相：Rmax 缺省回到 2.5")
+    q._feff2.setCurrentIndex(q._feff2._vals.index(c2))
+    q._feff.setCurrentIndex(q._feff._vals.index(c2))
+    say(not q._run.isEnabled() and "相同" in q._why.text(), "F2-7 两相同一文件夹：不能开始，写明原因")
+    q._feff.setCurrentIndex(q._feff._vals.index(next(d for d in q._feff._vals if d.name == "Cu_CuK")))
+    # 联合（两条同一份数据的谱：给第二条一个确定性的小扰动，避免 larch 把两个数据集当成同一个）
+    g2 = S.groups["cu_rt01"]
+    g2.chi = np.asarray(g2.chi) * (1 + 1e-3 * np.sin(np.arange(len(g2.chi))))
+    q._smp.set_value(["cu_metal_rt", "cu_rt01"], emit=True)
+    q._name.setText("QF_mixed_test")
+    n0, n = len(S.fits), len(W.ERRORS)
+    q._run.click()
+    wait(app)
+    step("快速拟合 · 混合相联合", n)
+    jr = q._res["res"] if q._res else None
+    say(jr is not None and jr.shell2 is not None and len(S.fits) == n0 + 1 and all(r.phase2 for r in jr.samples),
+        "F2-7 混合相联合：拟合进会话历史，每个样品有相 2 结果")
+    cols = list(q._tab.m.df.columns) if jr else []
+    say({"N₂", "R₂ (Å)", "σ²₂ (Å²)"} <= set(cols) and "相 2 比例" in cols, "F2-7 结果表多出 N₂、R₂、σ²₂、相 2 比例：" + ", ".join(cols))
+    q._trend_sel.setCurrentIndex(0)
+    pump(app)
+    tp = q.findChildren(W.Plot)[0]
+    say(len(tp.ax.get_legend_handles_labels()[1]) == 2, "F2-7 页内趋势图两条线：" + ", ".join(tp.ax.get_legend_handles_labels()[1]))
+    q._b_fig.click()
+    pump(app)
+    pg = P["pubfig"]
+    cv = pg.findChildren(FigureCanvasQTAgg)
+    say(w.S.extra.get("page") == "pubfig" and pg.state.get("kind") == "trend" and S.fits[pg.state.get("tr_fit")] is jr.fit
+        and cv and len(cv[0].figure.axes[0].get_legend_handles_labels()[1]) == 2, "F2-7 去图片导出：趋势图有两条路径")
+    w.go("fit")
+    q._b_det.click()
+    wait(app)
+    st = det.state
+    say(box.mode == "detailed" and st.get("multi") is True and len(st.get("fdirs_multi", [])) == 2, "F2-7 在精细拟合中继续：联合、两个 FEFF 文件夹")
+    n0, n = len(S.fits), len(W.ERRORS)
+    click(det, "拟合")
+    wait(app)
+    step("精细拟合 · 重跑混合相联合模型", n)
+    f4 = S.fits[-1] if len(S.fits) == n0 + 1 else None
+    diff = max((abs(f4["summ"]["params"][k]["value"] - v["value"]) for k, v in jr.fit["summ"]["params"].items()), default=9) if f4 else 9
+    say(f4 is not None and diff < 1e-6, f"F2-7 精细拟合重跑混合相模型：参数相同（最大差 {diff:.1e}）")
+
+
 def quickfit_checks(app, w):
     """F2-3b：快速拟合界面端到端（在项目的临时副本里做，保存的文件不污染演示项目）：
     标样 → 保存 → 样品模式选取标样值 → 拟合 → 结果表与判定 → 在精细拟合中继续（数值与快速拟合相同）；
@@ -311,6 +378,12 @@ def quickfit_checks(app, w):
     fd.mkdir(parents=True, exist_ok=True)
     shutil.copy(PROJ.parent / "benchmark" / "feffcu01.dat", fd / "feff0001.dat")
     fdir = fd
+    fo = td / "output" / "feff" / "CuO_CuK"          # F2-7：合成的第二相（同一份路径文件改成 Cu–O 2.10 Å ×6，只用来走通流程）
+    fo.mkdir(parents=True, exist_ok=True)
+    txt = (fd / "feff0001.dat").read_text(encoding="utf-8").splitlines()
+    txt = ["   2   6.000   2.1000    2.6300   -5.53502 nleg, deg, reff, rnrmav(bohr), edge" if "nleg, deg, reff" in ln else
+           ("      .0000   -1.4849    1.4849  1   8 O" if _re.match(r"\s+\.0000\s+-1\.8016\s+1\.8016\s+1\s+29\s+Cu", ln) else ln) for ln in txt]
+    (fo / "feff0001.dat").write_text("\n".join(txt) + "\n", encoding="utf-8")
     meta_f = td / "data" / "meta.csv"
     m = pd.read_csv(meta_f, dtype=str, encoding="utf-8-sig")
     m.loc[m["sample"] == "cu_rt01", "use"] = "1"         # 第二个 Cu_K 样品（与 cu_metal_rt 同一条谱，仅用于走通联合流程）
@@ -436,6 +509,7 @@ def quickfit_checks(app, w):
         f3 = S.fits[-1] if len(S.fits) == n0 + 1 else None
         diff = max((abs(f3["summ"]["params"][k]["value"] - v["value"]) for k, v in jr.fit["summ"]["params"].items()), default=9) if f3 else 9
         say(f3 is not None and diff < 1e-6, f"精细拟合重跑联合模型：参数相同（最大差 {diff:.1e}）")
+        mixed_phase_checks(app, w, td)
     finally:
         w.open_project(str(PROJ))
         pump(app, 0.3)
