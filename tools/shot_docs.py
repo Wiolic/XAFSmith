@@ -2,26 +2,55 @@
     python tools/shot_gui.py docs/images/zh --lang zh --workdir D:/xafsmith_shots --script tools/shot_docs.py
     python tools/shot_gui.py docs/images/en --lang en --workdir D:/xafsmith_shots --script tools/shot_docs.py
 --workdir 用一个不含用户名的目录，因为 AI 助手页会显示项目路径；xafsmith 命令路径在下面改成安装版的样子。
-只用公开数据（tests/data/demo_project 的 Fe 箔与 Fe 氧化物、Cu 箔）。演示项目没有 FEFF 计算：本脚本在临时副本里用 FEFF6L 现算
-bcc Fe 的路径；Cu 用基准测试里的 feffcu01.dat。
-注意：联合拟合与趋势图用 Fe 箔与 Fe3C（FEFF 只有 bcc Fe 的第一壳层），seq 是为演示临时加的，只用来演示界面，
-不代表任何结构结论；两条同一谱的 Cu 数据做联合会退化，所以没用。
+只用标样（Ir 箔、IrO2、KTaO3、Ta2O5、Ta 箔），从用户的完整项目复制出最小副本（见 make_project）：
+    --project <完整项目目录>
+联合拟合与趋势图用同一种标样的不同批次谱（样品用途，S0² 取标样拟合值）。
 截图需要的操作都在这里用代码完成；要改某张图，改对应函数即可。"""
 import shutil
 from pathlib import Path
 
-from PySide6.QtWidgets import QApplication, QPushButton  # noqa: F401
+from PySide6.QtWidgets import QPushButton
 
 
-def make_feff(proj: Path):
-    """演示项目没有 FEFF 计算：Cu 用基准测试的 feffcu01.dat（FEFF 6.10，Cu fcc 第一壳层），Fe 箔 / FeO 用 FEFF6L 现算"""
-    from pymatgen.core import Lattice, Structure
-    from xafsmith import feff_wrap
-    d = proj / "output" / "feff" / "Cu_CuK"
-    d.mkdir(parents=True, exist_ok=True)
-    shutil.copy(Path(__file__).resolve().parents[1] / "tests" / "data" / "benchmark" / "feffcu01.dat", d / "feff0001.dat")
-    fe = Structure.from_spacegroup("Im-3m", Lattice.cubic(2.8665), ["Fe"], [[0, 0, 0]])
-    feff_wrap.build(fe, "Fe", "K", proj / "output" / "feff" / "Fe_FeK", rmax=3.2)
+# 只用标样（Ir 箔、IrO2；KTaO3、Ta2O5 与 Ta 箔）：项目里没有的样品一律不复制，未发表样品的名字不会出现在截图里
+KEEP = ["Ir foil", "IrO2", "Ir_foil_1W1B", "IrO2_Batch1", "Ir_foil_2132",
+        "Ta_foil", "KTaO3_20261105_Ta", "Ta2O5_20261105_Ta",
+        "Ta_foil_Ta_Time_resolved", "KTaO3_Ta_Time_resolved", "Ta2O5_Ta_Time_resolved",
+        "Ta_foil_IrTa_series", "KTaO3_IrTa_series", "Ta2O5_IrTa_series"]
+FEFF = ["IrO2_IrL3", "Ir_IrL3", "KTaO3_TaL3", "Ta_TaL3"]
+
+
+def make_project(src: Path, dst: Path):
+    """从完整项目 src 复制出只含标样的最小项目到 dst：meta.csv 只留 KEEP 行，原始数据只复制这些行用到的文件，
+    处理参数里只留这些样品的例外，FEFF 只复制 FEFF 列表里的目录；其他（模型、笔记、拟合记录、已有输出）都不复制。"""
+    import json
+    import pandas as pd
+    dst.mkdir(parents=True)
+    m = pd.read_csv(src / "data" / "meta.csv", dtype=str, encoding="utf-8-sig")
+    m = m[m["sample"].isin(KEEP)].copy()
+    # 趋势图横轴：两个 IrO2 按测量时间先后记 seq = 1（2026-05）、2（2026-11）。没有 seq 时趋势图会显示一条“缺 seq”的提示，
+    # 英文界面里这条提示是中文（trend.py 的 bug），所以截图里给 seq，避免英文图里出现中文。
+    m["seq"] = m["sample"].map({"IrO2": "1", "IrO2_Batch1": "2"}).fillna("")
+    (dst / "data").mkdir()
+    m.to_csv(dst / "data" / "meta.csv", index=False, encoding="utf-8-sig")
+    for col in ("file", "ref_file"):
+        for rel in m[col].dropna().unique():
+            sp, dp = src / rel, dst / rel
+            if dp.exists():          # file 与 ref_file 可能是同一个（原始数据只读，不能覆盖）
+                continue
+            dp.parent.mkdir(parents=True, exist_ok=True)
+            if sp.is_dir():
+                shutil.copytree(sp, dp, dirs_exist_ok=True)
+            elif sp.exists():
+                shutil.copy2(sp, dp)
+    cfg = json.loads((src / "xafsmith.json").read_text(encoding="utf-8"))
+    cfg["edges"] = {k: v for k, v in cfg["edges"].items() if k in ("Ir_L3", "Ta_L3")}
+    for k in ("overrides", "overrides_reason", "deglitch", "deglitch_reason"):
+        if isinstance(cfg.get(k), dict):
+            cfg[k] = {s_: v for s_, v in cfg[k].items() if s_ in KEEP}
+    (dst / "xafsmith.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    for d in FEFF:
+        shutil.copytree(src / "output" / "feff" / d, dst / "output" / "feff" / d)
 
 
 def click(page, text):
@@ -32,75 +61,69 @@ def click(page, text):
     raise RuntimeError(f"找不到按钮：{text}")
 
 
+NORM = ["Ir_foil_1W1B", "IrO2_Batch1", "IrO2", "Ir foil"]
+STD = "IrO2_Batch1"                  # 快速拟合：标样用途
+JOINT = ["IrO2_Batch1", "IrO2"]      # 联合拟合：同一种标样的两个批次（样品用途）
+FEFF_NAME = "IrO2_IrL3"
+
+
 def run(ctx):
     w, W = ctx.w, ctx.W
     P, S = w.pages, w.S
     from xafsmith import agent
-    agent.command = lambda: "C:\\Program Files\\XAFSmith\\xafsmith-cli.exe"      # AI 助手页显示的命令路径：用安装版的典型路径，不露本机路径
-    make_feff(ctx.proj)
-    import pandas as pd      # 临时副本的 meta.csv 加 seq 列（Fe 箔 1、Fe3C 2），趋势图横轴才有意义；只改副本
-    mf = ctx.proj / "data" / "meta.csv"
-    m = pd.read_csv(mf, dtype=str, encoding="utf-8-sig")
-    m["seq"] = m["sample"].map({"Fe_foil": "1", "fe3c_rt": "2"}).fillna("")
-    m.to_csv(mf, index=False, encoding="utf-8-sig")
+    agent.command = lambda: "C:/Program Files/XAFSmith/xafsmith-cli.exe"      # AI 助手页显示的命令路径：用安装版的典型路径，不露本机路径
     w.open_project(str(ctx.proj))
     ctx.pump(0.5)
-    samples = ["Fe_foil", "feo_rt1", "fe2o3_rt1", "fe3c_rt"]
-    ctx.load(*samples)
+    ctx.load(*NORM)
 
     # —— 归一化：多谱叠加
     ctx.resize(1440, 1100)
-    P["norm"].state.update(sel=samples, cur="Fe_foil", flat=True, rel=True, tab=1)
+    P["norm"].state.update(sel=NORM, cur=NORM[0], flat=True, rel=True, tab=1)
     ctx.go("norm")
     P["norm"].refresh()
     ctx.pump(0.8)
     for pl_ in P["norm"].findChildren(W.Plot):
         if pl_.isVisible():
             pl_.ax.set_xlim(-30, 150)           # 叠加图只看边附近
-            pl_.ax.set_ylim(-0.05, 1.6)
             pl_.draw()
     ctx.pump(0.3)
     ctx.shot("normalization")
 
     # —— χ(k) 与 FT
-    P["chi"].state.update(sel=["Fe_foil", "feo_rt1"], re=False)
+    P["chi"].state.update(sel=NORM[:2], re=False)
     ctx.go("chi")
     P["chi"].refresh()
     ctx.pump(0.8)
     ctx.shot("chi_ft")
 
     # —— 小波
-    P["wavelet"].state.update(k="Fe_foil", k2="feo_rt1")
+    P["wavelet"].state.update(k=NORM[0], k2=NORM[1])
     ctx.go("wavelet")
     P["wavelet"].refresh()
     ctx.pump(0.8)
     ctx.shot("wavelet")
 
     # —— 吸收边查询
-    P["elements"].state["el"] = "Fe"
+    P["elements"].state["el"] = "Ir"
     ctx.go("elements")
     P["elements"].refresh()
     ctx.pump(0.6)
     ctx.shot("edge_lookup")
 
-    # —— AI 助手、方法导出
+    # —— AI 助手
     ctx.go("agent")
     ctx.shot("ai_assistant")
 
-
-    # —— 快速拟合：先用 Cu 箔求 S0²（标样），再把两条 Cu 谱联合拟合（演示数据，见文件头注意）
+    # —— 快速拟合：单样品（标样用途，S0² 为拟合量）→ 联合（样品用途，S0² 取标样值）
     from xafsmith import s02_source as s2
     box = P["fit"]
     q = box.quick_page
-    ctx.load("cu_metal_rt")
     ctx.go("fit")
     box.show_quick()
     ctx.resize(1440, 1000)
-    pick = lambda name: q._feff.setCurrentIndex(next(i for i, d in enumerate(q._feff._vals) if d.name == name))  # noqa: E731
-    pick("Cu_CuK")
-    q._smp.set_value(["cu_metal_rt"], emit=True)
+    q._feff.setCurrentIndex(next(i for i, d in enumerate(q._feff._vals) if FEFF_NAME in str(d)))
+    q._smp.set_value([STD], emit=True)
     q._mode.set("standard", emit=True)
-    q._rmax.setValue(3.0)
     q._run.click()
     ctx.wait()
     ctx.scroll_to(q._tab, 160)
@@ -108,18 +131,11 @@ def run(ctx):
     q._b_save.click()
     ctx.pump(0.5)
 
-    # 联合：Fe 箔（标样，求 S0²）→ Fe 箔 + Fe3C 联合（演示界面；FEFF 只有 bcc Fe，不代表 Fe3C 的结构结论）
-    pick("Fe_FeK")
-    q._smp.set_value(["Fe_foil"], emit=True)
-    q._mode.set("standard", emit=True)
-    q._run.click()
-    ctx.wait()
     q._mode.set("sample", emit=True)
-    q._smp.set_value(["Fe_foil", "fe3c_rt"], emit=True)
-    cands = s2.list_candidates("Fe_K", S.fits, session_edges=q._session_edges())
+    q._smp.set_value(JOINT, emit=True)
+    cands = s2.list_candidates("Ir_L3", S.fits, session_edges=q._session_edges())
     q._pick_candidate(cands[0])
-    q._rmax.setValue(2.5)
-    q._name.setText("QF_Fe_joint")
+    q._name.setText("QF_IrO2_joint")
     q._run.click()
     ctx.wait()
     ctx.scroll_to(q._tab, 160)
@@ -135,7 +151,7 @@ def run(ctx):
     ctx.shot("trend")
     pg = P["pubfig"]
     idx = next(i for i, f in enumerate(S.fits) if f is jr.fit)
-    pg.state.update(kind="chir", sel=["Fe_foil", "fe3c_rt"], usefit=True, fits=[idx])
+    pg.state.update(kind="chir", sel=JOINT, usefit=True, fits=[idx])
     pg.refresh()
     ctx.pump(1.0)
     ctx.shot("journal_figure")
@@ -155,7 +171,7 @@ def run(ctx):
     # —— Origin 工程：本机有 Origin（originpro）才做；用 Origin 自己渲染三张图拼成一张。没有就保留 docs/images 里的旧图
     make_origin_figure(ctx, pg, idx)
 
-    # —— 方法导出（选到刚才的联合拟合，参数表里有两个样品）
+    # —— 方法导出
     ctx.resize(1440, 1100)
     ctx.go("methods")
     ctx.shot("methods_export")
@@ -177,7 +193,7 @@ def make_origin_figure(ctx, pg, idx):
         print("没有 originpro：跳过 origin_export.png")
         return
     from PIL import Image
-    keys = ["Fe_foil", "fe3c_rt"]
+    keys = JOINT
     pngs = []
     for kind in ("xanes", "chik", "chir"):
         pg.state.update(kind=kind, sel=keys, usefit=kind != "xanes", fits=[idx])

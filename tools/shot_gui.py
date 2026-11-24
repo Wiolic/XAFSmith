@@ -13,7 +13,7 @@
     --max-width N     输出 PNG 最大宽度（像素，默认 1600，超出按比例缩小）
 默认用原生窗口平台（真实字体渲染；窗口移到屏幕外 x=-4000 再 grab，不打扰桌面）；--offscreen 才用 offscreen（CI / 无桌面，字体与真实界面不同）。
 
-脚本接口：run(ctx)，ctx 提供
+脚本接口：run(ctx)；可选 make_project(src, dst)（自己复制项目，例如只复制需要的样品）。ctx 提供
   ctx.app, ctx.w          QApplication 与主窗口
   ctx.proj                项目临时副本（Path）；ctx.lang、ctx.out
   ctx.pump(sec)           处理事件；ctx.wait()  等后台任务结束
@@ -35,6 +35,16 @@ from pathlib import Path
 from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def rm_tree(p):
+    """删目录（原始数据副本带只读属性，先去掉只读再删）"""
+    import stat
+
+    def fix(func, path, _exc):
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+    shutil.rmtree(p, onerror=fix) if Path(p).exists() else None
 
 
 def shrink(path: Path, max_width: int):
@@ -75,12 +85,21 @@ def main(argv=None):
     out.mkdir(parents=True, exist_ok=True)
     if a.workdir:
         base = Path(a.workdir).resolve() / "shot_gui_run"      # 只删这个子目录，不碰 DIR 里的其他东西
-        shutil.rmtree(base, ignore_errors=True)
+        rm_tree(base)
         base.mkdir(parents=True)
     else:
         base = Path(tempfile.mkdtemp(prefix="shot_gui_"))
     tmp = base / "demo_project"
-    shutil.copytree(Path(a.project).resolve(), tmp)
+    mod = None
+    if a.script:                 # 脚本可以定义 make_project(src, dst) 自己复制项目（例如只复制需要的样品）；没有就整个复制
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("shot_script", a.script)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+    if mod is not None and hasattr(mod, "make_project"):
+        mod.make_project(Path(a.project).resolve(), tmp)
+    else:
+        shutil.copytree(Path(a.project).resolve(), tmp)
     wd, ht = (int(v) for v in a.size.lower().split("x"))
 
     from PySide6.QtCore import QEventLoop, QTimer   # noqa: E402
@@ -94,11 +113,6 @@ def main(argv=None):
         loop.exec()
 
     app, w = make_window(str(tmp), lang=a.lang)
-    from PySide6.QtGui import QFontDatabase         # noqa: E402
-    for ttf in (("seguisym.ttf", "seguiemj.ttf") if a.offscreen else ()):      # 离屏渲染没有系统字体回退：补上符号字体，否则 ℹ ⚠ 等显示成方块
-        fp = Path(os.environ["QT_QPA_FONTDIR"]) / ttf
-        if fp.exists():
-            QFontDatabase.addApplicationFont(str(fp))
     w.resize(wd, ht)
     if not a.offscreen:
         w.move(-4000, 0)             # 原生平台要真正 show()：放到屏幕可见区域外
@@ -113,7 +127,41 @@ def main(argv=None):
             time.sleep(0.02)
         pump(0.4)
 
+    def cjk_residue(name):
+        """英文界面截图里仍有中文的控件文字（标签、按钮、标签页、下拉框、表格单元、图中文字）：打印出来，作为界面 bug 报告"""
+        import re
+        from PySide6.QtWidgets import QAbstractButton, QComboBox, QLabel, QTabBar, QTableView
+        cjk = re.compile(r"[一-鿿　-〿＀-￯]")
+        found = []
+        for wd_ in w.findChildren(QLabel) + w.findChildren(QAbstractButton):
+            if wd_.isVisible() and cjk.search(wd_.text() or "") and wd_.text() != "中文":      # “中文”是语言切换按钮，本来就该是中文
+                found.append(f"{type(wd_).__name__}: {wd_.text()[:70]}")
+        for tb in w.findChildren(QTabBar):
+            for i in range(tb.count()):
+                if cjk.search(tb.tabText(i)):
+                    found.append(f"Tab: {tb.tabText(i)}")
+        for cb in w.findChildren(QComboBox):
+            if cb.isVisible() and cjk.search(cb.currentText() or ""):
+                found.append(f"Combo: {cb.currentText()[:70]}")
+        for tv in w.findChildren(QTableView):
+            m_ = tv.model()
+            if tv.isVisible() and m_ is not None:
+                for r_ in range(min(m_.rowCount(), 40)):
+                    for c_ in range(min(m_.columnCount(), 20)):
+                        t_ = str(m_.index(r_, c_).data() or "")
+                        if cjk.search(t_):
+                            found.append(f"Cell[{r_},{c_}]: {t_[:70]}")
+        for pl_ in w.findChildren(W.Plot):
+            if pl_.isVisible():
+                for t_ in pl_.ax.figure.findobj(lambda o: hasattr(o, "get_text")):
+                    if cjk.search(t_.get_text() or ""):
+                        found.append(f"PlotText: {t_.get_text()[:70]}")
+        for f_ in dict.fromkeys(found):
+            print(f"CJK-RESIDUE [{name}] {f_}".encode("ascii", "backslashreplace").decode())
+
     def shot(name, widget=None):
+        if a.lang == "en":
+            cjk_residue(name)
         p = out / f"{name}.png"
         t = getattr(w, "_toaster", None)      # 轻提示（“已保存…”）不要留在图里
         if t is not None:
@@ -162,11 +210,7 @@ def main(argv=None):
         pump(0.3)
 
     try:
-        if a.script:
-            import importlib.util
-            spec = importlib.util.spec_from_file_location("shot_script", a.script)
-            mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
+        if mod is not None:
             mod.run(SimpleNamespace(app=app, w=w, proj=tmp, lang=a.lang, out=out, pump=pump, wait=wait,
                                     load=load, go=go, shot=shot, W=W, resize=resize, tab=tab, scroll_to=scroll_to))
         else:
@@ -179,7 +223,7 @@ def main(argv=None):
                     print("FAIL", key, e)
     finally:
         w.close()
-        shutil.rmtree(base, ignore_errors=True)
+        rm_tree(base)
     print("ok", out)
 
 
