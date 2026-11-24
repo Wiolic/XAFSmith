@@ -37,6 +37,12 @@ Minor release: Quick fit (first shell, single and joint, plain-words verdict, tr
 - `.gitignore` 加入工具缓存目录。 Tool caches added to `.gitignore`.
 
 ### 修复 / Fixed
+- **快速拟合的样品列表**与精细拟合一致：只列当前会话已载入并算出 χ(k) 的样品（以前列 `data/meta.csv` 里的全部样品，拟合时在后台另建一份，会话里没有那条谱，导致图片导出等页面看不到）；没有载入样品时提示去“载入谱 / χ(k) 与 FT”。
+  **The Quick-fit sample list** now matches Detailed fit: only samples loaded in the session with χ(k) are listed (before, all samples of `data/meta.csv` were listed and built in the background, so the spectra were not in the session and Figure export etc. could not see them); with nothing loaded a hint points to “Load spectra / χ(k) & FT”.
+- **图片导出 › χ(k) / |χ(R)| 的“叠加拟合曲线”对联合（多数据集）拟合无效**：联合拟合记录的样品名是 “a+b”，匹配不到任何谱；现在按数据集逐个对应（精细拟合与快速拟合的联合结果都适用），单数据集拟合行为不变。
+  **Figure export › χ(k) / |χ(R)| “Overlay fit” did nothing for joint (multi-dataset) fits**: a joint record is named “a+b” and matched no spectrum; datasets are now matched one by one (for joint fits from Detailed fit and Quick fit alike); single-dataset fits behave as before.
+- **趋势图的样品顺序可调**（快速拟合页内趋势图与 图片导出 › 趋势图）：“横轴顺序”里拖动样品或用 ↑ ↓，“恢复默认顺序”回到 seq → 测量时间 → 数据集顺序的规则；调过后横轴按该顺序等间距排列（标签为样品名）。顺序存在拟合记录上（`trend_order`，数据集 id 列表），两处共用；保存的趋势 CSV 按此顺序写行并在最后加一列 `order`，原有各列（含 `seq`）的值不变，`trend_table` 的数值不变；没调时与以前完全相同。
+  **The sample order of the trend plot is adjustable** (the in-page plot of Quick fit and Figure export › Trend): drag the samples or use ↑ ↓ in “X-axis order”, “Restore default order” returns to the seq → measurement time → dataset-order rule; once changed, the axis shows the samples in that order, evenly spaced (labelled with the sample names). The order is stored on the fit record (`trend_order`, a list of dataset ids) and shared by both places; the saved trend CSV writes its rows in that order with one extra trailing column `order`, the existing columns (including `seq`) keep their values and `trend_table` numbers are unchanged; unchanged behaviour when the order is not touched.
 - `xafsmith fit --nosave` 现在真的不写文件：以前只是不追加 `exafs_fits.csv`，仍会写拟合报告、`params.json` 与拟合图。
   `xafsmith fit --nosave` now writes nothing; previously it only skipped `exafs_fits.csv` and still wrote the report, `params.json` and figures.
 
