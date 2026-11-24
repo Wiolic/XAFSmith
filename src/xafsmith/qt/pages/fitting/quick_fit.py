@@ -325,10 +325,122 @@ class QuickFitPage(Page):
         W.run_task(self, work, done, T("快速拟合中…", "Quick fitting…"), self._run, progress=True, on_error=failed,
                    key="quickfit", excl="fit")
 
-    # ------------------------------------------------------------ 结果（第二步实现）
+    # ------------------------------------------------------------ 结果
+    def _results(self):
+        """(结果行列表 [QuickResult], 整批判定 JointVerdict 或 None)"""
+        r = self._res["res"]
+        return (r.samples, r.verdict) if self._res["kind"] == "joint" else ([r], None)
+
+    @staticmethod
+    def _ex(v, e, f):
+        if v is None:
+            return "–"
+        return f"{v:{f}}" if e is None else f"{v:{f}} ± {e:{f}}"
+
+    @staticmethod
+    def _vtext(v):
+        return T(v.summary("zh"), v.summary("en"))
+
+    def _items_box(self, items):
+        """判定条目逐条：✓ / ✗ / ℹ + 文字，未通过的再给一行建议"""
+        col = {"pass": C["ok"], "fail": C["err"], "note": C["text2"]}
+        mark = {"pass": "✓", "fail": "✗", "note": "ℹ"}
+        box = W.vbox(spacing=4)
+        for it in items:
+            txt = f'<span style="color:{col[it.level]};font-weight:700">{mark[it.level]}</span>&nbsp;' + T(it.zh, it.en)
+            if it.level == "fail" and T(it.advice_zh, it.advice_en):
+                txt += f'<br><span style="color:{C["text2"]}">&nbsp;&nbsp;&nbsp;→ ' + T(it.advice_zh, it.advice_en) + "</span>"
+            box.layout().addWidget(W.label(txt, rich=True))
+        return box
+
     def _show_results(self, error=None):
         if not hasattr(self, "_rbox"):
             return
         W._clear_layout(self._rbox.layout())
+        lay = self._rbox.layout()
         if error:
-            self._rbox.layout().addWidget(Banner("err", error))
+            lay.addWidget(Banner("err", error))
+        if not self._res:
+            return
+        try:
+            self._fill_results(lay)
+        except RuntimeError:
+            logs.log.debug("quick fit results: widget deleted", exc_info=True)
+
+    def _fill_results(self, lay):
+        import pandas as pd
+        rs, batch = self._results()
+        joint, mode = batch is not None, self._res["mode"]
+        c4 = Card(T("4  结果", "4  Result"))
+        w = rs[0].window
+        win = T(f"窗口：k {w['kmin']:g}–{w['kmax']:g} Å⁻¹（dk {w['dk']:g}，{w['window']}），k 权重 {w['kweight']}，"
+                f"R {w['rmin']:.2f}–{w['rmax']:.2f} Å" + ("（全批统一）" if joint else ""),
+                f"Window: k {w['kmin']:g}–{w['kmax']:g} Å⁻¹ (dk {w['dk']:g}, {w['window']}), k-weight {w['kweight']}, "
+                f"R {w['rmin']:.2f}–{w['rmax']:.2f} Å" + (" (common to the batch)" if joint else ""))
+        c4.add(W.label(win, "faint"))
+        # 整批判定
+        if joint:
+            res = self._res["res"]
+            c4.add(Banner("ok" if batch.ok else "warn",
+                          T("整批：", "Batch: ") + self._vtext(batch) + T(f"　联合 R 因子 {res.rfactor:.4f}，共享 ΔE0 = {self._ex(res.e0, res.e0_err, '.2f')} eV",
+                                                                      f"　joint R-factor {res.rfactor:.4f}, shared ΔE0 = {self._ex(res.e0, res.e0_err, '.2f')} eV")))
+            if batch.items:
+                c4.add(self._items_box(batch.items))
+        # 结果表
+        rows = [{T("样品", "Sample"): r.sample, "N": self._ex(r.n, r.n_err, ".2f"), "R (Å)": self._ex(r.r, r.r_err, ".4f"),
+                 "σ² (Å²)": self._ex(r.sigma2, r.sigma2_err, ".5f"), "ΔE0 (eV)": self._ex(r.e0, r.e0_err, ".2f"),
+                 "S0²": self._ex(r.s02, r.s02_err, ".3f") + (T("（固定）", " (fixed)") if r.mode == "sample" else ""),
+                 T("R 因子", "R-factor"): f"{r.rfactor:.4f}", T("判定", "Verdict"): self._vtext(r.verdict)} for r in rs]
+        self._tab = W.Table(pd.DataFrame(rows), max_height=300, decimals=5)
+        self._tab.setToolTip(T("点一行查看该样品的拟合图与判定", "Click a row to see that sample's fit plot and verdict"))
+        c4.add(self._tab)
+        if mode == "standard":
+            r = rs[0]
+            c4.add(Banner("info", T(f"这个标样拟合已进入会话历史：在样品用途下点“选取标样值…”即可使用 S0² = {r.s02:.4f} ± {r.s02_err or 0:.4f}"
+                                    "（会话里的拟合即可；保存后重启软件仍可选）。",
+                                    f"This standard fit is now in the session history: in Sample mode click “Pick standard value…” to use "
+                                    f"S0² = {r.s02:.4f} ± {r.s02_err or 0:.4f} (a session fit is enough; after saving it stays available after a restart).")))
+        # 选中样品的详情
+        self._detail = W.vbox()
+        c4.add(self._detail)
+        sm = self._tab.selectionModel()
+        sm.currentRowChanged.connect(lambda cur, _prev: self._select(cur.row()))
+        self._tab.selectRow(min(self._res.get("row", 0), len(rs) - 1))
+        lay.addWidget(c4)
+
+    def _select(self, i):
+        rs, _batch = self._results()
+        if not 0 <= i < len(rs):
+            return
+        self._res["row"] = i
+        W._clear_layout(self._detail.layout())
+        r, lay = rs[i], self._detail.layout()
+        v = r.verdict
+        lay.addWidget(W.label(f"<b>{r.sample}</b>　" + self._vtext(v), rich=True))
+        lay.addWidget(self._rplot(i, r))
+        lay.addWidget(self._items_box(v.items))
+
+    def _rplot(self, i, r):
+        """|χ(R)| 数据与拟合（在拟合所用的 k 权重与窗口下做 FT），灰带 = 拟合 R 窗口（Rmin–Rmax）"""
+        from larch import Group
+        from larch.xafs import xftf
+        from ...state import fit_dataset
+        fit = r.fit
+        fd = fit_dataset(fit, fit["summ"]["datasets"][i]["id"]) if fit["summ"].get("multi") else fit
+        c, md = fd["curves"], fd["model"]
+        kw = md["kweight"][-1] if isinstance(md["kweight"], (list, tuple)) else md["kweight"]
+        plot = W.Plot(280)
+        gd, gf = Group(k=c["k"], chi=c["chi"]), Group(k=c["kfit"], chi=c["chifit"])
+        for g in (gd, gf):
+            xftf(g, kmin=md["kmin"], kmax=md["kmax"], dk=md["dk"], window=md["window"], kweight=kw)
+        ax = plot.ax
+        ax.plot(gd.r, gd.chir_mag, color=C["text"], lw=1.3, label=T("数据", "data"))
+        ax.plot(gf.r, gf.chir_mag, color=C["err"], ls="--", lw=1.3, label=T("拟合", "fit"))
+        ax.axvspan(md["rmin"], md["rmax"], color=C["text3"], alpha=0.12, lw=0)
+        ax.axvline(md["rmin"], color=C["text3"], lw=0.8, ls=":")
+        ax.axvline(md["rmax"], color=C["text3"], lw=0.8, ls=":")
+        ax.set_xlim(0, max(4.0, md["rmax"] + 1.5))
+        ax.set_xlabel(T("R（Å，未做相位校正）", "R (Å, not phase-corrected)"))
+        ax.set_ylabel(f"|χ(R)|  (k$^{kw}$)")
+        plot.draw()
+        return plot
