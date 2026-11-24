@@ -168,7 +168,7 @@ def build(samples=None):
         zh.append(
             f"{e['element']} {e['edge']} 边：每条谱的能量用同一批次同时测量的单质参比（{refs or '【参比】'}）校准，"
             f"取参比归一化谱一阶导数最大值并对齐到表值 {e['e_table']} eV（{e['e_table_source']}），"
-            f"同一参比下所有谱平移同一 ΔE（{e['dE']} eV）。"
+            f"同一参比下所有谱平移同一 ΔE（{e['dE'] or '【ΔE】'} eV）。"
             + (f"每个样品合并 {e['scans']} 次扫描。" if e["scans"] != "1" else "每个样品 1 次扫描。")
             + 
             f"E0 取平滑后一阶导数最大值；边前直线拟合范围 E0{n.get('pre1', -150):+g} 至 E0{n.get('pre2', -30):+g} eV，"
@@ -180,7 +180,7 @@ def build(samples=None):
             f"For the {e['element']} {e['edge']}-edge, the energy of every spectrum was calibrated with the "
             f"elemental reference measured in the same session ({refs or '[reference]'}): the maximum of the first "
             f"derivative of the reference was aligned to the tabulated value of {e['e_table']} eV "
-            f"({e['e_table_source']}), and the same shift ({e['dE']} eV) was applied to all spectra measured with "
+            f"({e['e_table_source']}), and the same shift ({e['dE'] or '[ΔE]'} eV) was applied to all spectra measured with "
             f"that reference. " + (f"{_dash(e['scans'])} scans were merged per sample. " if e["scans"] != "1"
                                   else "One scan was used per sample. ") + "E0 was taken as the maximum of the "
             f"smoothed first derivative. Spectra were normalized with a linear pre-edge line "
