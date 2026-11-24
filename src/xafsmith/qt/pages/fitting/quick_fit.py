@@ -31,11 +31,12 @@ def quick_job(S, samples, feff, rmax, mode, s02, src, name=None):
         progress(0.05, T("准备谱与模型…", "Preparing spectra and model…"))
         if len(samples) == 1:
             s = samples[0]
-            model = qf.build_model(s, feff, rmax, mode, s02=s02, s02_source=src, name=name or None, group=snap.get(s))
+            g = snap[s] if s in snap else pl.build_sample(s)[0]        # 只建一次，自动 Rmin 与拟合共用
+            model = qf.build_model(s, feff, rmax, mode, s02=s02, s02_source=src, name=name or None, group=g)
             progress(0.4, T("拟合中…", "Fitting…"))
-            res = qf.run(model, group=snap.get(s))
+            res = qf.run(model, group=g)
             return dict(kind="single", res=res, table=None)
-        groups = {pl.safe(s): g for s, g in snap.items()}
+        groups = {pl.safe(s): (snap[s] if s in snap else pl.build_sample(s)[0]) for s in samples}
         model = qf.build_joint_model(samples, feff, rmax, s02=s02, s02_source=src, name=name or None, groups=groups)
         progress(0.4, T("联合拟合中…", "Joint fitting…"))
         res = qf.run(model, groups)
@@ -124,6 +125,7 @@ class QuickFitPage(Page):
     # ------------------------------------------------------------ 页面
     def build(self):
         st = self.state
+        self._shell_cache.clear()           # FEFF 可能在同一文件夹重算过
         self.header(T("只拟合第一壳层（N、R、σ²、ΔE0），并用人话判定结果是否可信；要逐条设置路径与参数，请切到上方的“精细拟合”。",
                       "Fits the first shell only (N, R, σ², ΔE0) and states in plain words whether the result is trustworthy; "
                       "to set every path and parameter yourself, switch to “Detailed fit” above."))
@@ -209,6 +211,11 @@ class QuickFitPage(Page):
         st = self.state
         st.update(samples=self._smp.value(), feff=str(self._feff.value()), mode=self._mode.value(), s02=self._s02.text().strip(),
                   rmax=self._rmax.value(), name=self._name.text().strip())
+        ek_now = self._edge_of(st["samples"])
+        if st.get("s02_src") and ek_now and ek_now != st.get("s02_src_edge"):
+            st["s02_src"] = None                # 换了吸收边：标样值不再适用，清空让用户重选
+            self._s02.setText("")
+            st["s02"] = ""
         sample_mode = st["mode"] == "sample"
         self._s02_row.setVisible(sample_mode)
         src = st.get("s02_src")
@@ -290,6 +297,7 @@ class QuickFitPage(Page):
 
     def _pick_candidate(self, c):
         self.state["s02_src"] = c.source()
+        self.state["s02_src_edge"] = self._edge_of(self.state.get("samples", []))
         self._s02.setText(f"{c.value:.4f}")
         self._changed()
 
