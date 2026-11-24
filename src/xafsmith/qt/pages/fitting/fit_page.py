@@ -34,6 +34,42 @@ def order_path_cols(df):
     return df if new == cols else df[new].copy()
 
 
+def default_path_rows(allp):
+    """FEFF 路径表（feff_wrap.list_paths 加 dir 列）→ 精细拟合的默认路径表：同 label / nleg 且 Reff 相差 < 0.1 Å 的路径算一个壳层，
+    第一个壳层默认勾选，每个壳层各有 drN / ssN。"""
+    rows, shells = [], []
+    for _, r in allp.iterrows():
+        k_ = (r.label, r.nleg)
+        sh = next((j for j, (k0, r0) in enumerate(shells) if k0 == k_ and abs(r.reff - r0) < 0.1), None)
+        if sh is None:
+            shells.append((k_, r.reff))
+            sh = len(shells) - 1
+        rows.append(dict(use=bool(sh == 0), label=f"{r.label}@{r.reff:.3f}", reff=r.reff, degen=r.degen, nleg=r.nleg,
+                         amp_ratio=r.amp_ratio, N=f"{r.degen:g}", s02="s02", e0="e0", deltar=f"dr{sh + 1}",
+                         sigma2=f"ss{sh + 1}", third="", note="", dir=r.dir, file=r.file))
+    return pd.DataFrame(rows, columns=PATH_COLS)
+
+
+def model_path_table(allp, mpaths):
+    """默认路径表 + 模型里的路径：模型用到的路径（按 FEFF 文件匹配）勾选并写入模型的 label / N / s02 / e0 / deltar / sigma2 /
+    third / note（模型没写 N → 留空 = FEFF 简并度），其余路径不勾选。模型里有路径找不到对应的 FEFF 文件 → ValueError。"""
+    df = default_path_rows(allp)
+    df["use"] = False
+    files = [Path(f).resolve() for f in df["file"]]
+    for p in mpaths:
+        f = Path(p["file"])
+        f = (f if f.is_absolute() else paths.ROOT / f).resolve()
+        if f not in files:
+            raise ValueError(f"模型的路径文件不在所选 FEFF 文件夹里：{p['file']} / "
+                             f"the model path file is not in the chosen FEFF folder: {p['file']}")
+        i = files.index(f)
+        df.loc[i, ["use", "label", "N", "s02", "e0", "deltar", "sigma2", "third", "note"]] = [
+            True, p.get("label", df.at[i, "label"]), str(p.get("N", "")), str(p.get("s02", "s02")), str(p.get("e0", "e0")),
+            str(p.get("deltar", "")), str(p.get("sigma2", "")), str(p.get("third", "") or ""), str(p.get("note", "") or "")]
+    df["use"] = df["use"].astype(bool)
+    return df
+
+
 def saved_model_job(S, mf_v, names):
     """已保存模型的后台任务（须在界面线程调用）：模型文件名等普通值已读好；run_model 回退时会读的会话谱在此深拷贝，
     后台线程不碰控件与活的 State。"""
@@ -186,6 +222,67 @@ class FitPage(Page):
         y = self.state.get("lscroll", 0)
         if y:
             QTimer.singleShot(0, lambda: lsa.verticalScrollBar().setValue(y))
+
+    def has_content(self):
+        """本页是否已有用户设置的路径表 / 参数表（载入模型会覆盖它们）"""
+        st = self.state
+        pt = st.get("partab")
+        return bool(any(k.startswith("pathtab_") for k in st) or (pt is not None and len(pt)))
+
+    def load_model_dict(self, model):
+        """把一个模型 dict（如快速拟合的产物，单数据集或联合）载入本页：数据、FEFF 目录、拟合范围、路径表、参数表、模型名都来自模型，
+        然后重建页面。不拟合。样品不在会话里（或没有 χ(k)）时现建并放进会话。模型有误 → ValueError / KeyError。"""
+        from xafsmith import feff_wrap as xfeff, pipeline as pl
+        S, st = self.S, self.state
+        multi = "datasets" in model
+        blocks = [(d["sample"], d["paths"]) for d in model["datasets"]] if multi else [(model["sample"], model["paths"])]
+        f0 = Path(blocks[0][1][0]["file"])
+        f0 = f0 if f0.is_absolute() else paths.ROOT / f0
+        want = f0.resolve().parent
+        fdir = next((d for d in feff_dirs() if d.resolve() == want), None)
+        if fdir is None:
+            raise ValueError(f"模型的 FEFF 文件夹不在 output/feff/ 下：{want} / the model's FEFF folder is not under output/feff/: {want}")
+        allp = xfeff.list_paths(fdir).assign(dir=str(fdir.relative_to(paths.ROOT)))
+        tabs = {}
+        for sample, mpaths in blocks:
+            if sample not in S.groups or not has_chi(S.groups[sample]):
+                S.groups[sample] = pl.build_sample(sample)[0]
+            tabs[sample] = model_path_table(allp, mpaths)
+        dsum = str(fdir)
+        ids = {}
+        for sample, _ in blocks:
+            base_ = pl.safe(Path(sample).name) or "data"
+            i_, n_ = base_, 2
+            while i_ in ids.values():
+                i_, n_ = f"{base_}_{n_}", n_ + 1
+            ids[sample] = i_
+        if multi:
+            st.update(multi=True, datas=[s for s, _ in blocks], fdirs_multi=[dsum])
+            for s, df in tabs.items():
+                st[f"pathtab_{ids[s]}|{dsum}"] = df
+            st["mname_multi"] = model["name"]
+        else:
+            s = blocks[0][0]
+            st.update(multi=False, data=s)
+            st["fdirs_" + s] = [dsum]
+            st["pathtab_" + dsum] = tabs[s]
+            st["mname_" + s] = model["name"]
+        kw = model.get("kweight", [1, 2, 3])
+        st["range"] = dict(kmin=model["kmin"], kmax=model["kmax"], dk=model["dk"], win=model["window"],
+                           kws=list(kw) if isinstance(kw, (list, tuple)) else [kw], rmin=model["rmin"], rmax=model["rmax"],
+                           space=model.get("fitspace", "r"))
+        rows = []
+        for n, sp in model["params"].items():
+            e = sp.get("expr")
+            rows.append(dict(name=n, value=float(sp["value"]) if sp.get("value") is not None else float("nan"),
+                             vary=bool(sp.get("vary", True)) and not e, min=sp.get("min"), max=sp.get("max"), expr=e or ""))
+        df = pd.DataFrame(rows, columns=["name", "value", "vary", "min", "max", "expr"])
+        for c_ in ("value", "min", "max"):
+            df[c_] = pd.to_numeric(df[c_], errors="coerce").astype(float)
+        df["expr"] = df["expr"].astype(object)
+        st["partab"] = df
+        st["use_tmodel"] = False
+        self.refresh()
 
     def _scroll(self):
         from PySide6.QtWidgets import QScrollArea
@@ -521,17 +618,7 @@ class FitPage(Page):
 
         # 3 路径
         def default_rows():
-            rows, shells = [], []
-            for _, r in allp.iterrows():
-                k_ = (r.label, r.nleg)
-                sh = next((j for j, (k0, r0) in enumerate(shells) if k0 == k_ and abs(r.reff - r0) < 0.1), None)
-                if sh is None:
-                    shells.append((k_, r.reff))
-                    sh = len(shells) - 1
-                rows.append(dict(use=bool(sh == 0), label=f"{r.label}@{r.reff:.3f}", reff=r.reff, degen=r.degen, nleg=r.nleg,
-                                 amp_ratio=r.amp_ratio, N=f"{r.degen:g}", s02="s02", e0="e0", deltar=f"dr{sh + 1}",
-                                 sigma2=f"ss{sh + 1}", third="", note="", dir=r.dir, file=r.file))
-            return pd.DataFrame(rows, columns=PATH_COLS)
+            return default_path_rows(allp)
         for k in keys:
             if tkey(k) not in self.state:
                 src = self.state.get(tkey(keys[0])) if k != keys[0] else None      # 新数据集：复制第一个数据集当前的路径表
