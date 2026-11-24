@@ -30,6 +30,8 @@ PEAK_KWEIGHT = 2        # 自动 Rmin / Rmax 检查用的 |χ(R)| 的 k 权重�
 DEFAULT_KWEIGHT = [1, 2, 3]          # 与精细拟合新建模型的默认相同
 R_CIF_TOL = 0.15        # Å：拟合 R 与 CIF 加权平均 Reff 之差的上限
 N_RATIO_MAX = 1.5       # 样品 N ≤ 1.5·N_ref，超过多半是 N 与 σ² 互相补偿或标样 S0² 不适用
+PEAK_SHIFT = (-0.8, 0.1)  # Å：|χ(R)| 第一峰 R_p − R_CIF 的合理范围（FT 未做相位校正，峰比真实距离短约 0.2–0.5 Å）；
+                          # 超出 → 数据的主峰与所选结构的第一壳层不对应（Opus 2026-11-24 定，例：金属相样品配氧化物 FEFF）
 RMAX_LEAK = 0.30        # Rmax 处 |χ(R)| 超过第一峰的 30% → 窗口可能切进第二壳层
 # 参数初值与范围（沿用精细拟合默认）
 E0_INIT, E0_RANGE = 0.0, (-15.0, 15.0)
@@ -299,12 +301,15 @@ ADVICE = {
               "The fitted distance differs from the structure (CIF) by more than the tolerance; check that the structure matches the sample."),
     "n_ratio": ("N 远大于结构值，多半与 σ² 互相补偿，或标样 S0² 不适用于此样品。",
                 "N is much larger than the structure value, probably compensating σ², or the standard's S0² does not apply to this sample."),
+    "peak_pos": ("数据 |χ(R)| 的主峰位置与所选结构的第一壳层对不上：检查 FEFF 用的结构（CIF）是否对应这个样品（例如样品是否为金属 / 合金相，或第一近邻是别的元素）。",
+                 "The main |χ(R)| peak of the data does not match the first shell of the chosen structure: check that the FEFF structure (CIF) "
+                 "matches this sample (e.g. a metal / alloy phase, or another element as nearest neighbour)."),
     "rmax_leak": ("Rmax 偏大，窗口可能切进第二壳层；把 Rmax 往小调再试。",
                   "Rmax is too large and the window may cut into the second shell; lower Rmax and retry."),
 }
 
 
-def _shell_items(rows, n, shell, mode, rmax, peak_amp, amp_at_rmax):
+def _shell_items(rows, n, shell, mode, rmax, peak_amp, amp_at_rmax, r_peak=None):
     """第一壳层专有的三项检查（单样品与联合的每个样品共用）：R 与结构之差、N / N_ref（样品模式，n 为拟合 N）、Rmax 处残余。
     rows：该样品的路径行（与 shell.members 同序）。"""
     items = []
@@ -325,6 +330,15 @@ def _shell_items(rows, n, shell, mode, rmax, peak_amp, amp_at_rmax):
                                  f"N = {n:.2f} vs structure {shell.n_ref:g} ({n / shell.n_ref:.2f}×)"
                                  + ("" if ok else f": beyond {N_RATIO_MAX}×"),
                                  *(("", "") if ok else ADVICE["n_ratio"])))
+    if r_peak is not None:
+        dp = r_peak - shell.r_cif
+        ok = PEAK_SHIFT[0] <= dp <= PEAK_SHIFT[1]
+        items.append(VerdictItem("pass" if ok else "fail", "peak_pos",
+                                 f"数据第一峰在 {r_peak:.2f} Å，结构第一壳层 {shell.r_cif:.2f} Å"
+                                 + ("（位置相符）" if ok else "：位置对不上（FT 峰通常比真实距离短 0.2–0.5 Å）"),
+                                 f"Data first peak at {r_peak:.2f} Å, structure first shell {shell.r_cif:.2f} Å"
+                                 + (" (consistent)" if ok else ": they do not match (FT peaks usually sit 0.2–0.5 Å below the true distance)"),
+                                 *(("", "") if ok else ADVICE["peak_pos"])))
     if peak_amp is not None and amp_at_rmax is not None:
         frac = amp_at_rmax / peak_amp if peak_amp > 0 else math.inf
         ok = frac <= RMAX_LEAK
@@ -337,7 +351,7 @@ def _shell_items(rows, n, shell, mode, rmax, peak_amp, amp_at_rmax):
     return items
 
 
-def verdict(fit, shell, mode, rmax, peak_amp=None, amp_at_rmax=None, s02_source=None) -> Verdict:
+def verdict(fit, shell, mode, rmax, peak_amp=None, amp_at_rmax=None, s02_source=None, r_peak=None) -> Verdict:
     """fit：run_model 同形的拟合记录（summ / model / result）；shell：FirstShell；mode：standard / sample。
     peak_amp、amp_at_rmax：|χ(R)| 的第一峰高与 Rmax 处的值（缺省则不做窗口检查）。
     条目：fitcheck 各项（变量数用 Stern 准则）+ R 与 CIF 之差、样品 N / N_ref、Rmax 处残余；
@@ -349,7 +363,7 @@ def verdict(fit, shell, mode, rmax, peak_amp=None, amp_at_rmax=None, s02_source=
         items.append(VerdictItem(lvl, c.code, c.zh, c.en, *a))
     summ = fit["summ"]
     n = summ["params"]["n1"]["value"] if mode == "sample" else None
-    items += _shell_items(summ["paths"], n, shell, mode, rmax, peak_amp, amp_at_rmax)
+    items += _shell_items(summ["paths"], n, shell, mode, rmax, peak_amp, amp_at_rmax, r_peak)
     if mode == "sample" and (s02_source or {}).get("manual"):
         items.append(VerdictItem("note", "manual_s02", f"手动 S0² = {s02_source['value']:g}，没有标样依据",
                                  f"Manual S0² = {s02_source['value']:g}, no standard behind it"))
@@ -421,7 +435,7 @@ def run(model, group=None, root=None) -> QuickResult:
     res, dset, summ = fx.run_fit(g, model, root)
     fit = dict(model=model, summ=summ, result=res, curves=fx.model_curves(dset), report=fx.report_text(res),
                time=datetime.now().strftime("%H:%M:%S"))
-    v = verdict(fit, shell, mode, model["rmax"], pk, at_rmax, model.get("s02_source"))
+    v = verdict(fit, shell, mode, model["rmax"], pk, at_rmax, model.get("s02_source"), r_pk)
     P = summ["params"]
 
     def pv(k):
@@ -611,7 +625,7 @@ def _restrict(summ, ds_id, names):
                 n_idp=row["n_idp"], sample=row["sample"], dataset=ds_id)
 
 
-def verdict_joint(fit, shell, rmax, peaks, s02_source=None, windows=None) -> JointVerdict:
+def verdict_joint(fit, shell, rmax, peaks, s02_source=None, windows=None, r_peaks=None) -> JointVerdict:
     """联合模型的两层判定。fit：run_joint 的拟合记录（多数据集 summ）；peaks：{数据集 id: (第一峰高, Rmax 处 |χ(R)|)}；
     windows：{id: 该样品自己的处理 k 窗}（dk / 窗函数不一致 → note）。
     整批：总 R 因子、Stern 准则（对 Σ N_idp）、ΔE0 及其误差 / 边界、强相关；每个样品：自己的 R 因子、R 与结构之差、N 倍数、
@@ -643,7 +657,7 @@ def verdict_joint(fit, shell, rmax, peaks, s02_source=None, windows=None) -> Joi
         sit = _items(fitcheck.fit_checks(v, None, stern=True, robust_hint=False), _SAMPLE_CODES)
         rows = [p for p in summ["paths"] if p.get("dataset") == i]
         pk, at = peaks.get(i, (None, None))
-        sit += _shell_items(rows, P[own[i]["n"]]["value"], shell, "sample", rmax, pk, at)
+        sit += _shell_items(rows, P[own[i]["n"]]["value"], shell, "sample", rmax, pk, at, (r_peaks or {}).get(i))
         per[i] = Verdict(not any(x.level == "fail" for x in sit), sit)
     ok = not any(x.level == "fail" for x in items) and all(v.ok for v in per.values())
     return JointVerdict(ok, items, per)
@@ -687,16 +701,16 @@ def run_joint(model, groups=None, root=None) -> JointResult:
             if d["sample"] not in built:
                 built[d["sample"]] = pl.build_sample(d["sample"])[0]
             groups[d["id"]] = built[d["sample"]]
-    peaks, rmins = {}, {}
+    peaks, rmins, rps = {}, {}, {}
     for d in nm["datasets"]:
         r, m = _chir(groups[d["id"]], win)
-        _, pk, at = peak_stats(r, m, model["rmax"])
+        rps[d["id"]], pk, at = peak_stats(r, m, model["rmax"])
         peaks[d["id"]] = (pk, at)
         rmins[d["id"]] = auto_rmin(r, m, model["rmax"])[0]
     res, dsets, summ = fx.fit_multi(groups, model, root)
     fit = dict(model=model, summ=summ, result=res, curves=fx.model_curves_all(dsets, nm), report=fx.report_text(res),
                time=datetime.now().strftime("%H:%M:%S"), multi=True)
-    v = verdict_joint(fit, shell, model["rmax"], peaks, model.get("s02_source"), qk.get("windows"))
+    v = verdict_joint(fit, shell, model["rmax"], peaks, model.get("s02_source"), qk.get("windows"), rps)
     P = summ["params"]
     full = dict(win, kweight=model["kweight"], rmin=model["rmin"], rmax=model["rmax"])
     out = []
@@ -708,7 +722,7 @@ def run_joint(model, groups=None, root=None) -> JointResult:
         out.append(QuickResult(r["sample"], "sample", model, shell, P[names["n"]]["value"], P[names["n"]]["stderr"], r_fit,
                                P[names["dr"]]["stderr"], P[names["ss"]]["value"], P[names["ss"]]["stderr"],
                                P["e0"]["value"], P["e0"]["stderr"], P["s02"]["value"], None, r["rfactor"], r["n_idp"],
-                               summ["nvarys"], full, v.samples[i], fit, None, *peaks[i]))
+                               summ["nvarys"], full, v.samples[i], fit, rps[i], *peaks[i]))
     return JointResult(model, shell, out, P["e0"]["value"], P["e0"]["stderr"], P["s02"]["value"], summ["rfactor"],
                        summ["n_idp"], summ["nvarys"], full, v, fit, rmins)
 

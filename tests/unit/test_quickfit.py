@@ -282,3 +282,14 @@ def test_iro2_matches_artemis_compare_model():
         assert res.shell.n_ref == 6 and len(res.shell.members) == 2
     finally:
         paths.set_root(old)
+
+
+def test_verdict_peak_position_vs_structure():
+    shell = qf.FirstShell([dict(file="f", label="Ir-O", reff=1.98, degen=6)], "Ir", "O", 6, 1.98)
+    rows = [dict(R=1.98)]
+    ok = qf._shell_items(rows, 6, shell, "sample", 2.5, None, None, r_peak=1.60)
+    bad = qf._shell_items(rows, 6, shell, "sample", 2.5, None, None, r_peak=2.30)       # 金属相样品配氧化物 FEFF
+    low = qf._shell_items(rows, 6, shell, "sample", 2.5, None, None, r_peak=1.10)
+    pick = lambda it: next(i for i in it if i.code == "peak_pos")                       # noqa: E731
+    assert pick(ok).level == "pass" and pick(bad).level == "fail" and pick(low).level == "fail"
+    assert pick(bad).advice_zh and not any(i.code == "peak_pos" for i in qf._shell_items(rows, 6, shell, "sample", 2.5, None, None))
