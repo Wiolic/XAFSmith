@@ -100,6 +100,10 @@ class QuickFitPage(Page):
         self._res = None            # 最近一次结果（页面重建后仍在）：dict(kind, res, table, mode, samples)
         self._shell_cache = {}
 
+    def stale_extra(self):
+        """图片导出里改了趋势图顺序（存在拟合记录上）→ 回到本页时重建，页内趋势图跟着变"""
+        return tuple(tuple(f.get("trend_order") or ()) for f in self.S.fits)
+
     # ------------------------------------------------------------ 数据
     def _samples_available(self):
         """可拟合的样品 = 当前会话已载入并算出 χ(k) 的谱（与精细拟合同一规则）"""
@@ -469,8 +473,10 @@ class QuickFitPage(Page):
 
     def _trend_box(self, table):
         """页内趋势图：下拉选 N / R / σ²（带误差棒；横轴按 trend 的序列规则）"""
-        from .trend_view import draw_trend, notes_for, panel_name
+        from xafsmith import trend as tr
+        from .trend_view import draw_trend, notes_for, order_editor, panel_name
         st = self.state
+        fit = self._res["res"].fit
         pk = st.get("qf_panel", "N")
         sel = W.combo(["N", "R", "sigma2"], pk if pk in ("N", "R", "sigma2") else "N", fmt=panel_name)
         box = W.vbox()
@@ -479,15 +485,18 @@ class QuickFitPage(Page):
         def draw(*_):
             st["qf_panel"] = sel.value()
             W._clear_layout(plot_box.layout())
-            for n in notes_for(table, [sel.value()], paths_):
+            tab = tr.ordered(table, fit.get("trend_order"))          # 顺序存在拟合记录上（图片导出共用）
+            for n in notes_for(tab, [sel.value()], paths_):
                 plot_box.layout().addWidget(Banner("info", n))
             plot = W.Plot(240)
-            draw_trend([plot.ax], table, [sel.value()], paths_)
+            draw_trend([plot.ax], tab, [sel.value()], paths_)
             plot.draw()
             plot_box.layout().addWidget(plot)
         plot_box = W.vbox()
         box.layout().addWidget(W.hbox(W.label(T("趋势图", "Trend"), "h3"), sel, None, spacing=8))
         box.layout().addWidget(plot_box)
+        editor, self._trend_order = order_editor(fit, table, lambda: (draw(), self.ack()))
+        box.layout().addWidget(W.collapsible(T("横轴顺序", "X-axis order"), editor, expanded=bool(fit.get("trend_order"))))
         sel.currentIndexChanged.connect(draw)
         draw()
         self._trend_sel = sel

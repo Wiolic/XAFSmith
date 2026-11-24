@@ -384,7 +384,7 @@ def save_fit(fit):
             try:
                 from xafsmith import trend as xtr
                 meta, proc = xtr.load_project_tables()
-                xtr.save_trend(xtr.trend_table(s_, md, meta, proc), base, s_["model"], "GUI save")
+                xtr.save_trend(xtr.ordered(xtr.trend_table(s_, md, meta, proc), fit.get("trend_order")), base, s_["model"], "GUI save")
             except Exception:      # noqa: BLE001
                 logs.log.warning("state.save_fit：趋势表未保存（已忽略）", exc_info=True)
         return base

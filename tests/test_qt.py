@@ -233,6 +233,70 @@ def pubfig_overlay_check(app, w, fit, keys, what):
             f"F2-6 ② {what}：图片导出 {kind} 可选，叠加拟合曲线后多 {n1 - n0} 条线（应为 {len(keys)}）")
 
 
+def trend_order_check(app, w, q, jr, td):
+    """F2-6 ③：趋势图样品顺序可调（快速拟合页内、图片导出 › 趋势图），顺序存在拟合记录上、两处一致；
+    保存的趋势 CSV 行序一致、原有列的值不变；恢复默认后回到原顺序。"""
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+    from xafsmith import trend as tr
+    S, pg, fit = w.S, w.pages["pubfig"], jr.fit
+    meta, proc = tr.load_project_tables()
+    base = tr.trend_table(fit["summ"], fit["model"], meta, proc)
+    dflt = tr.default_order(base)
+    name = dict(zip(base["dataset"], base["sample"]))
+
+    def quick_ticks():
+        pl_ = [p for p in q.findChildren(W.Plot)][0]          # 页内趋势图是第一张
+        return [t.get_text() for t in pl_.ax.get_xticklabels()]
+
+    def pub_ticks():
+        c = pg.findChildren(FigureCanvasQTAgg)[0]
+        return [t.get_text() for t in c.figure.axes[-1].get_xticklabels()]
+    say("trend_order" not in fit, "F2-6 ③ 未调顺序时记录里没有 trend_order")
+    q._trend_order.reverse()                                   # 快速拟合页内调顺序
+    pump(app)
+    want = [name[d] for d in dflt[::-1]]
+    say(fit.get("trend_order") == dflt[::-1] and quick_ticks() == want, f"F2-6 ③ 快速拟合页内：顺序存在拟合记录上，横轴按 {want}")
+    idx = next(i for i, f in enumerate(S.fits) if f is fit)
+    w.go("pubfig")
+    pg.state.update(kind="trend", tr_fit=idx)
+    pg.refresh()
+    pump(app)
+    say(pub_ticks() == want, f"F2-6 ③ 图片导出 › 趋势图：与页内同一顺序 {pub_ticks()}")
+    from PySide6.QtWidgets import QPushButton as _B
+
+    def press(text):
+        next(b for b in pg.findChildren(_B) if b.text() == text).click()
+        pump(app)
+    press("恢复默认顺序")                                         # 图片导出里恢复默认 → 记录里的顺序清除
+    say("trend_order" not in fit, "F2-6 ③ 图片导出里“恢复默认顺序”：记录里的顺序清除")
+    w.go("fit")
+    w.pages["fit"].show_quick()
+    pump(app)
+    say("trend_order" not in fit and quick_ticks() != want, "F2-6 ③ 回到快速拟合：页内趋势图同步回到缺省顺序")
+    w.go("pubfig")
+    pg.refresh()
+    pump(app)
+    pg.findChildren(W.OrderList)[0].reverse()                  # 在图片导出里调顺序 → 快速拟合页同步
+    pump(app)
+    say(fit.get("trend_order") == dflt[::-1] and pub_ticks() == want, "F2-6 ③ 图片导出里调顺序：记录与图一致")
+    w.go("fit")
+    w.pages["fit"].show_quick()
+    pump(app)
+    say(quick_ticks() == want, "F2-6 ③ 回到快速拟合：页内趋势图随之变化")
+    q._b_save.click()                                          # 保存：趋势 CSV 行序 = 当前顺序，原有列值不变
+    pump(app)
+    import pandas as pd
+    f_csv = td / "output" / "fits" / "QF_joint_test_trend.csv"
+    csv = pd.read_csv(f_csv, encoding="utf-8-sig")
+    keep = pd.read_csv(f_csv, encoding="utf-8-sig", usecols=tr.COLUMNS).sort_values(["dataset", "path"]).reset_index(drop=True)
+    say(list(csv["dataset"].drop_duplicates()) == fit["trend_order"] and list(csv.columns) == tr.COLUMNS + ["order"]
+        and list(csv["order"].drop_duplicates()) == [1, 2], "F2-6 ③ 保存的趋势 CSV：行序 = 当前顺序，末尾加 order 列")
+    cmp_ = base.sort_values(["dataset", "path"]).reset_index(drop=True)[tr.COLUMNS]
+    say((keep["seq"] == cmp_["seq"]).all() and ((keep["R"] - cmp_["R"]).abs() < 1e-9).all(), "F2-6 ③ CSV 的 seq、R 等原有列数值不变")
+    q._trend_order.set_value(dflt, emit=True)                  # 页内顺序控件设回缺省（等价于未调）后，用“恢复默认顺序”清掉记录
+    fit.pop("trend_order", None)
+
+
 def quickfit_checks(app, w):
     """F2-3b：快速拟合界面端到端（在项目的临时副本里做，保存的文件不污染演示项目）：
     标样 → 保存 → 样品模式选取标样值 → 拟合 → 结果表与判定 → 在精细拟合中继续（数值与快速拟合相同）；
@@ -350,6 +414,7 @@ def quickfit_checks(app, w):
         q._tab.selectRow(1)
         pump(app)
         say(q._res["row"] == 1, "点结果表第 2 行：显示该样品的图与判定")
+        trend_order_check(app, w, q, jr, td)
         q._b_save.click()
         pump(app)
         say((td / "models" / "QF_joint_test.json").exists() and (td / "output" / "fits" / "QF_joint_test_trend.csv").exists(),

@@ -205,6 +205,10 @@ class PubFigPage(Page):
 
     KINDS = ["xanes", "deriv", "chik", "chir", "trend"]
 
+    def stale_extra(self):
+        """快速拟合页里改了趋势图顺序（存在拟合记录上）→ 回到本页时重建"""
+        return tuple(tuple(f.get("trend_order") or ()) for f in self.S.fits)
+
     def build(self):
         from xafsmith import pubfig as pf
         S = self.S
@@ -425,6 +429,7 @@ class PubFigPage(Page):
     def _build_trend(self, ctl, size, fmts, name, pal):
         """C2：趋势图——选一个联合拟合（缺省最近一个）、面板、路径、横轴标题；尺寸 / 配色 / 格式 / 文件名与其他图相同。"""
         from xafsmith import pubfig as pf, trend as tr
+        from .fitting.trend_view import default_xlabel, order_editor
         S, st = self.S, self.state
         jf = [i for i, f_ in enumerate(S.fits) if f_["summ"].get("multi") and len(f_["summ"].get("datasets", [])) >= 2]
         if not jf:
@@ -438,7 +443,8 @@ class PubFigPage(Page):
         f = S.fits[cur_fit]
         try:
             meta, proc = tr.load_project_tables()
-            table = tr.trend_table(f["summ"], f["model"], meta, proc)
+            base_table = tr.trend_table(f["summ"], f["model"], meta, proc)
+            table = tr.ordered(base_table, f.get("trend_order"))        # 顺序存在拟合记录上（快速拟合页共用）
         except Exception as ex:      # noqa: BLE001
             logs.log.warning("趋势图：趋势表失败（已提示）", exc_info=True)
             self.add(ctl)
@@ -450,7 +456,7 @@ class PubFigPage(Page):
         pm = W.MultiSelect(opts, [p for p in st.get("tr_panels", pf.TREND_DEFAULT_PANELS) if p in opts] or opts[:1],
                            fmt=lambda k: names[k])
         pp = W.MultiSelect(all_paths, [p for p in st.get("tr_paths", all_paths) if p in all_paths] or all_paths)
-        xl = W.text(st.get("tr_xlabel", ""), tr.SEQ_LABELS[table.attrs["seq_source"]])
+        xl = W.text(st.get("tr_xlabel", ""), default_xlabel(table))
         ctl.add(W.fields((T("联合拟合", "Joint fit"), fsel), (T("面板", "Panels"), pm), (T("路径", "Paths"), pp),
                          (T("横轴标题（空 = 缺省）", "X-axis title (empty = default)"), xl), cols=2))
         ctl.add(W.fields((T("配色方案（每条路径一种颜色）", "Palette (one colour per path)"), pal)))
@@ -458,15 +464,26 @@ class PubFigPage(Page):
         for n in table.attrs.get("seq_notes", []):
             ctl.add(Banner("info", n))
 
+        cell = dict(table=table)
+
         def make():
             paths_ = pp.value() or all_paths
             cols = [c for c, _ in pf.series_colors(paths_, pal.value(), ())]
-            return pf.trend(table, size.value(), pm.value() or opts[:1], paths_, xl.text().strip() or None, cols,
+            return pf.trend(cell["table"], size.value(), pm.value() or opts[:1], paths_, xl.text().strip() or None, cols,
                             model=f["summ"]["model"])
+
+        def order_changed():
+            cell["table"] = tr.ordered(base_table, f.get("trend_order"))
+            xl.setPlaceholderText(default_xlabel(cell["table"]))
+            W.wait_cursor(render_)
+            self.ack()
+        editor, _ol = order_editor(f, base_table, order_changed)
+        ctl.add(W.collapsible(T("横轴顺序（样品列表：拖动或 ↑↓）", "X-axis order (sample list: drag or ↑↓)"), editor,
+                              expanded=bool(f.get("trend_order"))))
 
         def pre():
             st.update(tr_panels=pm.value(), tr_paths=pp.value(), tr_xlabel=xl.text().strip(), pal=pal.value())
-        render = self._finish(ctl, size, fmts, name, "trend", make, [pm, pp, size, pal], pre)
+        render = render_ = self._finish(ctl, size, fmts, name, "trend", make, [pm, pp, size, pal], pre)
         xl.editingFinished.connect(lambda: W.wait_cursor(render))
 
 

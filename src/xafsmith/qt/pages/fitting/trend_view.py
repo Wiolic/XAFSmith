@@ -29,31 +29,59 @@ def trend_colors():
 def draw_trend(axes, table, panels, paths, xlabel=None, colors=None):
     """在 axes（与 panels 等长）上画趋势：点 + 连线 + 1σ 误差棒；N 固定的路径不画误差棒。"""
     cols = colors or trend_colors()
-    src = table.attrs.get("seq_source", "order")
+    xc, ticks = tr.axis_of(table)
     for ax, pk in zip(axes, panels):
         vcol, ecol = _COLS[pk]
         if pk == "E0":
-            d = table.drop_duplicates("dataset").sort_values("seq")
+            d = table.drop_duplicates("dataset").sort_values(xc)
             if d[vcol].notna().any():
-                ax.errorbar(d["seq"], d[vcol], color=C["text"], marker="o", ms=5, lw=1.3)
+                ax.errorbar(d[xc], d[vcol], color=C["text"], marker="o", ms=5, lw=1.3)
         else:
             for i, p in enumerate(paths):
-                d = table[table["path"] == p].sort_values("seq")
+                d = table[table["path"] == p].sort_values(xc)
                 if not d[vcol].notna().any():
                     continue
                 err = d[ecol].to_numpy(float) if d[ecol].notna().any() else None
-                ax.errorbar(d["seq"], d[vcol], yerr=err, color=cols[i % len(cols)], marker="o", ms=5, lw=1.3,
+                ax.errorbar(d[xc], d[vcol], yerr=err, color=cols[i % len(cols)], marker="o", ms=5, lw=1.3,
                             capsize=3, elinewidth=1.0, label=p)
             if paths and ax is axes[0]:
                 ax.legend(fontsize=8)
         ax.set_ylabel(panel_name(pk))
         ax.ticklabel_format(axis="y", useOffset=False)
     last = axes[-1]
-    last.set_xlabel(xlabel or tr.SEQ_LABELS[src])
-    if src == "order":
-        d = table.drop_duplicates("dataset").sort_values("seq")
-        last.set_xticks(list(d["seq"]))
-        last.set_xticklabels(list(d["sample"]), rotation=30 if len(d) > 3 else 0)
+    last.set_xlabel(xlabel or default_xlabel(table))
+    if ticks is not None:
+        last.set_xticks(ticks[0])
+        last.set_xticklabels(ticks[1], rotation=30 if len(ticks[0]) > 3 else 0)
+
+
+def default_xlabel(table):
+    """缺省横轴标题：用户调过顺序 → “Sample”，否则按序列来源"""
+    return tr.SEQ_LABELS["custom" if table.attrs.get("custom_order") else table.attrs.get("seq_source", "order")]
+
+
+def order_editor(fit, table, on_change):
+    """“顺序”编辑控件（快速拟合页与图片导出共用）：样品列表（拖动或 ↑↓）+ “恢复默认顺序”。
+    顺序存在拟合记录上（fit["trend_order"]：数据集 id 列表；没有 = 缺省），on_change() 在改动后调用（重画）。
+    table：未调顺序的趋势表（取数据集与样品名）。返回控件。"""
+    name = dict(zip(table["dataset"], table["sample"]))
+    cur = tr.clean_order(table, fit.get("trend_order"))
+    ol = W.OrderList(cur, fmt=lambda d: name.get(d, d))
+    ol.setToolTip(T("横轴顺序：拖动样品或用 ↑ ↓；调整后横轴按此顺序等间距排列。", "X-axis order: drag samples or use ↑ ↓; the axis then shows them in this order, evenly spaced."))
+
+    def changed(v):
+        fit["trend_order"] = list(v)
+        on_change()
+
+    def reset():
+        fit.pop("trend_order", None)
+        ol.set_value(tr.default_order(table))
+        on_change()
+    ol.changed.connect(changed)
+    return W.vbox(W.hbox(W.label(T("横轴顺序", "X-axis order"), "faint"), None,
+                         W.button(T("恢复默认顺序", "Restore default order"), slot=reset,
+                                  tip=T("回到 seq → 测量时间 → 数据集顺序的缺省规则。", "Back to the default rule: seq → measurement time → dataset order."))),
+                  ol, spacing=4), ol
 
 
 def notes_for(table, panels, paths):
