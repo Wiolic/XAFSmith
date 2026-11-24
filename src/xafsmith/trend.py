@@ -181,24 +181,31 @@ def _quickfit_rows(model, dsets, summ, seq_of, sv, e0e):
     if not isinstance(qk, dict) or qk.get("mode") != "joint" or not isinstance(qk.get("shell"), dict):
         return None
     from .quickfit import joint_param_names
-    sh, P = qk["shell"], summ.get("params", {})
+    sh, sh2, P = qk["shell"], qk.get("shell2"), summ.get("params", {})
+    two = isinstance(sh2, dict)             # 混合相：每数据集两行（相 1、相 2），dr / ss 全批共享
     try:
-        n_members, r_cif = len(sh["members"]), float(sh["r_cif"])
-        name = f"{sh['absorber']}–{sh['scatterer']} first shell"
+        shells = [sh] + ([sh2] if two else [])
+        n_members = [len(x["members"]) for x in shells]
+        r_cifs = [float(x["r_cif"]) for x in shells]
+        names = [f"{x['absorber']}–{x['scatterer']} first shell" for x in shells]
     except (KeyError, TypeError, ValueError):
         return None
-    pn = {d["id"]: joint_param_names(d["id"]) for d in dsets}
-    if "e0" not in P or any(len(d["paths"]) != n_members or not all(v in P for v in pn[d["id"]].values()) for d in dsets):
+    if two and names[1] == names[0]:
+        names[1] += " (2)"
+    pn = {d["id"]: joint_param_names(d["id"], two) for d in dsets}
+    if "e0" not in P or any(len(d["paths"]) != sum(n_members) or not all(v in P for v in pn[d["id"]].values()) for d in dsets):
         return None
+    keys = [("n", "dr", "ss")] + ([("n2", "dr2", "ss2")] if two else [])
     rows = []
     for d in dsets:
-        n, dr, ss = (P[pn[d["id"]][k]] for k in ("n", "dr", "ss"))
-        ne = None if (not n["vary"] or n.get("stderr") in (None, 0.0)) else float(n["stderr"])
-        rows.append(dict(dataset=d["id"], sample=d["sample"], seq=seq_of[d["id"]], seq_source=sv["source"], path=name,
-                         N=n["value"], N_err=ne, R=r_cif + dr["value"], R_err=dr.get("stderr"), sigma2=ss["value"],
-                         sigma2_err=ss.get("stderr"), dE0=P["e0"]["value"], dE0_err=P["e0"].get("stderr"),
-                         E0_edge=e0e.get(d["sample"]), shared_N=False, shared_R=False, shared_sigma2=False,
-                         shared_dE0=True))
+        for (kn, kd, ks), name, r_cif in zip(keys, names, r_cifs):
+            n, dr, ss = (P[pn[d["id"]][k]] for k in (kn, kd, ks))
+            ne = None if (not n["vary"] or n.get("stderr") in (None, 0.0)) else float(n["stderr"])
+            rows.append(dict(dataset=d["id"], sample=d["sample"], seq=seq_of[d["id"]], seq_source=sv["source"], path=name,
+                             N=n["value"], N_err=ne, R=r_cif + dr["value"], R_err=dr.get("stderr"), sigma2=ss["value"],
+                             sigma2_err=ss.get("stderr"), dE0=P["e0"]["value"], dE0_err=P["e0"].get("stderr"),
+                             E0_edge=e0e.get(d["sample"]), shared_N=False, shared_R=two, shared_sigma2=two,
+                             shared_dE0=True))
     return rows
 
 
