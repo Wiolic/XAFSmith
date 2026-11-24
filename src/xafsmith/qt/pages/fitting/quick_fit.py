@@ -677,7 +677,15 @@ class QuickFitPage(Page):
         self._b_det = W.button(T("在精细拟合中继续", "Continue in Detailed fit"), slot=self._to_detailed,
                                tip=T("把这个模型（路径、参数、窗口）载入“精细拟合”，在那里逐条修改再拟合。",
                                      "Load this model (paths, parameters, window) into “Detailed fit” to edit it there and refit."))
-        c4.add(W.hbox(self._b_save, self._b_fig, self._b_det, None, spacing=8))
+        self._b_rep = W.button(T("导出汇报包", "Export report package"), slot=self._export_report, icon_name="upload",
+                               tip=T("写 output/reports/<模型名>_<时间>/：每个样品的 |χ(R)| 与 k²χ(k) 图（联合拟合另有趋势图）、参数表.csv、判定.txt、"
+                                     "方法.md 和单页 报告.html，可直接发给导师。不需要先保存拟合。与命令行 quickfit --report 相同。",
+                                     "Write output/reports/<model>_<time>/: |χ(R)| and k²χ(k) plots per sample (plus trend plots for a joint fit), "
+                                     "the parameter table (CSV), the full verdict text, the methods paragraphs and a one-page HTML report to send to "
+                                     "your supervisor. The fit does not have to be saved first. Same as the command line quickfit --report."))
+        c4.add(W.hbox(self._b_save, self._b_fig, self._b_det, self._b_rep, None, spacing=8))
+        self._rep_box = W.vbox()
+        c4.add(self._rep_box)
         lay.addWidget(c4)
 
     def _select(self, i):
@@ -770,6 +778,24 @@ class QuickFitPage(Page):
             return
         extra = T("（含趋势 CSV）", " (with the trend CSV)") if fit["summ"].get("multi") else ""
         W.toast(self, T(f"已保存模型 {base} 与拟合记录{extra}", f"Saved model {base} and the fit records{extra}"))
+
+    def _export_report(self):
+        """导出汇报包（后台写文件；结果对象只读）"""
+        from xafsmith import quickfit_report as qr
+        if not self._res:
+            return
+        res, table, lang = self._res["res"], self._res.get("table"), W.LANG["v"]
+        out = qr.default_dir(res)
+        pg = self
+
+        def done(page):
+            W._clear_layout(pg._rep_box.layout())
+            n = qr.count_issues(res)
+            pg._rep_box.layout().addWidget(Banner("warn" if n else "ok", T(f"已导出汇报包：{paths.rel(page.parent)}", f"Report package written: {paths.rel(page.parent)}")
+                                                  + (T(f"（本次拟合有 {n} 项需注意，报告顶部已标明）", f" ({n} issue(s) in this fit; marked at the top of the report)") if n else "")))
+            pg._rep_box.layout().addWidget(W.hbox(W.button(T("打开文件夹", "Open folder"), slot=lambda: W.open_folder(page.parent)), None))
+            W.toast(pg, T("汇报包已导出", "Report package exported"))
+        W.run_task(self, lambda: qr.write(res, out, lang=lang, table=table), done, T("导出汇报包…", "Exporting the report package…"), self._b_rep)
 
     def _fit_index(self):
         fit = self._res["res"].fit
