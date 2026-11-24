@@ -400,12 +400,29 @@ class QuickFitPage(Page):
                                     "（会话里的拟合即可；保存后重启软件仍可选）。",
                                     f"This standard fit is now in the session history: in Sample mode click “Pick standard value…” to use "
                                     f"S0² = {r.s02:.4f} ± {r.s02_err or 0:.4f} (a session fit is enough; after saving it stays available after a restart).")))
+        # 趋势（联合）
+        table = self._res.get("table")
+        if joint and table is not None and len(table):
+            c4.add(self._trend_box(table))
         # 选中样品的详情
         self._detail = W.vbox()
         c4.add(self._detail)
         sm = self._tab.selectionModel()
         sm.currentRowChanged.connect(lambda cur, _prev: self._select(cur.row()))
         self._tab.selectRow(min(self._res.get("row", 0), len(rs) - 1))
+        # 操作
+        self._b_save = W.button(T("保存", "Save"), icon_name="save", slot=self._save,
+                                tip=T("写 models/<名>.json、拟合记录（exafs_fits.csv、报告、图）与参数文件；联合拟合另写趋势 CSV。与命令行 quickfit --save 相同。",
+                                      "Write models/<name>.json, the fit records (exafs_fits.csv, report, figure) and the parameter file; a joint fit also "
+                                      "writes the trend CSV. Same as the command line quickfit --save."))
+        self._b_fig = W.button(T("去图片导出", "Go to Figure export"), slot=self._to_pubfig,
+                               tip=T("打开“图片导出”的趋势图并选中这次拟合（需要 ≥ 2 个样品的联合拟合）。",
+                                     "Open the trend figure in “Figure export” with this fit selected (needs a joint fit of ≥ 2 samples)."))
+        self._b_fig.setEnabled(joint)
+        self._b_det = W.button(T("在精细拟合中继续", "Continue in Detailed fit"), slot=self._to_detailed,
+                               tip=T("把这个模型（路径、参数、窗口）载入“精细拟合”，在那里逐条修改再拟合。",
+                                     "Load this model (paths, parameters, window) into “Detailed fit” to edit it there and refit."))
+        c4.add(W.hbox(self._b_save, self._b_fig, self._b_det, None, spacing=8))
         lay.addWidget(c4)
 
     def _select(self, i):
@@ -444,3 +461,89 @@ class QuickFitPage(Page):
         ax.set_ylabel(f"|χ(R)|  (k$^{kw}$)")
         plot.draw()
         return plot
+
+    def _trend_box(self, table):
+        """页内趋势图：下拉选 N / R / σ²（带误差棒；横轴按 trend 的序列规则）"""
+        from .trend_view import draw_trend, notes_for, panel_name
+        st = self.state
+        pk = st.get("qf_panel", "N")
+        sel = W.combo(["N", "R", "sigma2"], pk if pk in ("N", "R", "sigma2") else "N", fmt=panel_name)
+        box = W.vbox()
+        paths_ = list(dict.fromkeys(table["path"]))
+
+        def draw(*_):
+            st["qf_panel"] = sel.value()
+            W._clear_layout(plot_box.layout())
+            for n in notes_for(table, [sel.value()], paths_):
+                plot_box.layout().addWidget(Banner("info", n))
+            plot = W.Plot(240)
+            draw_trend([plot.ax], table, [sel.value()], paths_)
+            plot.draw()
+            plot_box.layout().addWidget(plot)
+        plot_box = W.vbox()
+        box.layout().addWidget(W.hbox(W.label(T("趋势图", "Trend"), "h3"), sel, None, spacing=8))
+        box.layout().addWidget(plot_box)
+        sel.currentIndexChanged.connect(draw)
+        draw()
+        self._trend_sel = sel
+        return box
+
+    # ------------------------------------------------------------ 按钮
+    def _save(self):
+        from xafsmith.common import write_params
+        from ...state import safe, save_fit
+        if not self._res:
+            return
+        fit = self._res["res"].fit
+        model = fit["model"]
+        base = safe(model["name"])
+        if (paths.MODELS / f"{base}.json").exists() and not W.ask(
+                self, T("覆盖模型", "Overwrite model"),
+                T(f"models/{base}.json 已存在，覆盖吗？（拟合记录会追加一行）", f"models/{base}.json exists. Overwrite it? (a row is appended to the fit records)")):
+            return
+        try:
+            save_fit(fit)
+            write_params(paths.FITS / f"{base}.params.json", model, "xafsmith quickfit")
+        except Exception as ex:      # noqa: BLE001
+            logs.log.warning("快速拟合：保存失败", exc_info=True)
+            W.toast(self, T(f"保存失败：{ex}", f"Save failed: {ex}"), "err")
+            return
+        extra = T("（含趋势 CSV）", " (with the trend CSV)") if fit["summ"].get("multi") else ""
+        W.toast(self, T(f"已保存模型 {base} 与拟合记录{extra}", f"Saved model {base} and the fit records{extra}"))
+
+    def _fit_index(self):
+        fit = self._res["res"].fit
+        return next((i for i, f in enumerate(self.S.fits) if f is fit), None)
+
+    def _to_pubfig(self):
+        if not self._res or self._res["kind"] != "joint":
+            return
+        i = self._fit_index()
+        if i is None:
+            W.toast(self, T("这次拟合已不在会话历史里（工作区被清空？），请重新拟合。",
+                            "This fit is no longer in the session history (workspace cleared?). Fit again."), "warn")
+            return
+        pg = self.app.pages["pubfig"]
+        pg.state.update(kind="trend", tr_fit=i)
+        pg.state.pop("tr_paths", None)
+        self.app.go("pubfig")
+        pg.refresh()
+
+    def _to_detailed(self):
+        if not self._res:
+            return
+        box = self.app.pages["fit"]
+        pg = box.detailed_page
+        if pg.has_content() and not W.ask(
+                self, T("覆盖精细拟合", "Overwrite Detailed fit"),
+                T("精细拟合里已有路径表 / 参数表，载入这个模型会覆盖它们。继续吗？（可先在精细拟合里存草稿）",
+                  "Detailed fit already has path / parameter tables; loading this model overwrites them. Continue? "
+                  "(You can save a draft there first.)")):
+            return
+        try:
+            pg.load_model_dict(self._res["res"].fit["model"])
+        except Exception as ex:      # noqa: BLE001
+            logs.log.warning("快速拟合：载入精细拟合失败", exc_info=True)
+            W.toast(self, T(f"无法载入精细拟合：{ex}", f"Cannot load into Detailed fit: {ex}"), "err")
+            return
+        box.show_detailed()
