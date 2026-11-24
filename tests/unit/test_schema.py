@@ -337,3 +337,19 @@ def test_sigma2_warn_single_dataset_old_format(proj):
     items = [(lv, at, x) for lv, at, x in schema.validate(structures=False).items if "old.json" in at]
     assert any(lv == "警告" and "单一温度" in x for lv, _, x in items), items
     assert not any(lv == "错误" for lv, _, x in items), items
+
+
+@pytest.mark.parametrize("src", [dict(model="std", value=0.82, stderr=0.03), dict(manual=True, value=0.9)])
+def test_s02_source_valid_clean(proj, src):
+    assert _mm(proj, _multi(s02_source=src)) == []
+
+
+@pytest.mark.parametrize("src,where", [
+    ("std", "s02_source"),
+    (dict(model=1, value=0.8), "s02_source.model"),
+    (dict(model="std", value="a"), "s02_source.value"),
+    (dict(manual="yes", value=0.8), "s02_source.manual"),
+])
+def test_s02_source_errors(proj, src, where):
+    items = _mm(proj, _multi(s02_source=src))
+    assert any(lv == "错误" and at.endswith(where) for lv, at, _ in items), items

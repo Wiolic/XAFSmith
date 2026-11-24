@@ -427,6 +427,23 @@ def _names_in(expr):
     return {n.id for n in ast.walk(tree) if isinstance(n, ast.Name) and n.id not in called and n.id != "pi"}
 
 
+def _check_s02_source(rep, at, m):
+    """s02_source（可选说明键，计算忽略）：{model: 字符串, value: 数字, stderr: 数字}，或手填 {manual: true, value: 数字}。"""
+    src = m.get("s02_source")
+    if src is None:
+        return
+    if not isinstance(src, dict):
+        rep.err(f"{at} s02_source", "应是对象 {model, value, stderr} 或 {manual: true, value}")
+        return
+    if not isinstance(src.get("model", ""), str):
+        rep.err(f"{at} s02_source.model", "应是字符串（标样拟合的模型名）")
+    if not isinstance(src.get("manual", False), bool):
+        rep.err(f"{at} s02_source.manual", f"应为 true / false，实际是 {src['manual']!r}")
+    for k in ("value", "stderr"):
+        if k in src and not _isnum(src[k]):
+            rep.err(f"{at} s02_source.{k}", f"应为数字，实际是 {src[k]!r}")
+
+
 _PATH_EXPR_DEFAULT = dict(e0="e0", s02="s02", sigma2="0.003", deltar="0")
 
 
@@ -529,6 +546,7 @@ def check_models(rep, meta, klim=None):
             continue
         if "datasets" in m:
             _check_multi(rep, at, m, klim, samples)
+            _check_s02_source(rep, at, m)
             _check_restraints(rep, at, m)
             _check_sigma2(rep, at, m)
             continue
@@ -547,6 +565,7 @@ def check_models(rep, meta, klim=None):
                 rep.warn(f"{at} params", f"变量数 {nv} > N_idp/2 = {ni / 2:.1f}（2ΔkΔR/π），超出处理规范"
                                          "（XAFS 处理规范：变量数不多于 N_idp 的一半，最好 ≤ N_idp − 3），结果可靠性低")
         _check_paths(rep, at, m, klim, samples)
+        _check_s02_source(rep, at, m)
         _check_restraints(rep, at, m)
         _check_sigma2(rep, at, m)
 
