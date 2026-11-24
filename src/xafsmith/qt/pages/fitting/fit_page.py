@@ -1,4 +1,4 @@
-"""EXAFS 拟合页面。"""
+"""精细拟合页面（“EXAFS 拟合”页的第二个标签，Artemis 式路径表 + 参数表）。"""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ def custom_fit_job(S, model, src):
 class FitPage(Page):
     """左右分栏：左侧依次设置数据、范围、路径、参数（“拟合”按钮固定在左下角），右侧始终显示最近一次拟合。
     改参数 → 拟合 → 看结果 → 再改，全程不用上下翻页。"""
-    title_zh, title_en, icon_name = "EXAFS 拟合", "EXAFS fitting", "fit"
+    title_zh, title_en, icon_name = "精细拟合", "Detailed fit", "fit"
     fill = True
     max_width = 100000
 

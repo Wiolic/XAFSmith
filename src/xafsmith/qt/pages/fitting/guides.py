@@ -64,7 +64,7 @@ R 因子随窗口变宽而变大，只在相同范围之间比较。</li>
 """
 
 JOINT_ZH = """
-<p>多个数据集联合拟合：几条谱同时拟合，<b>同名参数在数据集之间共享</b>，名字不同就各自独立。拟合页卡片 1 选“多个数据集联合”即可。</p>
+<p>多个数据集联合拟合：几条谱同时拟合，<b>同名参数在数据集之间共享</b>，名字不同就各自独立。“EXAFS 拟合 › 精细拟合”的卡片 1 选“多个数据集联合”即可。</p>
 <h3>什么时候用</h3>
 <ul>
 <li>同一体系的一组样品（时间、电位、温度序列），某些量在物理上应当相同（同一 FEFF 计算的 ΔE0、不变的第一壳层距离、同一拓扑的外壳层距离）。</li>
@@ -190,7 +190,7 @@ model-independent quantities as well (R-space peak ratios, χ(k) LCF, wavelets),
 
 JOINT_EN = """
 <p>A joint fit of several datasets fits several spectra at once: <b>parameters with the same name are shared between datasets</b>;
-different names are independent. Choose “Joint fit of several datasets” in card 1 of the fit page.</p>
+different names are independent. Choose “Joint fit of several datasets” in card 1 of “EXAFS fitting › Detailed fit”.</p>
 <h3>When to use it</h3>
 <ul>
 <li>A series of one system (time, potential, temperature) in which some quantities should physically be the same (ΔE0 from one

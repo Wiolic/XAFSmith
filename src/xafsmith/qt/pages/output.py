@@ -734,7 +734,7 @@ class AgentPage(Page):
             c3.add(W.code_block(e, copy=True, wrap=True, height=64))
         self.add(c3)
         c4 = Card(T("第 3 步：检查 AI 的结果", "Step 3: check the AI's work"))
-        for txt, key in ((T("拟合模型在 models/：“EXAFS 拟合”顶部“运行已保存的模型”可重跑，并看诊断与稳健性", "Fit models are in models/: rerun them at the top of “EXAFS fitting” and check diagnosis and robustness"), "fit"),
+        for txt, key in ((T("拟合模型在 models/：“EXAFS 拟合 › 精细拟合”顶部“运行已保存的模型”可重跑，并看诊断与稳健性", "Fit models are in models/: rerun them at the top of “EXAFS fitting › Detailed fit” and check diagnosis and robustness"), "fit"),
                          (T("全部数值结果在 output/；分析记录在 notes/", "All numbers are in output/; analysis notes in notes/"), "data"),
                          (T("导出的图在 output/figs/journal/，报告在 output/reports/", "Exported figures in output/figs/journal/, reports in output/reports/"), "summary")):
             c4.add(W.hbox(W.label("•  " + txt), None, W.link(T("打开 →", "Open →"), lambda k=key: self.app.go(k))))

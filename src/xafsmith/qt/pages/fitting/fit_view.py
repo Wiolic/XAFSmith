@@ -32,7 +32,7 @@ def robust_job(S, fit):
 
 class FitView(QWidget):
     """一个拟合的结果：指标与按钮、k / R 图；参数、路径、质量检查、诊断、稳健性、完整报告放在标签页里（不用上下翻）。
-    adopt：把拟合值写回参数表的回调（EXAFS 拟合页提供；拟合历史页没有）"""
+    adopt：把拟合值写回参数表的回调（精细拟合页提供；拟合历史页没有）"""
     def __init__(self, page, fit, key="", adopt=None):
         super().__init__()
         self.page, self.full, self.adopt = page, fit, adopt
