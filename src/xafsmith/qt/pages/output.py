@@ -461,7 +461,8 @@ class PubFigPage(Page):
                          (T("横轴标题（空 = 缺省）", "X-axis title (empty = default)"), xl), cols=2))
         ctl.add(W.fields((T("配色方案（每条路径一种颜色）", "Palette (one colour per path)"), pal)))
         ctl.add(W.fields((T("尺寸", "Size"), size), (T("格式", "Formats"), fmts), (T("文件名", "File name"), name)))
-        for n in table.attrs.get("seq_notes", []):
+        from .fitting.trend_view import seq_notes
+        for n in seq_notes(table):
             ctl.add(Banner("info", n))
 
         cell = dict(table=table)

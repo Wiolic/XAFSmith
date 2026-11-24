@@ -48,15 +48,15 @@ def _sample_seq(rows):
     """一个样品的 seq：非空值必须全部是数字且一致 → (值, None)；否则 (None, 原因)。空值忽略。"""
     vals = [str(v).strip() for v in rows["seq"] if str(v).strip()]
     if not vals:
-        return None, "meta.csv 的 seq 为空"
+        return None, ("meta.csv 的 seq 为空", "seq is empty in meta.csv")
     try:
         nums = [float(v) for v in vals]
     except ValueError:
-        return None, f"seq 不是数字（{vals[0]!r}）"
+        return None, (f"seq 不是数字（{vals[0]!r}）", f"seq is not a number ({vals[0]!r})")
     if not all(np.isfinite(nums)):
-        return None, "seq 不是有限数"
+        return None, ("seq 不是有限数", "seq is not finite")
     if len(set(nums)) > 1:
-        return None, "同一样品多行的 seq 不一致"
+        return None, ("同一样品多行的 seq 不一致", "the rows of one sample have different seq")
     return nums[0], None
 
 
@@ -64,41 +64,47 @@ def _sample_time(rows):
     """一个样品的测量时间 = 该样品各行 time 中最早的一个（Timestamp）；解析不了 → (None, 原因)。"""
     vals = [str(v).strip() for v in rows["time"] if str(v).strip()]
     if not vals:
-        return None, "meta.csv 的 time 为空"
+        return None, ("meta.csv 的 time 为空", "time is empty in meta.csv")
     ts = pd.to_datetime(pd.Series(vals), errors="coerce")
     if ts.isna().any():
-        return None, f"time 无法解析（{vals[0]!r}）"
+        return None, (f"time 无法解析（{vals[0]!r}）", f"time cannot be parsed ({vals[0]!r})")
     return ts.min(), None
 
 
 def seq_values(datasets, meta=None):
     """datasets：[{id, sample}]（normalize_model 的数据集即可）。返回 dict(values, source, notes, labels)：
-    values 与 datasets 同序；source ∈ seq / time / order；notes 是降级原因（中文，逐条）；labels = 数据集 id（order 时作刻度）。
+    values 与 datasets 同序；source ∈ seq / time / order；notes 是降级原因（中文，逐条），notes_en 是同序的英文；
+    labels = 数据集 id（order 时作刻度）。
     不混用：只要有一个数据集缺 seq 就整体降到 time，再缺就降到 order。"""
     ids = [d["id"] for d in datasets]
-    notes = []
+    notes, notes_en = [], []
+
+    def note(zh, en):
+        notes.append(zh)
+        notes_en.append(en)
     if meta is not None and len(meta):
         for col, source in (("seq", "seq"), ("time", "time")):
             if col not in meta.columns:
                 if col == "seq":
-                    notes.append("meta.csv 没有 seq 列")
+                    note("meta.csv 没有 seq 列", "meta.csv has no seq column")
                 continue
-            got, bad = [], []
+            got, bad, bad_en = [], [], []
             for d in datasets:
                 rows = meta[meta["sample"] == d["sample"]]
-                v, why = (_sample_seq if col == "seq" else _sample_time)(rows) if len(rows) else (None, "meta.csv 中没有该样品")
+                v, why = (_sample_seq if col == "seq" else _sample_time)(rows) if len(rows) else                     (None, ("meta.csv 中没有该样品", "sample not in meta.csv"))
                 got.append(v)
                 if v is None:
-                    bad.append(f"{d['id']}（{why}）")
+                    bad.append(f"{d['id']}（{why[0]}）")
+                    bad_en.append(f"{d['id']} ({why[1]})")
             if not bad:
                 if source == "time":
                     t0 = min(got)
                     got = [(t - t0).total_seconds() / 3600.0 for t in got]
-                return dict(values=[float(x) for x in got], source=source, notes=notes, labels=ids)
-            notes.append(f"{'、'.join(bad)} 缺 {col}，不使用 {col} 作横轴")
+                return dict(values=[float(x) for x in got], source=source, notes=notes, notes_en=notes_en, labels=ids)
+            note(f"{'、'.join(bad)} 缺 {col}，不使用 {col} 作横轴", f"{'; '.join(bad_en)}: no {col}, so {col} is not used as the x axis")
     elif meta is None:
-        notes.append("没有 meta.csv")
-    return dict(values=[float(i + 1) for i in range(len(datasets))], source="order", notes=notes, labels=ids)
+        note("没有 meta.csv", "no meta.csv")
+    return dict(values=[float(i + 1) for i in range(len(datasets))], source="order", notes=notes, notes_en=notes_en, labels=ids)
 
 
 # ------------------------------------------------------------------ N_err
@@ -252,7 +258,7 @@ def trend_table(summ, model, meta=None, processed=None):
     if meta is not None and {"sample", "edge_key"} <= set(meta.columns):
         eks = sorted({str(e) for e in meta[meta["sample"].isin([d["sample"] for d in dsets])]["edge_key"] if str(e).strip()})
         edge = ", ".join(e.replace("_", " ") + "-edge" for e in eks)
-    df.attrs.update(seq_source=sv["source"], seq_notes=sv["notes"], n_composite=composite,
+    df.attrs.update(seq_source=sv["source"], seq_notes=sv["notes"], seq_notes_en=sv.get("notes_en", sv["notes"]), n_composite=composite,
                     seq_labels=sv["labels"], edge=edge)
     return df
 

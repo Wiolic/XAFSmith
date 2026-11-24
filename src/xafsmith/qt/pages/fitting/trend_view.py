@@ -84,9 +84,16 @@ def order_editor(fit, table, on_change):
                   ol, spacing=4), ol
 
 
+def seq_notes(table):
+    """序列降级原因，按界面语言（趋势表 attrs 的 seq_notes / seq_notes_en）"""
+    zh = list(table.attrs.get("seq_notes", []))
+    en = list(table.attrs.get("seq_notes_en", zh))
+    return en if W.en() else zh
+
+
 def notes_for(table, panels, paths):
     """提示文字（中英）：序列降级原因、N 固定 / 复合表达式、共享参数。"""
-    out = list(table.attrs.get("seq_notes", []))
+    out = seq_notes(table)
     if "N" in panels:
         fixed = [p for p in paths if table[table["path"] == p]["N_err"].isna().all()]
         if fixed:

@@ -40,6 +40,9 @@ def test_seq_missing_one_falls_to_time_not_mixed():
     assert r["source"] == "time"
     assert r["values"] == pytest.approx([2.0, 0.0, 5.5])
     assert any("b" in n and "seq" in n for n in r["notes"])          # 说明哪个数据集缺 seq
+    assert len(r["notes_en"]) == len(r["notes"])
+    assert all(not any("一" <= c <= "鿿" for c in n) for n in r["notes_en"])    # 英文版不含汉字
+    assert any("b" in n and "seq is empty" in n for n in r["notes_en"])
 
 
 def test_seq_inconsistent_scans_count_as_missing():
