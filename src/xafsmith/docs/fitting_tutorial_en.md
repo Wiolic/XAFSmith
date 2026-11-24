@@ -74,8 +74,8 @@ Two terms explain much of what follows:
 | Register raw data | Register data | 1 |
 | Quality check, energy calibration, normalization, background, Fourier transform | Calibrate & process (one click); Load & check, Normalization, χ(k) & FT (to inspect) | 2–6 |
 | Compute scattering paths | FEFF paths | 8 |
-| S0² from a standard | EXAFS fitting | 9 |
-| Fit samples, judge the fit, test significance | EXAFS fitting, Fit history | 10–12 |
+| S0² from a standard | EXAFS fitting › Quick fit (or Detailed fit) | 9 |
+| Fit samples, judge the fit, test significance | EXAFS fitting › Quick fit / Detailed fit, Fit history | 10–12 |
 | Export and conclusions | Report, Figure and Methods export | 14 |
 
 ---
@@ -240,7 +240,7 @@ $$N_{\mathrm{idp}}=\frac{2\,\Delta k\,\Delta R}{\pi}$$
 
 **Rule**: variables ≤ N_idp/2 (at most N_idp − 3). With more parameters than information, any model fits “very well”, and the result means nothing.
 
-**Operation**: after setting the fit range in the left column of **EXAFS fitting**, N_idp and the variable limit are shown; the variable count turns orange above the limit.
+**Operation**: after setting the fit range in the left column of **EXAFS fitting › Detailed fit**, N_idp and the variable limit are shown; the variable count turns orange above the limit. (**Quick fit** does this for you: it picks k-weights 1, 2, 3, Rmin and Rmax itself, and its verdict checks the number of variables against N_idp by the Stern criterion; more than N_idp/2 variables only gives the note “little information”.)
 
 ### 8　FEFF: scattering paths from a structure
 
@@ -276,7 +276,17 @@ S0² and N multiply and cannot be separated from one data set. So:
 
 S0² depends mainly on the absorbing element and edge, hardly on the chemistry, so one value serves an element and edge — provided the measurements are comparable (both transmission, suitable thickness).
 
-**Operation** (**EXAFS fitting**, IrO₂)
+**Operation A: Quick fit (recommended start)** (**EXAFS fitting › Quick fit**, IrO₂)
+
+The software fits the first shell only, fixes N to the structure's degeneracy, sets the window itself and states whether the result is trustworthy:
+
+1. **Samples (several)**: IrO₂; **FEFF folder**: `IrO2_IrL3` from the previous chapter (the page shows the first shell, e.g. Ir–O × 6);
+2. **Purpose**: **Standard**; keep **Rmax (Å)** at 2.5; the k window comes from IrO₂'s processing settings and Rmin is automatic;
+3. Click **Start fit**; read S0² and ΔE0 in the result table and the ✓ / ✗ of every check in the verdict;
+4. When the verdict is “✅ Trustworthy” click **Save**. Later, when fitting samples, **Pick standard value…** in Sample mode of **Quick fit** takes this S0² (with its error; the source is recorded in the model);
+5. If a check is ✗, follow the advice; for settings beyond the two Ir–O paths sharing parameters, click **Continue in Detailed fit** — Operation B below is what you do there.
+
+**Operation B: Detailed fit** (**EXAFS fitting › Detailed fit**, IrO₂)
 
 In the left column:
 
@@ -290,7 +300,7 @@ In the left column:
 
 Result in the author's project: **S0² ≈ 0.816, ΔE₀ ≈ 8.93 eV** (Ir L₃, transmission).
 
-6. Enter S0² under **Calibrate & process → Processing parameters → S0²** and **Save parameters**; on EXAFS fitting click **Save result**.
+6. Enter S0² under **Calibrate & process → Processing parameters → S0²** and **Save parameters**; on Detailed fit click **Save result**.
 
 **Why k¹, k² and k³ together**: the weights differ in sensitivity to low k (light atoms, ΔE₀) and high k (σ², heavy atoms). Fitting them together weakens the S0²–σ² and ΔE₀–ΔR correlations.
 
@@ -304,9 +314,13 @@ Result in the author's project: **S0² ≈ 0.816, ΔE₀ ≈ 8.93 eV** (Ir L₃,
 2. Look at the residual: if a second peak (e.g. M–M) is not fitted, add a shell. A new shell usually adds N, ΔR and σ² (three variables); ΔE₀ is usually shared.
 3. With every shell, check N_idp and run the F-test (chapter 12).
 
-**Operation**
+**Operation A: quick-fit the first shell**
 
-1. Left column of **EXAFS fitting**: choose the sample data and the matching FEFF folder.
+On **EXAFS fitting › Quick fit** choose one sample or a batch under **Samples (several)** (one absorption edge) and the FEFF folder, set **Purpose** to **Sample**, click **Pick standard value…** for S0² and take the standard fit of chapter 9, then **Start fit**. N, R, σ², ΔE0 and the verdict appear in the result; with ≥ 2 samples a joint fit runs automatically (shared ΔE0, see the joint-fit guide). Once the first shell is “Trustworthy”, click **Continue in Detailed fit** to add a second shell; Operation B below continues there.
+
+**Operation B: Detailed fit (extra shells, multiple scattering, constraints)**
+
+1. Left column of **EXAFS fitting › Detailed fit**: choose the sample data and the matching FEFF folder.
 2. **Paths**: for paths whose coordination number is fitted, write a parameter name in `N`, e.g. `n1`.
    - all paths of one shell with `n1` = shared;
    - a path whose N is a fixed multiple of another: `n1*2`.
@@ -320,7 +334,7 @@ Result in the author's project: **S0² ≈ 0.816, ΔE₀ ≈ 8.93 eV** (Ir L₃,
 | Physical limits | min / max, e.g. σ² ≥ 0 |
 
 4. Click **Fit**; when satisfied, **Save result**: the result goes to `output/fits/exafs_fits.csv` and the model to `models/` for one-click reruns.
-5. A series (time, potential): **Run a saved model** at the top of the left column → choose the model → select several samples → **Run**.
+5. A series (time, potential): **Run a saved model** at the top of the left column of Detailed fit → choose the model → select several samples → **Run** (for the first shell only, simply select several samples in Quick fit).
 
 ### 11　Is the fit good?
 
