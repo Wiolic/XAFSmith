@@ -213,6 +213,26 @@ def container_checks(app, w, S, P, k1, fdir):
     pg.refresh()
 
 
+def pubfig_overlay_check(app, w, fit, keys, what):
+    """F2-6 ②：快速拟合后图片导出的 χ(k) / |χ(R)| 可选，勾“叠加拟合曲线”后图中每个所选谱多一条拟合线"""
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+    S, pg = w.S, w.pages["pubfig"]
+    idx = next(i for i, f in enumerate(S.fits) if f is fit)
+    w.go("pubfig")
+    for kind in ("chik", "chir"):
+        pg.state.update(kind=kind, sel=list(keys), usefit=False, fits=[idx])
+        pg.refresh()
+        pump(app)
+        seg = pg.findChildren(W.Segmented)[0]
+        n0 = sum(len(c.figure.axes[0].lines) for c in pg.findChildren(FigureCanvasQTAgg))
+        pg.state.update(usefit=True)
+        pg.refresh()
+        pump(app)
+        n1 = sum(len(c.figure.axes[0].lines) for c in pg.findChildren(FigureCanvasQTAgg))
+        say(seg.isEnabled() and pg.state.get("kind") == kind and n0 > 0 and n1 - n0 == len(keys),
+            f"F2-6 ② {what}：图片导出 {kind} 可选，叠加拟合曲线后多 {n1 - n0} 条线（应为 {len(keys)}）")
+
+
 def quickfit_checks(app, w):
     """F2-3b：快速拟合界面端到端（在项目的临时副本里做，保存的文件不污染演示项目）：
     标样 → 保存 → 样品模式选取标样值 → 拟合 → 结果表与判定 → 在精细拟合中继续（数值与快速拟合相同）；
@@ -296,6 +316,8 @@ def quickfit_checks(app, w):
         say(len(S.fits) == n0 + 1 and r.mode == "sample" and r.model["s02_source"]["model"] == base and 0 < r.n < 20,
             f"样品拟合：N = {r.n:.2f}，s02_source 记录来源")
         say(len(q.findChildren(W.Plot)) == 1 and not q._b_fig.isEnabled() and q._b_det.isEnabled(), "单样品：只有 R 空间图，“去图片导出”不可用")
+        pubfig_overlay_check(app, w, r.fit, ["cu_metal_rt"], "快速拟合（单样品）")
+        w.go("fit")
         # 在精细拟合中继续
         fit = r.fit
         q._b_det.click()
@@ -336,6 +358,7 @@ def quickfit_checks(app, w):
         pump(app)
         say(w.S.extra.get("page") == "pubfig" and P["pubfig"].state.get("kind") == "trend"
             and S.fits[P["pubfig"].state.get("tr_fit")] is jr.fit, "去图片导出：趋势图并选中这次拟合")
+        pubfig_overlay_check(app, w, jr.fit, ["cu_metal_rt", "cu_rt01"], "快速拟合（联合）")
         w.go("fit")
         q._b_det.click()
         wait(app)

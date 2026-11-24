@@ -184,6 +184,21 @@ def _fit_key(S, fit, keys):
     return None
 
 
+def _fit_pairs(S, fit, keys):
+    """拟合记录 → [(会话谱键, 该谱的单数据集形拟合记录)]。单数据集拟合：按样品名对应一条谱；
+    联合（多数据集）拟合：样品名是 "a+b"，须逐个数据集按其样品对应，再取该数据集的曲线与参数（state.fit_dataset）。"""
+    if fit["summ"].get("multi"):
+        from ..state import fit_dataset
+        out = []
+        for d in fit["summ"].get("datasets", []):
+            k = next((k for k in keys if k == d.get("sample") or getattr(S.groups.get(k), "label", None) == d.get("sample")), None)
+            if k is not None:
+                out.append((k, fit_dataset(fit, d["id"])))
+        return out
+    k = _fit_key(S, fit, keys)
+    return [(k, fit)] if k else []
+
+
 # ============================================================================= 图片导出
 class PubFigPage(Page):
     title_zh, title_en, icon_name = "图片导出", "Figure export", "chart"
@@ -242,13 +257,14 @@ class PubFigPage(Page):
                 opt["re"] = W.check(T("同时画 Re χ(R)（虚线）", "Also Re χ(R) (dashed)"), self.state.get("re", False))
                 items.append((T("R 上限", "R max"), opt["rmax"]))
             # 叠加拟合：每条谱默认取最近一次拟合，也可在列表中指定
-            fit_ids = [i for i, f_ in enumerate(S.fits) if _fit_key(S, f_, cands)]
+            fit_ids = [i for i, f_ in enumerate(S.fits) if _fit_pairs(S, f_, cands)]
             latest = {}
             for i in fit_ids:
-                latest[_fit_key(S, S.fits[i], cands)] = i
+                for k, _rec in _fit_pairs(S, S.fits[i], cands):
+                    latest[k] = i
             opt["usefit"] = W.check(T("叠加拟合曲线（虚线）", "Overlay fit (dashed)"), self.state.get("usefit", False) and bool(fit_ids))
             saved = [i for i in self.state.get("fits", []) if i in fit_ids]
-            opt["fits"] = W.MultiSelect(fit_ids, saved or list(latest.values()),
+            opt["fits"] = W.MultiSelect(fit_ids, saved or list(dict.fromkeys(latest.values())),
                                         T("无拟合：先在“EXAFS 拟合”中拟合", "No fits: fit under “EXAFS fitting” first"),
                                         fmt=lambda i: fit_label(S.fits[i]))
         ctl.add(W.fields(*items))
@@ -276,9 +292,8 @@ class PubFigPage(Page):
                 # 按谱的显示名（g.label）对应：会话里的键名与 g.label 不一定相同
                 fits = {}
                 for i in opt["fits"].value():
-                    smp = _fit_key(S, S.fits[i], sel)
-                    if smp:
-                        fits[S.groups[smp].label] = S.fits[i]
+                    for smp, rec in _fit_pairs(S, S.fits[i], sel):
+                        fits[S.groups[smp].label] = rec
                 fits = fits or None
             if k_ in ("xanes", "deriv"):
                 fig, c = pf.xanes(gs, size.value(), (opt["lo"].value(), opt["hi"].value()), opt["off"].value(),
