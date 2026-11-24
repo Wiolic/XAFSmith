@@ -12,6 +12,36 @@ from ...state import apply_ref, calib_status, edge_key, load_cfg, raw_files, ref
 from ...widgets import T, Card, Page
 
 
+GUESS_KEYS = ("element", "edge")
+
+
+def guessed_groups(groups):
+    """元素或吸收边是读入时按能量猜的谱：{名: group}"""
+    return {k: g for k, g in groups.items() if set(GUESS_KEYS) & set(getattr(g, "meta_guessed", None) or ())}
+
+
+def guess_for(g, element):
+    """把元素设为 element 时该谱的吸收边：guess_edge(元素, 谱的中位能量)；元素符号无效 → 抛 ValueError"""
+    from xafsmith.common import guess_edge
+    el = str(element).strip()
+    ed = guess_edge(el, float(np.median(g.energy))) if el else None
+    if not el or ed is None:
+        raise ValueError(el)
+    return el, ed
+
+
+def confirm_guess(g):
+    """用户已核对：把 element / edge 从 meta_guessed 去掉（只改会话，不写 meta.csv）"""
+    g.meta_guessed = [x for x in (getattr(g, "meta_guessed", None) or []) if x not in GUESS_KEYS]
+
+
+def apply_guess(g, element):
+    el, ed = guess_for(g, element)
+    g.element, g.edge = el, ed
+    confirm_guess(g)
+    return el, ed
+
+
 class LoadPage(Page):
     title_zh, title_en, icon_name = "载入谱", "Load spectra", "upload"
 
@@ -213,6 +243,65 @@ class LoadPage(Page):
                         None, W.button(T("读入", "Read"), primary=True, icon_name="upload", slot=lambda: W.wait_cursor(read))))
         return card
 
+    def _guess_editor(self, gs):
+        """猜测的元素 / 吸收边：选谱（多选）+ 元素 → 显示将得到的边 → 应用；或“确认无误”。只改会话。"""
+        S = self.S
+        ms = W.MultiSelect(list(gs), list(gs), T("选择谱", "Choose spectra"))
+        el = W.text("", T("元素符号，如 Ir", "element symbol, e.g. Ir"))
+        el.setMaximumWidth(140)
+        pv = W.label("", "faint")
+
+        def preview(*_):
+            v, e = ms.value(), el.text().strip()
+            if not e or not v:
+                pv.setText("")
+                return
+            try:
+                res = {k: "%s %s" % guess_for(gs[k], e) for k in v}
+            except Exception:      # noqa: BLE001
+                pv.setText(T(f"无法识别元素 {e}（或没有对应吸收边）", f"Cannot recognise element {e} (or no matching edge)"))
+                return
+            pv.setText(T("将得到：", "Result: ") + "；".join(f"{k} → {r}" for k, r in list(res.items())[:6]) + ("…" if len(res) > 6 else ""))
+        ms.changed.connect(preview)
+        el.textChanged.connect(preview)
+
+        def apply():
+            v, e = ms.value(), el.text().strip()
+            if not v or not e:
+                W.toast(self, T("先选谱并填元素", "Choose spectra and enter an element"), "warn")
+                return
+            try:
+                for k in v:
+                    guess_for(gs[k], e)
+            except Exception:      # noqa: BLE001
+                W.toast(self, T(f"无法识别元素 {e}", f"Cannot recognise element {e}"), "err")
+                return
+            for k in v:
+                apply_guess(gs[k], e)
+            S.emit("groups")
+            W.toast(self, T(f"已把 {len(v)} 条谱改为 {e}（仅本次会话）", f"Set {len(v)} spectrum(a) to {e} (this session only)"))
+            self.refresh()
+
+        def confirm():
+            v = ms.value()
+            if not v:
+                W.toast(self, T("先选谱", "Choose spectra first"), "warn")
+                return
+            for k in v:
+                confirm_guess(gs[k])
+            S.emit("groups")
+            W.toast(self, T(f"已确认 {len(v)} 条谱的元素 / 吸收边", f"Confirmed element / edge of {len(v)} spectrum(a)"))
+            self.refresh()
+        box = W.vbox()
+        box.layout().addWidget(W.label(T("核对猜测的元素 / 吸收边", "Check the guessed element / edge"), "h3"))
+        box.layout().addWidget(W.hbox(W.field(T("谱", "Spectra"), ms), W.field(T("元素", "Element"), el),
+                                      W.vbox(None, W.button(T("应用", "Apply"), primary=True, slot=apply)),
+                                      W.vbox(None, W.button(T("确认无误", "Confirm as is"), slot=confirm,
+                                                            tip=T("元素和吸收边都对：去掉“（猜测）”标记。", "Element and edge are right: remove the “guessed” mark."))),
+                                      spacing=12))
+        box.layout().addWidget(pv)
+        return box
+
     def _loaded(self):
         S = self.S
         card = Card(T(f"已载入 {len(S.groups)} 条谱", f"{len(S.groups)} spectra loaded"),
@@ -220,12 +309,24 @@ class LoadPage(Page):
                                       slot=lambda: self.window().clear_workspace(),
                                       tip=T("移出全部已载入的谱和本次拟合，在同一项目里换一批样品从头处理（文件与 output/ 不删）",
                                             "Remove all loaded spectra and fits to start over with other samples in this project (files and output/ kept)"))])
-        rows = [dict(label=k, element=g.element, edge=g.edge, mode=g.mode, npts=len(g.energy),
+        gu = T("（猜测）", " (guessed)")
+        rows = [dict(label=k, element=g.element + (gu if "element" in (getattr(g, "meta_guessed", None) or ()) else ""),
+                     edge=g.edge + (gu if "edge" in (getattr(g, "meta_guessed", None) or ()) else ""), mode=g.mode, npts=len(g.energy),
                      E_range=f"{g.energy[0]:.0f}–{g.energy[-1]:.0f}", time=getattr(g, "timestamp", ""),
                      dE_cal=round(getattr(g, "e_shift", 0.0) or 0.0, 3),
                      **{T("校准", "calibration"): calib_status(S, g, W.en())[0]},
                      E0=round(getattr(g, "e0", np.nan), 2)) for k, g in S.groups.items()]
+        gs = guessed_groups(S.groups)
+        if gs:
+            ex = next(iter(gs.values()))
+            card.add(W.Banner("warn", T(f"{len(gs)} 条谱的元素 / 吸收边是按能量猜的（如 {ex.element} {ex.edge}），请核对；不对就在下方改。"
+                                        "只改本次会话；要永久生效，请在 meta.csv 里填写（edge_key 列）。",
+                                        f"For {len(gs)} spectrum(a) the element / edge was guessed from the energy (e.g. {ex.element} {ex.edge}); "
+                                        "please check it and correct it below if wrong. This only changes the session; "
+                                        "to make it permanent fill it in meta.csv (edge_key column).")))
         card.add(W.Table(pd.DataFrame(rows), max_height=360))
+        if gs:
+            card.add(self._guess_editor(gs))
         rm = W.MultiSelect(list(S.groups), [], T("选择要移除的谱", "Spectra to remove"))
 
         def remove():
