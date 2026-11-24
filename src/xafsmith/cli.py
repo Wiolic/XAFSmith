@@ -407,11 +407,16 @@ def _quickfit_joint(a, s02, src, kw, edges, s2):
     except qf.QuickFitError as e:
         sys.exit(f"联合拟合 / joint fit: {e}")
     print(qf.format_joint_text(res), end="\n\n")
-    table = res.trend()
-    for n in table.attrs["seq_notes"]:
-        print("提示:", n)
-    print(f"趋势表（序列变量：{tr.SEQ_LABELS[table.attrs['seq_source']]}，来源 {table.attrs['seq_source']}）")
-    print(table.drop(columns=["seq_source"]).to_string(index=False))
+    try:
+        table = res.trend()
+    except Exception as e:      # noqa: BLE001  趋势表失败不影响拟合结果的打印与保存
+        print(f"趋势表失败（已略去）/ trend table failed (skipped): {e}")
+        table = None
+    if table is not None:
+        for n in table.attrs["seq_notes"]:
+            print("提示:", n)
+        print(f"趋势表（序列变量：{tr.SEQ_LABELS[table.attrs['seq_source']]}，来源 {table.attrs['seq_source']}）")
+        print(table.drop(columns=["seq_source"]).to_string(index=False))
     print("\n样品 / sample | N | R (Å) | σ² (Å²) | R-factor | 判定 / verdict")
     for r in res.samples:
         print(f"{r.sample} | {r.n:.2f} | {r.r:.4f} | {r.sigma2:.5f} | {r.rfactor:.4f} | "
@@ -434,9 +439,9 @@ def _quickfit_joint(a, s02, src, kw, edges, s2):
         xrep.plot_fit(res.fit["curves"][d["id"]], fx.dataset_view(res.fit["summ"], d["id"]), kweight=_last_kw(model["kweight"]), out=f)
         figs.append(paths.rel(f))
     write_params(paths.FITS / f"{base}.params.json", model, "xafsmith quickfit")
-    csv = tr.save_trend(table, base, model["name"], "xafsmith quickfit")
+    csv = tr.save_trend(table, base, model["name"], "xafsmith quickfit") if table is not None else None
     print(f"→ {paths.rel(paths.MODELS)}/{base}.json, {paths.rel(paths.FITS)}/{base}.fit_report.txt, {paths.rel(paths.FITS_CSV)}, "
-          f"{paths.rel(csv)}, {', '.join(str(f) for f in figs)}")
+          + (f"{paths.rel(csv)}, " if csv else "") + ", ".join(str(f) for f in figs))
 
 
 def cmd_quickfit(a):
