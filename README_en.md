@@ -38,7 +38,7 @@ Compared with a typical Athena / Artemis workflow:
 | Calibrate, normalize and merge dozens of spectra from one beamtime | Import, mark references, align, set parameters and merge group by group, then save a project | Drop files into a folder → **Scan and register** → **One-click processing**: calibration against the reference of the same batch, one parameter set for normalization, automatic merging (outlier scans removed with a recorded reason) |
 | Make sure a sample series uses **one** parameter set | Check each one yourself | One parameter set per edge stored in the project and shared by all samples; exceptions need a written reason |
 | Apply one fit model to a series (time, potential, temperature) | Usually copy and adjust per sample | **Run a saved model** → select samples → done |
-| Fit several datasets at once with shared parameters (temperatures, samples, edges) | Add each dataset to the project and set up shared parameters | Switch the fit page “Mode” to **Joint fit of several datasets**: one path table per dataset, parameters with the same name shared, results switchable per dataset; misfit between datasets is checked and variables are compared with Σ N_idp |
+| Fit several datasets at once with shared parameters (temperatures, samples, edges) | Add each dataset to the project and set up shared parameters | Switch the Detailed-fit page “Mode” to **Joint fit of several datasets**: one path table per dataset, parameters with the same name shared, results switchable per dataset; misfit between datasets is checked and variables are compared with Σ N_idp |
 | Constrain parameters with an independent prior (known S0², two similar σ²) | restraint expressions | **Restraints** table (expr, value, sigma): weighted on the scale of the reported errors, not counted in N_idp; a pull beyond 2σ raises a warning |
 | Bind ΔR and σ² of multiple-scattering paths to single-scattering paths | Derive the expressions from the geometry yourself | **Multiple-scattering binding…** suggests deltar / sigma2 expressions for the ticked multiple-scattering paths from the FEFF path geometry, with the basis; nothing changes until Apply |
 | σ² of multi-temperature data (Debye / Einstein model) | Hand-written σ² functions and temperatures | Tick **Use a σ² temperature model**, enter each dataset's temperature: one θ replaces one σ² per temperature; a **σ²(T)** plot in the result area |
@@ -65,7 +65,7 @@ A native desktop window (PySide6) that opens in seconds. Pages are grouped by wo
 
 ![workflow pop-up](docs/images/en/flow.png)
 
-**EXAFS fitting**: settings on the left (data, ranges, paths, parameters; the Fit button pinned at the bottom), the result always on the right — change, fit and read without scrolling; one click adopts the fitted values as the next start values.
+**EXAFS fitting**: a switch **Quick fit | Detailed fit** at the top. **Quick fit** fits the first shell only: choose samples (several allowed), FEFF, purpose (Standard / Sample) and Rmax; the window is set automatically and a verdict says in plain words whether the result is trustworthy; ≥ 2 samples run as a joint fit with a trend plot. **Detailed fit**: settings on the left (data, ranges, paths, parameters; the Fit button pinned at the bottom), the result always on the right — change, fit and read without scrolling; one click adopts the fitted values as the next start values. Command line: `xafsmith quickfit`.
 
 ![fit result](docs/images/en/fit_result.png)
 
@@ -211,7 +211,7 @@ You do not need to remember them, but they help you follow what the AI does:
 
 ### Step 6: check the AI's results
 
-- **EXAFS fitting → Run a saved model**: every model the AI writes is in `models/`; rerun it in the GUI and inspect the fit, the **fit diagnosis** and the **robustness check**;
+- **EXAFS fitting › Detailed fit → Run a saved model**: every model the AI writes is in `models/`; rerun it in the GUI and inspect the fit, the **fit diagnosis** and the **robustness check**;
 - **Fit history**: compare models;
 - **Report export**, **Figure export**, **Methods export**: view and re-export;
 - `notes/`: the analysis notes the AI writes (what was done, conclusions, next step).

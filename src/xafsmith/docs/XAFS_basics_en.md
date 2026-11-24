@@ -309,7 +309,7 @@ materials. A fitted **σ² < 0 is unphysical** and usually means the model is wr
 
 **Several temperatures: the Debye / Einstein model**. How the thermal part changes with temperature can be described by one
 characteristic temperature θ (θ_D in the Debye model, θ_E in the Einstein model): σ² = σ²_thermal(T, θ) + σ²_static. For one sample
-measured at several temperatures, tick “Use a σ² temperature model” on the fit page: one θ plus one static term replaces one σ² per
+measured at several temperatures, tick “Use a σ² temperature model” on the Detailed fit page: one θ plus one static term replaces one σ² per
 temperature. Use at least 2–3 temperatures; with one temperature, thermal and static disorder cannot be separated.
 
 **A time series (in situ, changing with time) is not this case**. At constant temperature a change in σ² is a change in structural
