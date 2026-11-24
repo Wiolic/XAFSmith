@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import copy
 
-from PySide6.QtWidgets import (QAbstractItemView, QDialog, QDialogButtonBox, QTableWidget, QTableWidgetItem, QVBoxLayout)
+from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QDialog, QDialogButtonBox, QTableWidget, QTableWidgetItem, QVBoxLayout)
 
 from xafsmith import logs, paths, quickfit as qf, s02_source as s2
 from ... import widgets as W
@@ -125,6 +125,60 @@ class S02Dialog(QDialog):
         return self.cands[r] if 0 <= r < len(self.cands) else None
 
 
+class BuiltinDialog(QDialog):
+    """「用内置结构计算 FEFF」：列出含吸收元素的内置结构（查不到样品的吸收边时列全部），选一行，可勾“重新计算”。
+    没有任何内置结构含该元素 → 只提示并给“去 FEFF 页”。"""
+
+    def __init__(self, parent, element, edge, names, existing=()):
+        super().__init__(parent)
+        from xafsmith import structures as xs
+        self.setWindowTitle(T("用内置结构计算 FEFF", "Compute FEFF from a built-in structure"))
+        self.names, self.element, self.edge, self.goto_feff = list(names), element, edge, False
+        self.tab = None
+        lay = QVBoxLayout(self)
+        if not self.names:
+            lay.addWidget(W.label(T("没有内置结构含吸收元素 " + (element or "?") + "，请到 FEFF 路径页添加 CIF。",
+                                    "No built-in structure contains the absorber " + (element or "?") + "; add a CIF on the FEFF paths page."), "muted"))
+            bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
+            go = bb.addButton(T("去 FEFF 页", "Go to FEFF page"), QDialogButtonBox.ButtonRole.AcceptRole)
+            bb.button(QDialogButtonBox.StandardButton.Cancel).setText(T("取消", "Cancel"))
+            go.clicked.connect(lambda *_: setattr(self, "goto_feff", True))
+            bb.accepted.connect(self.accept)
+            bb.rejected.connect(self.reject)
+            lay.addWidget(bb)
+            return
+        head = (T(f"吸收元素 {element}，吸收边 {edge}；", f"Absorber {element}, edge {edge}; ") if element else
+                T("样品的吸收边不明确，列出全部内置结构（吸收元素取结构里最重的元素）；", "The samples' edge is unclear: all built-in structures are listed (absorber = the heaviest element); "))
+        lay.addWidget(W.label(head + T("用 FEFF6L（默认参数同 FEFF 路径页）。已有结果直接选用，不重算。",
+                                       "FEFF6L with the same defaults as the FEFF paths page. An existing result is reused."), "muted"))
+        self.tab = QTableWidget(len(self.names), 3)
+        self.tab.setHorizontalHeaderLabels([T("结构", "Structure"), T("来源", "Source"), T("状态", "Status")])
+        for i, n in enumerate(self.names):
+            for j, v in enumerate([n, xs.SOURCES.get(n, ""), T("已有计算", "already computed") if n in existing else ""]):
+                self.tab.setItem(i, j, QTableWidgetItem(v))
+        self.tab.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tab.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.tab.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.tab.horizontalHeader().setStretchLastSection(True)
+        self.tab.resizeColumnsToContents()
+        self.tab.selectRow(0)
+        self.tab.doubleClicked.connect(lambda *_: self.accept())
+        lay.addWidget(self.tab)
+        self.redo = QCheckBox(T("重新计算（覆盖已有结果）", "Recompute (overwrite an existing result)"))
+        lay.addWidget(self.redo)
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        bb.button(QDialogButtonBox.StandardButton.Ok).setText(T("计算 / 选用", "Compute / use"))
+        bb.button(QDialogButtonBox.StandardButton.Cancel).setText(T("取消", "Cancel"))
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+        self.resize(760, 360)
+
+    def chosen(self):
+        r = self.tab.currentRow() if self.tab is not None else -1
+        return self.names[r] if 0 <= r < len(self.names) else None
+
+
 class QuickFitPage(Page):
     """快速拟合 / Quick fit"""
     title_zh, title_en, icon_name = "快速拟合", "Quick fit", "fit"
@@ -169,9 +223,19 @@ class QuickFitPage(Page):
                       "to set every path and parameter yourself, switch to “Detailed fit” above."))
         samples = self._samples_available()
         dirs = feff_dirs()
-        if not samples or not dirs:
+        if not samples:
             self.add(Banner("info", T("需要：已载入并算出 χ(k) 的数据（载入谱 / χ(k) 与 FT）与 FEFF 计算（FEFF 路径）。",
                                       "Needs data with χ(k) (Load spectra / χ(k) & FT) and a FEFF calculation (FEFF paths).")))
+            self._sel = None
+            return
+        if not dirs:                        # 有 χ(k) 但还没有 FEFF：不拦，可直接用内置结构算
+            c0 = self._c1 = Card(T("1  样品与 FEFF", "1  Samples and FEFF"))
+            c0.add(Banner("info", T("还没有 FEFF 计算。可以直接点“用内置结构计算…”（金属、NiO、IrO2 等常见结构），或到“FEFF 路径”页用自己的 CIF 计算。",
+                                    "No FEFF calculation yet. Click “Compute from a built-in structure…” (common metals, NiO, IrO2 …) "
+                                    "or use your own CIF on the FEFF paths page.")))
+            self._builtin_btn = W.button(T("用内置结构计算…", "Compute from a built-in structure…"), slot=self._builtin_dialog, primary=True)
+            c0.add(W.hbox(self._builtin_btn, W.button(T("去 FEFF 页", "Go to FEFF page"), slot=lambda: self.app.go("feff")), None, spacing=8))
+            self.add(c0)
             self._sel = None
             return
         # ① 样品与 FEFF
@@ -200,7 +264,11 @@ class QuickFitPage(Page):
                                  "shared ΔE0; in a joint fit each sample has its own N while R and σ² of the two phases are shared by the batch). "
                                  "Same absorber required; Sample mode only. With a second phase the default Rmax becomes 3.0 Å."))
         c1.add(W.field(T("样品（多选）", "Samples (several)"), self._smp))
-        c1.add(W.field(T("FEFF 文件夹", "FEFF folder"), self._feff))
+        self._builtin_btn = W.button(T("用内置结构计算…", "Compute from a built-in structure…"), slot=self._builtin_dialog,
+                                     tip=T("没有合适的 FEFF 计算时：从内置结构（常见金属、NiO、IrO2 等）直接算 FEFF6L，算完自动选中。",
+                                           "No suitable FEFF calculation yet: run FEFF6L from a built-in structure (common metals, NiO, IrO2 …); "
+                                           "it is selected when done."))
+        c1.add(W.hbox(W.field(T("FEFF 文件夹", "FEFF folder"), self._feff), W.vbox(None, self._builtin_btn), None, spacing=10))
         c1.add(W.field(T("第二相 FEFF（可选）", "Second-phase FEFF (optional)"), self._feff2))
         self._shell_lb = W.label("", rich=True)
         c1.add(self._shell_lb)
@@ -475,9 +543,54 @@ class QuickFitPage(Page):
             self._to_detailed()
 
     def _change_structure(self):
-        """滚到 ① 卡片并聚焦 FEFF 下拉"""
+        """滚到 ① 卡片、聚焦 FEFF 下拉，并打开“用内置结构计算…”对话框"""
         self.ensureWidgetVisible(self._c1)
         self._feff.setFocus()
+        self._builtin_dialog()
+
+    # ------------------------------------------------------------ 用内置结构计算 FEFF
+    def _builtin_target(self):
+        """(吸收元素, 吸收边, 内置结构名列表, 已有计算的结构名集合)：元素与边取自当前所选样品（没选 = 全部已载入样品）；
+        查不到（样品不在同一吸收边）→ (None, None, 全部内置结构, 空集)"""
+        from xafsmith import structures as xs
+        sel = self.state.get("samples") or self._samples_available()
+        ek = self._edge_of(sel)
+        if not ek:
+            return None, None, list(xs.BUILTIN_NAMES), set()
+        el, edge = ek.split("_", 1)
+        names = xs.builtin_for(el)
+        have = {n for n in names if any(paths.FEFF.glob(f"{n}_{el}{edge}/site*/feff0001.dat"))} if paths.FEFF.exists() else set()
+        return el, edge, names, have
+
+    def _builtin_dialog(self):
+        from xafsmith import feff_wrap as xf, structures as xs
+        el, edge, names, have = self._builtin_target()
+        dlg = BuiltinDialog(self, el, edge, names, have)
+        if not dlg.exec():
+            return
+        if dlg.goto_feff:
+            self.app.go("feff")
+            return
+        name = dlg.chosen()
+        if not name:
+            return
+        redo = dlg.redo.isChecked()
+        if el is None:                      # 吸收元素 / 边不明：取该结构里最重的元素，边同 FEFF 页缺省
+            from pymatgen.core import Element
+            el = max({sp.symbol for sp in xs.builtin(name).composition.elements}, key=lambda e: Element(e).Z)
+            edge = xf.default_edge(el)
+        pg = self
+
+        def done(res):
+            out, reused = res
+            pg.state["feff"] = str(out)
+            pg._shell_cache.clear()
+            pg.refresh()
+            W.toast(pg, T(f"已选用已有计算：{paths.rel(out)}" if reused else f"FEFF 完成：{paths.rel(out)}",
+                          f"Using the existing calculation: {paths.rel(out)}" if reused else f"FEFF done: {paths.rel(out)}"))
+        W.run_task(self, lambda progress: xf.build_builtin(name, el, edge, recompute=redo, progress=progress), done,
+                   T(f"FEFF6L 计算 {name}（{el} {edge}）…", f"Running FEFF6L for {name} ({el} {edge})…"), self._builtin_btn,
+                   progress=True, cancellable=False, key="feff")
 
     def _show_results(self, error=None):
         if not hasattr(self, "_rbox"):
