@@ -33,6 +33,7 @@ R_CIF_TOL = 0.15        # Å：拟合 R 与 CIF 加权平均 Reff 之差的上�
 N_RATIO_MAX = 1.5       # 样品 N ≤ 1.5·N_ref，超过多半是 N 与 σ² 互相补偿或标样 S0² 不适用
 PEAK_SHIFT = (-0.8, 0.1)  # Å：|χ(R)| 第一峰 R_p − R_CIF 的合理范围（FT 未做相位校正，峰比真实距离短约 0.2–0.5 Å）；
                           # 超出 → 数据的主峰与所选结构的第一壳层不对应（Opus 2026-11-24 定，例：金属相样品配氧化物 FEFF）
+PEAK_SHIFT_MIN = 0.2     # Å：FT 峰比真实距离短的最小量（未做相位校正，通常 0.2–0.5 Å）；混合相找第一峰的上端用
 RMAX_LEAK = 0.30        # Rmax 处 |χ(R)| 超过第一峰的 30% → 窗口可能切进第二壳层
 # 参数初值与范围（沿用精细拟合默认）
 E0_INIT, E0_RANGE = 0.0, (-15.0, 15.0)
@@ -114,6 +115,15 @@ def peak_stats(r, chir_mag, rmax):
                             f"Rmax = {rmax:g} Å is too small to find the first peak (must exceed {RMIN_DEFAULT:g} Å)")
     i = np.flatnonzero(sel)[int(np.argmax(m[sel]))]
     return float(r[i]), float(m[i]), float(np.interp(rmax, r, m))
+
+
+def peak_search_rmax(rmax, shell, shell2=None):
+    """自动 Rmin 找第一峰的上端：单相 = Rmax（不变）；混合相 = min(Rmax, 两相较短 R_CIF − PEAK_SHIFT_MIN)，
+    让第一峰是距离较短那一相的峰（例：Ir–O 1.98 Å 的峰约 1.6 Å，而不是 Ir–Ir 2.3 Å 的峰；后者的低 R 侧会盖住前者，
+    若用后者，Rmin = R_p − 0.6 ≈ 1.7 Å 会把 Ir–O 切在窗外）。上端取 FT 峰相对真实距离的最小位移 0.2 Å。"""
+    if shell2 is None:
+        return rmax
+    return min(rmax, min(shell.r_cif, shell2.r_cif) - PEAK_SHIFT_MIN)
 
 
 def auto_rmin(r, chir_mag, rmax):
@@ -249,7 +259,7 @@ def build_model(sample, feff_dir, rmax=None, mode="sample", s02=None, s02_source
     r_peak = None
     if rmin is None:
         g = group if group is not None else pl.build_sample(sample, cfg, meta)[0]
-        rmin, r_peak = auto_rmin(*_chir(g, win), rmax)
+        rmin, r_peak = auto_rmin(*_chir(g, win), peak_search_rmax(rmax, shell, shell2))
     rmin = float(rmin)
     if rmax - rmin < 0.3:
         raise QuickFitError(f"Rmin = {rmin:.2f}、Rmax = {rmax:.2f} Å 太窄 / the R window {rmin:.2f}–{rmax:.2f} Å is too narrow")
@@ -408,7 +418,7 @@ def _tag(sh, i):
 
 def _shell_items_two(rows, n1, n2, shell, shell2, rmax, peak_amp, amp_at_rmax, r_peak):
     """混合相（两相第一壳层）的检查：每相各做 r_cif 与 n_ratio（文字加“相 1 / 相 2（Ir–O / Ir–Ir）”前缀）；
-    peak_pos：数据第一峰与任一相的 R_CIF 满足 PEAK_SHIFT 即通过；rmax_leak 不变；note：各相比例 N / N_ref，仅供参考。
+    peak_pos：数据第一峰与任一相的 R_CIF 满足 PEAK_SHIFT 即通过；rmax_leak 只作提示；note：各相比例 N / N_ref，仅供参考。
     rows：该样品的路径行（相 1 的成员在前，相 2 的在后）。阈值与单相相同。"""
     k = len(shell.members)
     got = _shell_items(rows[:k], n1, shell, "sample", rmax, peak_amp, amp_at_rmax, None)
@@ -432,7 +442,13 @@ def _shell_items_two(rows, n1, n2, shell, shell2, rmax, peak_amp, amp_at_rmax, r
                                f"{shell2.r_cif:.2f} Å" + (f" (consistent with phase {hit[0]})" if ok
                                                           else ": matches neither (FT peaks usually sit 0.2–0.5 Å below the true distance)"),
                                *(("", "") if ok else ADVICE["peak_pos"])))
-    out += [it for it in got if it.code == "rmax_leak"]
+    for it in got:
+        if it.code == "rmax_leak":      # 混合相只作提示：较长一相（如金属 Ir–Ir，重散射体的第一峰是宽双峰）的峰到 3 Å 仍高，
+            if it.level == "fail":      # 比例超过 30% 多半是这个峰本身，不是切进第二壳层（IrTa 原位 Ir 边实测 3.0 Å 处约 55%）
+                it.level, it.advice_zh, it.advice_en = "note", "", ""
+                it.zh += "（混合相只作提示：较长一相的第一峰较宽，确认 Rmax 没有切进它的第二壳层即可）"
+                it.en += " (a note for mixed phases: the longer phase's first peak is broad; just make sure Rmax does not cut into its second shell)"
+            out.append(it)
     f1, f2 = n1 / shell.n_ref, n2 / shell2.n_ref
     out.append(VerdictItem("note", "phase_frac",
                            f"各相比例 N / N_ref：相 1（{shell.absorber}–{shell.scatterer}）≈ {f1:.2f}，相 2（{shell2.absorber}–{shell2.scatterer}）"
@@ -722,7 +738,7 @@ def build_joint_model(samples, feff_dir, rmax=None, s02=None, s02_source=None, r
             g = (groups or {}).get(i) or (groups or {}).get(sm)
             if g is None:
                 g = pl.build_sample(sm, cfg, meta)[0]
-            rmins.append(auto_rmin(*_chir(g, win), rmax)[0])
+            rmins.append(auto_rmin(*_chir(g, win), peak_search_rmax(rmax, shell, shell2))[0])
         rmin = max(rmins)
     rmin = float(rmin)
     if rmax - rmin < 0.3:
@@ -891,7 +907,7 @@ def run_joint(model, groups=None, root=None) -> JointResult:
         r, m = _chir(groups[d["id"]], win)
         rps[d["id"]], pk, at = peak_stats(r, m, model["rmax"])
         peaks[d["id"]] = (pk, at)
-        rmins[d["id"]] = auto_rmin(r, m, model["rmax"])[0]
+        rmins[d["id"]] = auto_rmin(r, m, peak_search_rmax(model["rmax"], shell, shell2))[0]
     with _two_phase_guard(two):
         res, dsets, summ = fx.fit_multi(groups, model, root)
     fit = dict(model=model, summ=summ, result=res, curves=fx.model_curves_all(dsets, nm), report=fx.report_text(res),

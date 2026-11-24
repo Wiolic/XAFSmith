@@ -171,9 +171,10 @@ def test_two_phase_peak_pos_matches_either_phase(rp, ok):
         assert next(i for i in its if i.code == "peak_pos").advice_zh
 
 
-def test_two_phase_rmax_leak_unchanged_and_fraction_note():
+def test_two_phase_rmax_leak_is_a_note_and_fraction_note():
     _, its = items(amp=1.0, at=0.31)
-    assert next(i for i in its if i.code == "rmax_leak").level == "fail"
+    it = next(i for i in its if i.code == "rmax_leak")
+    assert it.level == "note" and "混合相只作提示" in it.zh and not it.advice_zh
     _, its = items(amp=1.0, at=0.30)
     assert next(i for i in its if i.code == "rmax_leak").level == "pass"
     note = next(i for i in its if i.code == "phase_frac")
@@ -258,3 +259,12 @@ def test_two_phase_joint_runs_end_to_end(proj):
     assert len(t) == 4 and set(t["path"]) == {"Cu–Cu first shell", "Cu–O first shell"}
     txt = qf.format_joint_text(r)
     assert "第二相第一壳层" in txt and "相 2" in txt
+
+
+def test_peak_search_rmax_single_unchanged_two_phase_shorter_shell():
+    a = qf.FirstShell([], "Ir", "O", 6, 1.98)
+    b = qf.FirstShell([], "Ir", "Ir", 12, 2.71)
+    assert qf.peak_search_rmax(3.0, a) == 3.0
+    assert qf.peak_search_rmax(3.0, a, b) == pytest.approx(1.98 - qf.PEAK_SHIFT_MIN)
+    assert qf.peak_search_rmax(3.0, b, a) == pytest.approx(1.98 - qf.PEAK_SHIFT_MIN)
+    assert qf.peak_search_rmax(1.5, a, b) == 1.5
