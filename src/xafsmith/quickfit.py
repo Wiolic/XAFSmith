@@ -553,7 +553,8 @@ def run(model, group=None, root=None) -> QuickResult:
     mode = "sample" if n1 is not None else "standard"
     win = {k: model[k] for k in ("kmin", "kmax", "dk", "window")}
     r_pk, pk, at_rmax = peak_stats(*_chir(g, win), model["rmax"])
-    res, dset, summ = fx.run_fit(g, model, root)
+    with _two_phase_guard(shell2 is not None):
+        res, dset, summ = fx.run_fit(g, model, root)
     fit = dict(model=model, summ=summ, result=res, curves=fx.model_curves(dset), report=fx.report_text(res),
                time=datetime.now().strftime("%H:%M:%S"))
     v = verdict(fit, shell, mode, model["rmax"], pk, at_rmax, model.get("s02_source"), r_pk, shell2)
@@ -570,6 +571,25 @@ def run(model, group=None, root=None) -> QuickResult:
                        *(pv("s02") if mode == "standard" else (P["s02"]["value"], None)),
                        summ["rfactor"], summ["n_idp"], summ["nvarys"],
                        dict(win, kweight=model["kweight"], rmin=model["rmin"], rmax=model["rmax"]), v, fit, r_pk, pk, at_rmax, ph2)
+
+
+class _two_phase_guard:
+    """混合相拟合的协方差矩阵奇异（变量太多或参数被边界卡住）时，larch 在算误差时抛 LinAlgError：转成说得清楚的 QuickFitError。
+    单相不经过这里，行为不变。"""
+    def __init__(self, active):
+        self.active = active
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, et, ev, tb):
+        if self.active and et is not None and issubclass(et, np.linalg.LinAlgError):
+            raise QuickFitError("两相拟合的协方差矩阵无法计算：变量相对数据太多（单样品七个自由参数），或参数被边界卡住；"
+                                "改用联合拟合（多个样品共享 dr、σ²）、缩小 Rmax 或检查两相结构 / the covariance matrix of the "
+                                "two-phase fit could not be computed: too many variables for the data (seven free parameters for "
+                                "one sample) or a parameter stuck at its bound; use a joint fit (several samples share dr, σ²), "
+                                "adjust Rmax, or check the two structures") from ev
+        return False
 
 
 def _phase2(shell2, rows, n, n_err, dr_err, ss, ss_err) -> dict:
@@ -872,7 +892,8 @@ def run_joint(model, groups=None, root=None) -> JointResult:
         rps[d["id"]], pk, at = peak_stats(r, m, model["rmax"])
         peaks[d["id"]] = (pk, at)
         rmins[d["id"]] = auto_rmin(r, m, model["rmax"])[0]
-    res, dsets, summ = fx.fit_multi(groups, model, root)
+    with _two_phase_guard(two):
+        res, dsets, summ = fx.fit_multi(groups, model, root)
     fit = dict(model=model, summ=summ, result=res, curves=fx.model_curves_all(dsets, nm), report=fx.report_text(res),
                time=datetime.now().strftime("%H:%M:%S"), multi=True)
     v = verdict_joint(fit, shell, model["rmax"], peaks, model.get("s02_source"), qk.get("windows"), rps, shell2)
