@@ -402,7 +402,7 @@ def _quickfit_joint(a, s02, src, kw, edges, s2):
         if a.s02_from:
             s02, src = _quickfit_s02_from(a, a.samples[0], edges, s2)      # 同一边由 build_joint_model 核对
         model = qf.build_joint_model(a.samples, a.feff, a.rmax, s02=s02, s02_source=src, rmin=a.rmin, kweight=kw,
-                                     name=(a.name or None))
+                                     name=(a.name or None), feff_dir2=a.feff2)
         res = qf.run(model)
     except qf.QuickFitError as e:
         sys.exit(f"联合拟合 / joint fit: {e}")
@@ -417,9 +417,11 @@ def _quickfit_joint(a, s02, src, kw, edges, s2):
             print("提示:", n)
         print(f"趋势表（序列变量：{tr.SEQ_LABELS[table.attrs['seq_source']]}，来源 {table.attrs['seq_source']}）")
         print(table.drop(columns=["seq_source"]).to_string(index=False))
-    print("\n样品 / sample | N | R (Å) | σ² (Å²) | R-factor | 判定 / verdict")
+    two = res.shell2 is not None
+    print("\n样品 / sample | N | R (Å) | σ² (Å²) | " + ("N2 | R2 (Å) | σ²2 (Å²) | " if two else "") + "R-factor | 判定 / verdict")
     for r in res.samples:
-        print(f"{r.sample} | {r.n:.2f} | {r.r:.4f} | {r.sigma2:.5f} | {r.rfactor:.4f} | "
+        p2 = f"{r.phase2['n']:.2f} | {r.phase2['r']:.4f} | {r.phase2['sigma2']:.5f} | " if two else ""
+        print(f"{r.sample} | {r.n:.2f} | {r.r:.4f} | {r.sigma2:.5f} | {p2}{r.rfactor:.4f} | "
               f"{r.verdict.summary('zh')} / {r.verdict.summary('en')}")
     print(f"整批 / batch: ΔE0 {res.e0:.2f} eV | R-factor {res.rfactor:.4f} | {res.verdict.summary('zh')} / {res.verdict.summary('en')}")
     if not a.save:
@@ -463,15 +465,17 @@ def cmd_quickfit(a):
             if mode == "sample" and a.s02_from:
                 s02, src = _quickfit_s02_from(a, sample, edges, s2)
             model = qf.build_model(sample, a.feff, a.rmax, mode, s02=s02, s02_source=src, rmin=a.rmin, kweight=kw,
-                                   name=(a.name or None))
+                                   name=(a.name or None), feff_dir2=a.feff2)
             res = qf.run(model)
         except qf.QuickFitError as e:
             sys.exit(f"{sample}: {e}")
         results.append(res)
         print(qf.format_text(res), end="\n\n")
-    print("样品 / sample | N | R (Å) | σ² (Å²) | ΔE0 (eV) | S0² | R-factor | 判定 / verdict")
+    two = a.feff2 is not None
+    print("样品 / sample | N | R (Å) | σ² (Å²) | " + ("N2 | R2 (Å) | σ²2 (Å²) | " if two else "") + "ΔE0 (eV) | S0² | R-factor | 判定 / verdict")
     for r in results:
-        print(f"{r.sample} | {r.n:.2f} | {r.r:.4f} | {r.sigma2:.5f} | {r.e0:.2f} | {r.s02:.3f} | {r.rfactor:.4f} | "
+        p2 = f"{r.phase2['n']:.2f} | {r.phase2['r']:.4f} | {r.phase2['sigma2']:.5f} | " if r.phase2 else ""
+        print(f"{r.sample} | {r.n:.2f} | {r.r:.4f} | {r.sigma2:.5f} | {p2}{r.e0:.2f} | {r.s02:.3f} | {r.rfactor:.4f} | "
               f"{r.verdict.summary('zh')} / {r.verdict.summary('en')}")
     if not a.save:
         print("\n（未加 --save：只打印，未写任何文件） / (no --save: nothing written)")
@@ -907,7 +911,9 @@ def build_parser():
     p = sp.add_parser("quickfit", help="快速拟合：只拟合第一壳层，并给出可信与否的判定（默认只打印，--save 才写文件）")
     p.add_argument("samples", nargs="+", help="样品名（meta.csv 的 sample 列）；样品模式给 ≥ 2 个 = 联合拟合（公共窗口、共享 ΔE0、趋势表）；标样模式只能一个")
     p.add_argument("--feff", required=True, help="FEFF 文件夹（含 feffNNNN.dat，或其下唯一的位点文件夹）")
-    p.add_argument("--rmax", type=float, default=2.5, help="Rmax (Å)，默认 2.5")
+    p.add_argument("--feff2", help="第二相（混合相，如金属 + 氧化物）的 FEFF 文件夹，只用于样品用途：两相各一个第一壳层，"
+                                   "联合拟合时两相的 dr、σ² 全批共享；吸收原子须与 --feff 相同")
+    p.add_argument("--rmax", type=float, default=None, help="Rmax (Å)，默认 2.5；有 --feff2 时默认 3.0")
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--standard", action="store_true", help="标样：N 固定为结构值，拟合 S0²")
     g.add_argument("--s02", type=float, help="样品：手填固定的 S0²（判定里提示“无标样依据”）")
