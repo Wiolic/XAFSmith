@@ -162,7 +162,7 @@ def container_checks(app, w, S, P, k1, fdir):
     pg = box.detailed_page
     w.go("fit")
     say(box.mode == "quick" and box.stack.currentWidget() is box.quick_page, "进入“EXAFS 拟合”：默认快速拟合")
-    say("只拟合第一壳层" in texts(box.quick_page), "快速拟合页是占位卡片")
+    say("只拟合第一壳层" in texts(box.quick_page), "快速拟合页有说明文字")
     box.show_detailed()
     say(box.stack.currentWidget() is pg and box.mode == "detailed" and box.seg.value() == "detailed", "show_detailed 切到精细拟合")
     st = pg.state
@@ -211,6 +211,137 @@ def container_checks(app, w, S, P, k1, fdir):
     S.fits[:] = S.fits[:n0]
     st.pop("_f21_marker", None)
     pg.refresh()
+
+
+def quickfit_checks(app, w):
+    """F2-3b：快速拟合界面端到端（在项目的临时副本里做，保存的文件不污染演示项目）：
+    标样 → 保存 → 样品模式选取标样值 → 拟合 → 结果表与判定 → 在精细拟合中继续（数值与快速拟合相同）；
+    ≥ 2 个样品联合 → 趋势图、保存、去图片导出、在精细拟合中继续。"""
+    import tempfile
+    import pandas as pd
+    from xafsmith import s02_source as s2
+    from xafsmith.qt.pages.fitting.quick_fit import S02Dialog
+    td = Path(tempfile.mkdtemp()) / "qfproj"
+    shutil.copytree(PROJ, td)
+    fd = td / "output" / "feff" / "Cu_CuK"          # 演示项目没有 FEFF 目录：用基准测试的 Cu 路径文件建一个（只在临时副本里）
+    fd.mkdir(parents=True, exist_ok=True)
+    shutil.copy(PROJ.parent / "benchmark" / "feffcu01.dat", fd / "feff0001.dat")
+    fdir = fd
+    meta_f = td / "data" / "meta.csv"
+    m = pd.read_csv(meta_f, dtype=str, encoding="utf-8-sig")
+    m.loc[m["sample"] == "cu_rt01", "use"] = "1"         # 第二个 Cu_K 样品（与 cu_metal_rt 同一条谱，仅用于走通联合流程）
+    m.to_csv(meta_f, index=False, encoding="utf-8-sig")
+    try:
+        w.open_project(str(td))
+        pump(app, 0.3)
+        S, P = w.S, w.pages
+        box = P["fit"]
+        q, det = box.quick_page, box.detailed_page
+        w.go("fit")
+        say(box.mode == "quick", "快速拟合：进入页默认快速拟合")
+        feff = next(d for d in q._feff._vals if d.name == Path(fdir).name)
+        q._feff.setCurrentIndex(q._feff._vals.index(feff))
+        say("Cu–Cu" in q._shell_lb.text() and "×12" in q._shell_lb.text(), "① 选 FEFF 后显示第一壳层：" + q._shell_lb.text()[:60])
+        say(not q._run.isEnabled() and "样品" in q._why.text(), "未选样品：不能开始，写明原因（" + q._why.text() + "）")
+        q._smp.set_value(["cu_metal_rt"], emit=True)
+        say(not q._run.isEnabled() and "S0²" in q._why.text(), "样品用途缺 S0²：不能开始，写明原因（" + q._why.text() + "）")
+        q._smp.set_value(["cu_metal_rt", "cu_rt01"], emit=True)
+        q._mode.set("standard", emit=True)
+        say(not q._run.isEnabled() and "一个样品" in q._why.text(), "标样用途选了多个样品：不能开始，提示只能选一个")
+        q._smp.set_value(["cu_metal_rt"], emit=True)
+        say(q._run.isEnabled() and not q._s02_row.isVisibleTo(q), "标样用途：可开始，隐藏 S0² 框")
+        # 标样
+        n0, n = len(S.fits), len(W.ERRORS)
+        q._rmax.setValue(3.0)
+        q._run.click()
+        wait(app)
+        step("快速拟合 · 标样", n)
+        r = q._res["res"] if q._res else None
+        say(r is not None and r.mode == "standard" and len(S.fits) == n0 + 1 and r.fit is S.fits[-1] and q._tab.m.df.shape[0] == 1,
+            "标样拟合：结果表 1 行，拟合进会话历史")
+        say(r is not None and ("✅" in q._tab.m.df.iloc[0, -1] or "⚠" in q._tab.m.df.iloc[0, -1]) and "选取标样值" in texts(q)
+            and len(q.findChildren(W.Plot)) == 1, "结果：判定 ✅ / ⚠、选取标样值提示、R 空间图")
+        q._b_save.click()
+        pump(app)
+        base = r.model["name"]
+        say((td / "models" / f"{base}.json").exists() and (td / "output" / "fits" / "exafs_fits.csv").exists()
+            and (td / "output" / "fits" / f"{base}.params.json").exists() and (td / "output" / "fits" / f"{base}.fit_report.txt").exists(),
+            f"保存：models/{base}.json、拟合记录、参数文件")
+        # 样品：选取标样值
+        q._mode.set("sample", emit=True)
+        say(not q._run.isEnabled() and q._s02_row.isVisibleTo(q), "样品用途：S0² 框出现，空则不能拟合")
+        cands = s2.list_candidates("Cu_K", S.fits, session_edges=q._session_edges())
+        say(bool(cands) and cands[0].model == base and S02Dialog(q, cands).chosen().model == base, "选取标样值：候选含刚才的标样拟合")
+        q._pick_candidate(cands[0])
+        say(q._run.isEnabled() and q.state["s02_src"]["model"] == base and f"{cands[0].value:.4f}" == q._s02.text(), "选中后填入 S0² 并记来源")
+        q._s02.setText("0.9")
+        q._s02.textEdited.emit("0.9")
+        say(q.state.get("s02_src") is None and "手动" in q._s02_lb.text(), "手改数值：来源变为手动")
+        q._pick_candidate(cands[0])
+        n0, n = len(S.fits), len(W.ERRORS)
+        q._run.click()
+        wait(app)
+        step("快速拟合 · 样品", n)
+        r = q._res["res"]
+        say(len(S.fits) == n0 + 1 and r.mode == "sample" and r.model["s02_source"]["model"] == base and 0 < r.n < 20,
+            f"样品拟合：N = {r.n:.2f}，s02_source 记录来源")
+        say(len(q.findChildren(W.Plot)) == 1 and not q._b_fig.isEnabled() and q._b_det.isEnabled(), "单样品：只有 R 空间图，“去图片导出”不可用")
+        # 在精细拟合中继续
+        fit = r.fit
+        q._b_det.click()
+        wait(app)
+        say(box.mode == "detailed" and det.state.get("data") == "cu_metal_rt" and det.state.get("range", {}).get("rmax") == 3.0,
+            "在精细拟合中继续：切到精细拟合，范围来自模型")
+        n0, n = len(S.fits), len(W.ERRORS)
+        click(det, "拟合")
+        wait(app)
+        step("精细拟合 · 重跑快速拟合的模型", n)
+        f2 = S.fits[-1] if len(S.fits) == n0 + 1 else None
+        diff = max((abs(f2["summ"]["params"][k]["value"] - v["value"]) for k, v in fit["summ"]["params"].items()), default=9) if f2 else 9
+        say(f2 is not None and diff < 1e-6 and abs(f2["summ"]["rfactor"] - fit["summ"]["rfactor"]) < 1e-6,
+            f"精细拟合重跑：参数与 R 因子相同（最大差 {diff:.1e}）")
+        # 联合
+        box.show_quick()
+        q._smp.set_value(["cu_metal_rt", "cu_rt01"], emit=True)
+        q._name.setText("QF_joint_test")
+        n0, n = len(S.fits), len(W.ERRORS)
+        q._run.click()
+        wait(app)
+        step("快速拟合 · 联合", n)
+        jr = q._res["res"] if q._res else None
+        say(jr is not None and q._res["kind"] == "joint" and len(jr.samples) == 2 and q._tab.m.df.shape[0] == 2 and len(S.fits) == n0 + 1,
+            "联合：结果表每样品一行，拟合进会话历史")
+        say(len(q.findChildren(W.Plot)) == 2 and q._b_fig.isEnabled() and ("整批" in texts(q)), "联合：趋势图 + R 空间图，整批判定，“去图片导出”可用")
+        q._trend_sel.setCurrentIndex(1)
+        pump(app)
+        say(q.state.get("qf_panel") == "R", "趋势图下拉切到 R")
+        q._tab.selectRow(1)
+        pump(app)
+        say(q._res["row"] == 1, "点结果表第 2 行：显示该样品的图与判定")
+        q._b_save.click()
+        pump(app)
+        say((td / "models" / "QF_joint_test.json").exists() and (td / "output" / "fits" / "QF_joint_test_trend.csv").exists(),
+            "联合保存：模型 + 趋势 CSV")
+        q._b_fig.click()
+        pump(app)
+        say(w.S.extra.get("page") == "pubfig" and P["pubfig"].state.get("kind") == "trend"
+            and S.fits[P["pubfig"].state.get("tr_fit")] is jr.fit, "去图片导出：趋势图并选中这次拟合")
+        w.go("fit")
+        q._b_det.click()
+        wait(app)
+        say(box.mode == "detailed" and det.state.get("multi") is True and det.state.get("datas") == ["cu_metal_rt", "cu_rt01"],
+            "联合：在精细拟合中继续（联合拟合模式、两个数据集）")
+        n0, n = len(S.fits), len(W.ERRORS)
+        click(det, "拟合")
+        wait(app)
+        step("精细拟合 · 重跑联合模型", n)
+        f3 = S.fits[-1] if len(S.fits) == n0 + 1 else None
+        diff = max((abs(f3["summ"]["params"][k]["value"] - v["value"]) for k, v in jr.fit["summ"]["params"].items()), default=9) if f3 else 9
+        say(f3 is not None and diff < 1e-6, f"精细拟合重跑联合模型：参数相同（最大差 {diff:.1e}）")
+    finally:
+        w.open_project(str(PROJ))
+        pump(app, 0.3)
+        shutil.rmtree(td.parent, ignore_errors=True)
 
 
 def restraint_checks(app, w, S, P, k1, fdir):
@@ -1524,6 +1655,8 @@ def main():
     no_console_check("IrO2" if IRTAOX else "cu_metal_rt")
     copy_register_check(app, w)
     wizard_check(app)
+    if not IRTAOX:
+        quickfit_checks(app, w)
     S, P = w.S, w.pages
 
     # 数据登记：检查
