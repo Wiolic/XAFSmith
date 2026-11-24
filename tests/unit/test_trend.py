@@ -254,3 +254,25 @@ def test_validate_meta_seq(tmp_path, monkeypatch):
     rep = schema.Report()
     schema.check_meta(rep, meta, {"edges": {"Cu_K": {}}})
     assert not any("seq" in m for _, _, m in rep.items)
+
+
+def test_ordered_user_order_keeps_values_and_adds_trailing_column():
+    """F2-6：调过顺序 → 行按数据集顺序、末尾加 order 列；原有各列的值（含 seq）不变；缺省顺序 / 空 → 原表"""
+    cols = tr.COLUMNS
+    rows = []
+    for i, (ds, smp) in enumerate([("a", "A"), ("b", "B"), ("c", "C")]):
+        for p in ("p1", "p2"):
+            r = {c: None for c in cols}
+            r.update(dataset=ds, sample=smp, seq=float(i + 1), seq_source="seq", path=p, N=1.0 + i)
+            rows.append(r)
+    t = pd.DataFrame(rows, columns=cols)
+    t.attrs.update(seq_source="seq")
+    assert tr.ordered(t, None) is t and tr.ordered(t, ["a", "b", "c"]) is t
+    o = tr.ordered(t, ["c", "a", "zzz"])                    # 未知 id 忽略，缺的（b）追加在末尾
+    assert list(o["dataset"].drop_duplicates()) == ["c", "a", "b"]
+    assert list(o.columns) == cols + ["order"] and o.attrs["custom_order"]
+    assert list(o.drop_duplicates("dataset")["order"]) == [1, 2, 3]
+    back = o.sort_values(["dataset", "path"]).reset_index(drop=True)[cols]
+    assert back.equals(t.sort_values(["dataset", "path"]).reset_index(drop=True)[cols])      # 值逐格不变
+    assert tr.axis_of(o) == ("order", ([1, 2, 3], ["C", "A", "B"]))
+    assert tr.axis_of(t) == ("seq", None)

@@ -24,7 +24,7 @@ COLUMNS = ["dataset", "sample", "seq", "seq_source", "path", "N", "N_err", "R", 
            "dE0", "dE0_err", "E0_edge", "shared_N", "shared_R", "shared_sigma2", "shared_dE0"]
 
 # 缺省轴标题（界面可改）
-SEQ_LABELS = {"seq": "Sequence", "time": "Measurement time (h)", "order": "Dataset"}
+SEQ_LABELS = {"seq": "Sequence", "time": "Measurement time (h)", "order": "Dataset", "custom": "Sample"}
 
 _NAME = re.compile(r"^[A-Za-z_]\w*$")
 _TEMPK = re.compile(r"\btempK\b")
@@ -248,6 +248,47 @@ def trend_table(summ, model, meta=None, processed=None):
     df.attrs.update(seq_source=sv["source"], seq_notes=sv["notes"], n_composite=composite,
                     seq_labels=sv["labels"], edge=edge)
     return df
+
+
+# ------------------------------------------------------------------ 用户调整的横轴顺序
+def default_order(table):
+    """数据集 id 的缺省顺序（= 横轴从左到右：按 seq 升序；seq 相同保持表内顺序）。"""
+    d = table.drop_duplicates("dataset").sort_values("seq", kind="stable")
+    return list(d["dataset"])
+
+
+def clean_order(table, order):
+    """用户给的顺序 → 与表一致的完整顺序：去掉表里没有的 / 重复的 id，缺的按缺省顺序追加在末尾。"""
+    ids = default_order(table)
+    out = [i for i in dict.fromkeys(order or []) if i in ids]
+    return out + [i for i in ids if i not in out]
+
+
+def ordered(table, order):
+    """按 order（数据集 id 列表）重排趋势表：行按数据集顺序排（同一数据集内保持原路径顺序），并在**最后**加一列 order（1…n，
+    数据集的位置）；已有各列的值（含 seq）一律不变。order 为空或与缺省顺序相同 → 原表原样返回（行为不变）。
+    df.attrs 增加 custom_order=True；画图时横轴按 order 列等间距排列（类别轴，标签为样品名）。"""
+    if not order:
+        return table
+    order = clean_order(table, order)
+    if order == default_order(table):
+        return table
+    pos = {d: i + 1 for i, d in enumerate(order)}
+    df = table.assign(order=table["dataset"].map(pos)).sort_values("order", kind="stable").reset_index(drop=True)
+    df.attrs.update(table.attrs)
+    df.attrs["custom_order"] = True
+    return df
+
+
+def axis_of(table):
+    """横轴：(取值列名, 刻度或 None)。刻度 = (位置列表, 样品名列表)，类别轴（按用户顺序或数据集顺序）才有。"""
+    if table.attrs.get("custom_order") and "order" in table.columns:
+        d = table.drop_duplicates("dataset").sort_values("order")
+        return "order", (list(d["order"]), list(d["sample"]))
+    if table.attrs.get("seq_source") == "order":
+        d = table.drop_duplicates("dataset").sort_values("seq")
+        return "seq", (list(d["seq"]), list(d["sample"]))
+    return "seq", None
 
 
 def save_trend(table, base, model_name="", tool="xafsmith trend"):

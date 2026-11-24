@@ -345,6 +345,8 @@ _SHARED_COL = {"N": "shared_N", "R": "shared_R", "sigma2": "shared_sigma2", "dE0
 def trend_xlabel(table, xlabel=None):
     """横轴标题：用户给的优先，否则按序列来源取缺省（trend.SEQ_LABELS）。"""
     from .trend import SEQ_LABELS
+    if table.attrs.get("custom_order"):
+        return xlabel or SEQ_LABELS["custom"]
     return xlabel or SEQ_LABELS.get(table.attrs.get("seq_source", "order"), "Sequence")
 
 
@@ -375,22 +377,23 @@ def trend(table, size="单栏 85 mm", panels=TREND_DEFAULT_PANELS, paths=None, x
         ax.set_visible(False)
     kw = dict(lw=s["lw"], elinewidth=0.7 * s["lw"], capthick=0.7 * s["lw"], capsize=0.3 * s["font"], ms=0.5 * s["font"],
               marker="o", ls="-")
-    src = table.attrs.get("seq_source", "order")
+    from .trend import axis_of
+    xc, ticks = axis_of(table)
     first = True
     for ax, pk in zip(axl, panels):
         vcol, ecol, ylab = TREND_PANELS[pk]
         if pk == "E0":
-            d = table.drop_duplicates("dataset").sort_values("seq")
+            d = table.drop_duplicates("dataset").sort_values(xc)
             if d[vcol].notna().any():
-                ax.errorbar(d["seq"], d[vcol], yerr=None, color="k", **kw)
+                ax.errorbar(d[xc], d[vcol], yerr=None, color="k", **kw)
         else:
             for pth, c in zip(paths, cols):
-                d = table[table["path"] == pth].sort_values("seq")
+                d = table[table["path"] == pth].sort_values(xc)
                 if d[vcol].notna().any():
                     err = None
                     if d[ecol].notna().any():
                         err = d[ecol].to_numpy(float)
-                    ax.errorbar(d["seq"], d[vcol], yerr=err, color=c, label=chem(pth), **kw)
+                    ax.errorbar(d[xc], d[vcol], yerr=err, color=c, label=chem(pth), **kw)
         ax.set_ylabel(ylab)
         ax.ticklabel_format(axis="y", useOffset=False)      # E0 约 1e4 eV：不要 “+1.121e4” 偏移记法
         if first and paths and pk != "E0":       # 只有一条路径也给图例：否则看不出画的是哪条
@@ -399,11 +402,11 @@ def trend(table, size="单栏 85 mm", panels=TREND_DEFAULT_PANELS, paths=None, x
     for ax in axl[:n][-nc:]:                      # 每列最下面的面板：横轴标题与刻度标签（共享横轴默认只在最后一行显示）
         ax.set_xlabel(trend_xlabel(table, xlabel))
         ax.tick_params(labelbottom=True)
-    if src == "order":
-        d = table.drop_duplicates("dataset").sort_values("seq")
+    if ticks is not None:
         for ax in axl[:n][-nc:]:
-            ax.set_xticks(list(d["seq"]))
-            ax.set_xticklabels([chem(x) for x in d["sample"]], rotation=30 if len(d) > 3 else 0, ha="right" if len(d) > 3 else "center")
+            ax.set_xticks(ticks[0])
+            ax.set_xticklabels([chem(x) for x in ticks[1]], rotation=30 if len(ticks[0]) > 3 else 0,
+                               ha="right" if len(ticks[0]) > 3 else "center")
     return fig, trend_caption(table, panels, paths, xlabel, model, edge or table.attrs.get("edge", ""))
 
 
@@ -412,6 +415,8 @@ def trend_caption(table, panels, paths, xlabel=None, model="", edge=""):
     nds = table["dataset"].nunique()
     srcname = {"seq": "meta.csv column 'seq'", "time": "measurement time (hours after the earliest dataset)",
                "order": "dataset order (no 'seq' or time for every dataset)"}[table.attrs.get("seq_source", "order")]
+    if table.attrs.get("custom_order"):
+        srcname = "samples in a user-defined order, evenly spaced"
     c = f"Trend of fitted structural parameters across {nds} datasets"
     c += f" (joint fit, model {model}" if model else " (joint fit"
     c += f"; {edge}" if edge else ""
