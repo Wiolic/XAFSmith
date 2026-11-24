@@ -364,6 +364,41 @@ def mixed_phase_checks(app, w, td):
     say(f4 is not None and diff < 1e-6, f"F2-7 精细拟合重跑混合相模型：参数相同（最大差 {diff:.1e}）")
 
 
+def guess_checks(app, w):
+    """G4：读入时猜的元素 / 吸收边要让用户确认（fe.060 的文件头里没有元素与边）"""
+    from xafsmith.readers import read_scan
+    S, P = w.S, w.pages
+    g = read_scan(PROJ / "data" / "raw" / "public" / "fe.060")
+    S.groups["guess_fe"] = g
+    S.emit("groups")
+    w.go("load")
+    pump(app)
+    pg = P["load"]
+    t = texts(pg)
+    cells = " ".join(str(x) for tb in pg.findChildren(W.Table) for x in tb.m.df.to_numpy().ravel())
+    say("（猜测）" in cells and "按能量猜的" in t and any(b.text() == "确认无误" for b in pg.findChildren(QPushButton)),
+        "G4 载入页：猜测的元素 / 边标“（猜测）”，有提示条与编辑器")
+    ms = next(m for m in pg.findChildren(W.MultiSelect) if m.opts == ["guess_fe"])
+    ed = next(e for e in pg.findChildren(W.QLineEdit) if e.placeholderText().startswith(("元素符号", "element symbol")))
+    ed.setText("Cu")
+    pump(app)
+    say("guess_fe → Cu K" in texts(pg), "G4 输入元素后显示将得到的边")
+    click(pg, "应用")
+    pump(app)
+    cells = " ".join(str(x) for tb in pg.findChildren(W.Table) for x in tb.m.df.to_numpy().ravel())
+    say((g.element, g.edge) == ("Cu", "K") and not g.meta_guessed and "（猜测）" not in cells and "按能量猜的" not in texts(pg), "G4 应用：元素 / 边改变，猜测标记去掉")
+    g.meta_guessed = ["element", "edge"]
+    S.emit("groups")
+    w.go("load")
+    pump(app)
+    click(pg, "确认无误")
+    pump(app)
+    say(not g.meta_guessed and (g.element, g.edge) == ("Cu", "K"), "G4 确认无误：去掉标记，值不变")
+    S.groups.pop("guess_fe", None)
+    S.emit("groups")
+    del ms
+
+
 def quickfit_checks(app, w):
     """F2-3b：快速拟合界面端到端（在项目的临时副本里做，保存的文件不污染演示项目）：
     标样 → 保存 → 样品模式选取标样值 → 拟合 → 结果表与判定 → 在精细拟合中继续（数值与快速拟合相同）；
@@ -1882,6 +1917,7 @@ def main():
     wizard_check(app)
     if not IRTAOX:
         quickfit_checks(app, w)
+        guess_checks(app, w)
     S, P = w.S, w.pages
 
     # 数据登记：检查
