@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from . import paths
+from .pipeline import is_no_ref
 
 INSTRUMENT_KEYS = {
     "facility": ("光源", "facility"),
@@ -78,13 +79,16 @@ def collect(samples=None, fits_csv=None):
         c = cfg.get("edges", {}).get(ek, {})
         refs = [v for v in cal.values() if v.get("edge_key") == ek]
         nscan = g.groupby("sample").size()
+        nones = g["ref_file"].map(is_no_ref) if "ref_file" in g else pd.Series(False, index=g.index)
+        n_uncal = int(g.loc[nones, "sample"].nunique())            # ref_file = none 的样品数（没有参比，未校准）
         edges.append(dict(
             key=ek, element=c.get("element", ek.split("_")[0]), edge=c.get("edge", ek.split("_")[-1]),
             modes=sorted(set(g["mode"])), n_samples=g["sample"].nunique(),
             scans=f"{nscan.min()}–{nscan.max()}" if nscan.min() != nscan.max() else str(nscan.min()),
             e_table=c.get("e_table"), e_table_source=c.get("e_table_source", "xraydb"),
             refs=sorted(set(r.get("reference", "") for r in refs)),
-            dE=_rng([r["delta_e"] for r in refs], 2), norm=c.get("norm", {}), bkg=c.get("bkg", {}),
+            dE=_rng([r["delta_e"] for r in refs], 2), n_uncal=n_uncal, all_uncal=bool(nones.all()) and len(g) > 0,
+            norm=c.get("norm", {}), bkg=c.get("bkg", {}),
             ft=c.get("ft", {}), s02=c.get("s02_recommended", {})))
     fit_rows = []
     roles = dict(zip(meta["sample"], meta["role"])) if "role" in meta else {}
@@ -168,10 +172,22 @@ def build(samples=None, fits_csv=None):
         n2 = n.get("norm2")
         n2z = f"距数据末端 {abs(n2):g} eV" if (n2 or 0) <= 0 else f"E0+{n2:g} eV"
         n2e = f"{abs(n2):g} eV below the end of the data" if (n2 or 0) <= 0 else f"E0+{n2:g} eV"
+        if e["all_uncal"]:
+            cal_zh = f"{e['element']} {e['edge']} 边：未做能量校准（无参比），能量轴为测量时的单色器读数，边位的绝对值不可靠。"
+            cal_en = (f"For the {e['element']} {e['edge']}-edge no energy calibration was made (no reference was measured); the energy "
+                      "axis is the monochromator reading, so absolute edge positions are not reliable. ")
+        else:
+            cal_zh = (f"{e['element']} {e['edge']} 边：每条谱的能量用同一批次同时测量的单质参比（{refs or '【参比】'}）校准，"
+                      f"取参比归一化谱一阶导数最大值并对齐到表值 {e['e_table']} eV（{e['e_table_source']}），"
+                      f"同一参比下所有谱平移同一 ΔE（{e['dE'] or '【ΔE】'} eV）。"
+                      + (f"其中 {e['n_uncal']} 个样品无参比，未做能量校准。" if e["n_uncal"] else ""))
+            cal_en = (f"For the {e['element']} {e['edge']}-edge, the energy of every spectrum was calibrated with the "
+                      f"elemental reference measured in the same session ({refs or '[reference]'}): the maximum of the first "
+                      f"derivative of the reference was aligned to the tabulated value of {e['e_table']} eV "
+                      f"({e['e_table_source']}), and the same shift ({e['dE'] or '[ΔE]'} eV) was applied to all spectra measured with "
+                      "that reference. " + (f"{e['n_uncal']} sample(s) had no reference and were not energy-calibrated. " if e["n_uncal"] else ""))
         zh.append(
-            f"{e['element']} {e['edge']} 边：每条谱的能量用同一批次同时测量的单质参比（{refs or '【参比】'}）校准，"
-            f"取参比归一化谱一阶导数最大值并对齐到表值 {e['e_table']} eV（{e['e_table_source']}），"
-            f"同一参比下所有谱平移同一 ΔE（{e['dE'] or '【ΔE】'} eV）。"
+            cal_zh
             + (f"每个样品合并 {e['scans']} 次扫描。" if e["scans"] != "1" else "每个样品 1 次扫描。")
             + 
             f"E0 取平滑后一阶导数最大值；边前直线拟合范围 E0{n.get('pre1', -150):+g} 至 E0{n.get('pre2', -30):+g} eV，"
@@ -180,11 +196,7 @@ def build(samples=None, fits_csv=None):
             f"k{str(t.get('kweight', 2)).translate(SUP)} 加权的 χ(k) 在 k = {t.get('kmin', 3)}–{t.get('kmax', 12)} Å⁻¹ 范围内用 "
             f"{str(t.get('window', 'hanning')).capitalize()} 窗（dk = {t.get('dk', 1)} Å⁻¹）做傅里叶变换；文中 R 空间谱均未做相移校正。")
         en.append(
-            f"For the {e['element']} {e['edge']}-edge, the energy of every spectrum was calibrated with the "
-            f"elemental reference measured in the same session ({refs or '[reference]'}): the maximum of the first "
-            f"derivative of the reference was aligned to the tabulated value of {e['e_table']} eV "
-            f"({e['e_table_source']}), and the same shift ({e['dE'] or '[ΔE]'} eV) was applied to all spectra measured with "
-            f"that reference. " + (f"{_dash(e['scans'])} scans were merged per sample. " if e["scans"] != "1"
+            cal_en + (f"{_dash(e['scans'])} scans were merged per sample. " if e["scans"] != "1"
                                   else "One scan was used per sample. ") + "E0 was taken as the maximum of the "
             f"smoothed first derivative. Spectra were normalized with a linear pre-edge line "
             f"(E0{n.get('pre1', -150):+g} to E0{n.get('pre2', -30):+g} eV) and a polynomial of order "
