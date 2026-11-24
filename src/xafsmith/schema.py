@@ -444,9 +444,34 @@ def _check_s02_source(rep, at, m):
             rep.err(f"{at} s02_source.{k}", f"应为数字，实际是 {src[k]!r}")
 
 
+def _check_qshell(rep, w, sh):
+    """quickfit.shell / shell2 的类型检查（w = 位置前缀，如 "… quickfit.shell"）。"""
+    for k in ("absorber", "scatterer"):
+        if not isinstance(sh.get(k), str):
+            rep.err(f"{w}.{k}", f"应是字符串（元素符号），实际是 {sh.get(k)!r}")
+    for k in ("n_ref", "r_cif"):
+        if not _isnum(sh.get(k)):
+            rep.err(f"{w}.{k}", f"应为数字，实际是 {sh.get(k)!r}")
+    mem = sh.get("members")
+    if not isinstance(mem, list) or not mem:
+        rep.err(f"{w}.members", "应是非空数组 [{file, label, reff, degen}]")
+    else:
+        for i, x in enumerate(mem):
+            if not isinstance(x, dict):
+                rep.err(f"{w}.members[{i}]", "应是对象 {file, label, reff, degen}")
+                continue
+            for k in ("file", "label"):
+                if not isinstance(x.get(k), str):
+                    rep.err(f"{w}.members[{i}].{k}", f"应是字符串，实际是 {x.get(k)!r}")
+            for k in ("reff", "degen"):
+                if not _isnum(x.get(k)):
+                    rep.err(f"{w}.members[{i}].{k}", f"应为数字，实际是 {x.get(k)!r}")
+
+
 def _check_quickfit(rep, at, m):
     """quickfit（可选说明键，计算忽略；快速拟合写入）：{mode: standard|sample|joint, shell: {absorber, scatterer, n_ref, r_cif,
-    members: [{file, label, reff, degen}]}, windows?: {数据集 id: {kmin, kmax, dk, window}}}。只检查类型。"""
+    members: [{file, label, reff, degen}]}, shell2?: （同 shell，混合相的第二相）, windows?: {数据集 id: {kmin, kmax, dk, window}}}。
+    只检查类型。"""
     q = m.get("quickfit")
     if q is None:
         return
@@ -460,26 +485,12 @@ def _check_quickfit(rep, at, m):
     if not isinstance(sh, dict):
         rep.err(f"{w}.shell", "应是对象 {absorber, scatterer, n_ref, r_cif, members}")
         return
-    for k in ("absorber", "scatterer"):
-        if not isinstance(sh.get(k), str):
-            rep.err(f"{w}.shell.{k}", f"应是字符串（元素符号），实际是 {sh.get(k)!r}")
-    for k in ("n_ref", "r_cif"):
-        if not _isnum(sh.get(k)):
-            rep.err(f"{w}.shell.{k}", f"应为数字，实际是 {sh.get(k)!r}")
-    mem = sh.get("members")
-    if not isinstance(mem, list) or not mem:
-        rep.err(f"{w}.shell.members", "应是非空数组 [{file, label, reff, degen}]")
-    else:
-        for i, x in enumerate(mem):
-            if not isinstance(x, dict):
-                rep.err(f"{w}.shell.members[{i}]", "应是对象 {file, label, reff, degen}")
-                continue
-            for k in ("file", "label"):
-                if not isinstance(x.get(k), str):
-                    rep.err(f"{w}.shell.members[{i}].{k}", f"应是字符串，实际是 {x.get(k)!r}")
-            for k in ("reff", "degen"):
-                if not _isnum(x.get(k)):
-                    rep.err(f"{w}.shell.members[{i}].{k}", f"应为数字，实际是 {x.get(k)!r}")
+    _check_qshell(rep, f"{w}.shell", sh)
+    if "shell2" in q:                       # 混合相：第二相的第一壳层，与 shell 同形
+        if not isinstance(q["shell2"], dict):
+            rep.err(f"{w}.shell2", "应是对象 {absorber, scatterer, n_ref, r_cif, members}")
+        else:
+            _check_qshell(rep, f"{w}.shell2", q["shell2"])
     if "windows" in q:
         ws = q["windows"]
         if not isinstance(ws, dict) or not all(isinstance(v, dict) and all(_isnum(v.get(k)) for k in ("kmin", "kmax", "dk"))
