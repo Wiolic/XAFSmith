@@ -171,6 +171,35 @@ def build(structure, absorber, edge, out, site_index=None, rmax=6.0, rcluster=8.
     raise RuntimeError(f"FEFF 未生成路径，失败现场见 {Path(out) / FAILED_DIR}（feffrun_feff.log、feff.err）；原有结果未改动")
 
 
+def default_edge(element):
+    """FEFF 页的缺省吸收边：Z ≤ 40 用 K，否则 L3"""
+    from pymatgen.core import Element
+    return "K" if Element(element).Z <= 40 else "L3"
+
+
+def builtin_feff_dir(name, absorber, edge, site_index=0):
+    """内置结构的 FEFF 输出文件夹：output/feff/<结构>_<元素><边>/site<n>（与 FEFF 路径页内置结构的默认输出目录相同）"""
+    from . import paths
+    return paths.FEFF / f"{name}_{absorber}{edge}" / f"site{site_index}"
+
+
+def build_builtin(name, absorber, edge, recompute=False, progress=None):
+    """用内置结构跑 FEFF6L（参数同 FEFF 页缺省：RMAX 6 Å、NLEG 4、第一个不等价位点）。
+    返回 (输出文件夹, 是否沿用已有结果)；已有 feff0001.dat 且 recompute=False 时不重算。"""
+    from .structures import builtin
+    struct = builtin(name)
+    sites = inequivalent_sites(struct, absorber)
+    if not sites:
+        raise ValueError(f"结构 {name} 不含吸收元素 {absorber} / structure {name} has no {absorber} atom")
+    out = builtin_feff_dir(name, absorber, edge, sites[0][0])
+    if not recompute and (out / "feff0001.dat").exists():
+        return out, True
+    if progress:
+        progress(0.2, "FEFF6L…")
+    build(struct, absorber, edge, out, site_index=sites[0][0], title=name, code="feff6")
+    return out, False
+
+
 def main():
     from .structures import builtin, read_cif
     ap = argparse.ArgumentParser()
