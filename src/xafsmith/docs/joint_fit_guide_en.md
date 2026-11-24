@@ -4,6 +4,8 @@
 > how the structural parameters change along the series.
 > The workflow is split into 9 steps. Each step says **which page, what to click, what to look at, and when you may move on**.
 > Interface details: GUI guide, sections 11, 12 and 16; model file format: data standard 4.1.
+>
+> **If you only need the first shell you do not have to go through all 9 steps**: on **EXAFS fitting › Quick fit**, selecting ≥ 2 samples (Sample mode, one absorption edge) runs a joint fit automatically — one common k / R window, a shared ΔE0, N, R and σ² per sample, S0² fixed (from a standard) — with a batch-level and a per-sample verdict and an in-page trend plot; **Go to Figure export** takes you straight to **Figure export › Trend**. This guide covers the joint mode of **Detailed fit**: more shells and your own choice of shared parameters. A Quick-fit result can be extended with **Continue in Detailed fit** (all datasets of a joint model are loaded).
 
 ---
 
@@ -38,7 +40,7 @@ Tick everything before going on.
 | ☐ | **One set of processing parameters for all samples**: E0 definition, normalization ranges, rbkg, k-weight, FT k-range and window | Calibration & processing → processing parameters |
 | ☐ | χ(k) computed for every sample | χ(k) & FT |
 | ☐ | FEFF paths available (from a CIF or a hand-written structure) | FEFF paths |
-| ☐ | **S0² determined on a standard of known structure** (step 2 below) | EXAFS fitting |
+| ☐ | **S0² determined on a standard of known structure** (step 2 below) | EXAFS fitting › Quick fit / Detailed fit |
 | ☐ | Neighbouring edges checked; k upper limit chosen | Edge lookup; XAFS processing rules |
 | ☐ | (For the trend plot) a numeric **`seq`** filled in `meta.csv` for every sample (e.g. reduction time 50 / 100 / 200 / 300) | Open `data/meta.csv` in Excel or a text editor; repeated scans of one sample (several rows) get the same number |
 
@@ -50,7 +52,7 @@ Without `seq` the fit still works; the trend plot's x-axis then falls back to me
 
 S0² and the coordination number N are fully correlated (amplitude = N × S0²). **Determine S0² on a standard with known N**, then fix it for the samples.
 
-1. **EXAFS fitting** page, mode **Single dataset**; data = the standard (a metal foil or a well-known oxide), FEFF folder = its calculation.
+1. **EXAFS fitting › Detailed fit** page, mode **Single dataset**; data = the standard (a metal foil or a well-known oxide), FEFF folder = its calculation (or, in **Quick fit**, choose Purpose **Standard** to get S0² in one step).
 2. Tick only the first shell; N = crystallographic coordination number (fixed); tick vary for `s02`.
 3. Fit → quality checks all green, R-factor around < 0.02.
 4. Note S0² ± error (e.g. 0.82 ± 0.05); enter it under **Calibration & processing → processing parameters → S0²**, or in `notes/`.
@@ -82,7 +84,7 @@ Before the joint fit, **the model (which paths, which shells) must be settled on
 
 This step answers the key question of a joint fit: **which parameters are really equal across the samples?**
 
-1. On the EXAFS fitting page, expand **Run a saved model** at the top of the left column → choose the model from step 2 → select all samples → **Run**.
+1. On the Detailed fit page, expand **Run a saved model** at the top of the left column → choose the model from step 2 → select all samples → **Run**.
    The model is applied to each sample in turn; all results appear in **Fit history**.
 2. Look at each fit in the history and copy **value ± error** of every parameter into a table (or save and read `output/fits/exafs_fits.csv`):
 
@@ -103,7 +105,7 @@ This step answers the key question of a joint fit: **which parameters are really
 
 ---
 
-## 5　Step 4: set up the joint fit (left column of the fitting page, card by card)
+## 5　Step 4: set up the joint fit (left column of Detailed fit, card by card)
 
 ### 5.1　Card 1 Data and FEFF
 

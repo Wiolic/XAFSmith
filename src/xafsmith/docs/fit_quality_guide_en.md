@@ -2,6 +2,7 @@
 
 > For users who can already run a fit (see the *Beginner fitting tutorial*) but whose fit does **not** match the data closely.
 > Everything here is done in the GUI; page names refer to the sidebar.
+> Start with **EXAFS fitting › Quick fit** for the first shell and read its verdict; this guide is for what to do in **Detailed fit** when a check is ✗ or when you need more shells or multiple scattering (the **Continue in Detailed fit** button on the Quick-fit result loads the same model there).
 
 ---
 
@@ -18,7 +19,7 @@ A fit that matches **every wiggle** is usually **neither achievable nor desirabl
 
 | Goal | How to judge | Where |
 |---|---|---|
-| ① Residual near the data limit | in-window residual ÷ noise ≈ 1–2, or at least comparable to a standard measured in the same session | EXAFS fitting result → **Fit diagnosis** |
+| ① Residual near the data limit | in-window residual ÷ noise ≈ 1–2, or at least comparable to a standard measured in the same session | EXAFS fitting › Detailed fit result → **Fit diagnosis** |
 | ② No removable *structure* left in the residual | no local spikes in the k residual; no single k segment or R region dominating | k / R segment tables in Fit diagnosis |
 | ③ Every parameter physical and robust | σ² > 0, |ΔE0| < 10 eV, nothing at a bound; robustness check “stable” | parameter table, **Robustness check** |
 | ④ Every path earns its place | F-test p < 0.05 when it is added | Fit history |
@@ -29,7 +30,7 @@ A fit that matches **every wiggle** is usually **neither achievable nor desirabl
 
 ## 1. Always diagnose first — do not start by adding paths
 
-After a fit on EXAFS fitting, open **“Fit diagnosis: where the residual is and why”** below the result.
+After a fit on Detailed fit, open **“Fit diagnosis: where the residual is and why”** below the result.
 
 ### 1.1 Three numbers
 
@@ -78,7 +79,7 @@ If the R residual looks like an evenly spaced ripple (≈ 0.6 Å for k₀ ≈ 5 
 2. Remove only if all three hold: 1–3 points wide; **at the same energy in several samples**; **a matching dip in I0** (monochromator glitch).
 3. **The range must include every point that deviates from the smooth trend**, not just the sharpest one. Glitches often appear as a high/low pair; removing only the middle leaves an up–down spike in χ(k).
 4. Enter the range (e.g. `9983-9991`; several separated by semicolons) and a **reason (required)** → **Save and reload**.
-5. Refit on EXAFS fitting and re-check the diagnosis: the spike hint should disappear and the k residual should be flat there.
+5. Refit on Detailed fit and re-check the diagnosis: the spike hint should disappear and the k residual should be flat there.
 
 **Don’t**: remove more than ~10 eV; remove points near the white line or pre-edge; remove a glitch from one sample but not from other samples of the same batch; remove “ugly” oscillations to lower the R-factor.
 
@@ -132,14 +133,14 @@ Only after section 2, and only if the diagnosis still shows a **smooth, regular*
 |---|---|---|
 | isotropic expansion | `deltar = dr1*reff/r1`, or `alpha*reff` | cubic-like structures |
 | geometry | e.g. perovskite ΔR(B–A) = √3·ΔR(B–O) → `dr1*sqrt(3)` | lattice geometry |
-| MS ΔR / σ² binding | the fit page “Multiple-scattering binding…” (`xafsmith msbind`) suggests them from the path geometry: a collinear path shares the far single-scattering `ssT`; for a triangle the σ² is the sum of the squared coefficients of each independent bond (e.g. Ir-O-Ir gives `0.5*ss1 + 0.25*ss2`), do not reuse the ΔR coefficients | rules: processing guide (XAFS处理规范) §5 item 8; the suggestion is stored in the path `note` |
+| MS ΔR / σ² binding | the Detailed-fit page “Multiple-scattering binding…” (`xafsmith msbind`) suggests them from the path geometry: a collinear path shares the far single-scattering `ssT`; for a triangle the σ² is the sum of the squared coefficients of each independent bond (e.g. Ir-O-Ir gives `0.5*ss1 + 0.25*ss2`), do not reuse the ΔR coefficients | rules: processing guide (XAFS处理规范) §5 item 8; the suggestion is stored in the path `note` |
 | fixed N | `N = 6` | known coordination |
 | fixed σ² for weak scatterers | value from the standard | N and σ² cannot both be fitted |
 
 > **N and σ² are strongly correlated** (amplitude ∝ N·exp(−2k²σ²)). Free one, fix the other, and say so.
 
 ### 3.3 Every addition must pass an F-test
-1. Fit the smaller and the larger model on EXAFS fitting (both go to Fit history).
+1. Fit the smaller and the larger model on Detailed fit (both go to Fit history).
 2. Fit history → select both → **F-test**. Keep only if p < 0.05; a path with p ≥ 0.05 cannot be reported as “observed”.
 3. If you add paths without new variables (all constrained), the F-test does not apply: check χ²_ν and robustness.
 4. Try new paths on the **standard** first.
@@ -158,7 +159,7 @@ Only after section 2, and only if the diagnosis still shows a **smooth, regular*
 
 ## 4. Robustness check
 
-EXAFS fitting → **Robustness check** varies kmin ±0.5, kmax ±1, Rmax ±0.2 Å and single k-weights. “Spread/error > 1” = **unstable**. All parameters stable is a prerequisite for reporting. For a series, a **trend must hold under every condition**.
+Detailed fit → **Robustness check** varies kmin ±0.5, kmax ±1, Rmax ±0.2 Å and single k-weights. “Spread/error > 1” = **unstable**. All parameters stable is a prerequisite for reporting. For a series, a **trend must hold under every condition**.
 
 ---
 
@@ -197,8 +198,8 @@ When all are met but the fit is still not “perfect”, the remaining misfit is
 1. ② QC → k_snr3, glitches → **Deglitch** (range + reason).
 2. ④⑤ one set of processing parameters; inspect k¹/k²/k³.
 3. ⑦ FEFF6L and FEFF8L for the standard structure.
-4. EXAFS fitting: model on the **standard** → fit → **Fit diagnosis** → robustness → save; determine S0².
-5. EXAFS fitting: “Run a saved model” on all samples.
+4. EXAFS fitting: first quick-fit the **standard** (or build the model in Detailed fit) → fit → **Fit diagnosis** → robustness → save; determine S0².
+5. First shell only: select all samples in Quick fit (≥ 2 run as a joint fit); more shells: “Run a saved model” on all samples at the top of Detailed fit.
 6. Diagnose each sample: spike → step 1; low k large → robustness for kmin; smooth localized residual → section 3 with F-tests.
 7. Fit history: F-tests; robustness for every conclusion.
 8. ⑫ summary, ⑭ journal figures; captions state FEFF version, k/R ranges, k-weights, S0² source, number of scans.
