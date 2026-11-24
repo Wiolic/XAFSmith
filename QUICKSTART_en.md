@@ -93,7 +93,18 @@ Click **Save parameters**.
 
 ### Step 7 — Fit the standard and determine S0² (10 min)
 
-**EXAFS fitting** (open **Before you fit · what is a good fit** at the top right — a separate window — and read it before your first fit). Settings on the left, result on the right:
+The **EXAFS fitting** page has a switch **Quick fit | Detailed fit** at the top; it opens on **Quick fit**: first shell only, Rmin chosen automatically, and a “trustworthy / look at this” verdict. To set every path and parameter yourself (more shells, multiple scattering, custom constraints) switch to **Detailed fit**. Start with Quick fit and go to Detailed fit when you need more.
+
+**Option A: Quick fit (recommended)**
+
+1. **1  Samples and FEFF**: choose the standard as the sample and its structure as **FEFF folder** (the page shows the first shell: absorber–scatterer, count, distance, N_ref, R_ref);
+2. **2  Purpose, S0² and window**: **Purpose** = **Standard** (N fixed to the structure's degeneracy, S0² fitted); **Rmax (Å)** defaults to 2.5 (first shell only); the k window comes from the standard's processing settings and Rmin is set automatically from the first peak;
+3. **3  Run** → **Start fit**;
+4. **4  Result**: read the window, the result table (N, R, σ², ΔE0, S0², R-factor, Verdict), the |χ(R)| plot of data and fit, and the checks one by one (✓ passed / ✗ to look at, with advice / ℹ note): R-factor, number of variables (Stern criterion), fitted R within 0.15 Å of the CIF, |χ(R)| at Rmax ≤ 30% of the first peak, data first-peak position matching the structure's first shell, and so on;
+5. When the verdict is “Trustworthy” click **Save** (model `models/QF_<sample>.json` and the fit records). Once the standard is fitted, **Pick standard value…** in Sample mode can take its S0²;
+6. If something is ✗: follow the advice (Rmax, FEFF structure), or click **Continue in Detailed fit** to load the same model into Detailed fit and adjust it there.
+
+**Option B: Detailed fit** (open **Before you fit · what is a good fit** at the top right — a separate window — and read it before your first fit). Settings on the left, result on the right:
 
 1. **Data**: the standard; **FEFF folders**: its structure;
 2. **Fit range**: the k range from step 5; an R window covering only the first shell (e.g. 1.0–2.1 Å); tick k-weights 1, 2 and 3. N_idp is shown;
@@ -115,8 +126,12 @@ Click **Save parameters**.
 
 ### Step 8 — Fit the samples (batch)
 
-1. On **EXAFS fitting** choose one sample as **Data**, with the same paths and ranges as the standard; in **4 Parameters** set **s02's value to the step-7 result and untick vary** (fixed). **Fit** → check → **Save result**.
-2. At the top of the left column of **EXAFS fitting** open **Run a saved model** → choose this sample model → select **all samples** → **Run**. Results go to **Fit history**.
+**Quick fit (recommended)**: on **EXAFS fitting › Quick fit** choose one or all samples under **Samples (several)** (one absorption edge), **Purpose** = **Sample**, and for S0² click **Pick standard value…** and choose the step-7 standard fit (or type one; the verdict then notes “no standard behind it”), then **Start fit**. With ≥ 2 samples a joint fit runs automatically: one common k / R window, a shared ΔE0, and N, R, σ² per sample; the result has a batch-level and a per-sample verdict and an in-page trend plot of N / R / σ². **Save** writes the model, the fit records and the trend CSV; **Go to Figure export** opens **Figure export › Trend** for a publication figure (you choose which quantities to export).
+
+**Detailed fit** (when you need more shells, multiple scattering or constraints):
+
+1. On **EXAFS fitting › Detailed fit** choose one sample as **Data**, with the same paths and ranges as the standard; in **4 Parameters** set **s02's value to the step-7 result and untick vary** (fixed). **Fit** → check → **Save result**.
+2. At the top of the left column of **Detailed fit** open **Run a saved model** → choose this sample model → select **all samples** → **Run**. Results go to **Fit history**.
 3. Second shell: fit once with the extra path, then **Fit history** → select the fits without and with the shell → **F-test**. Only **p < 0.05** lets you say the shell is present. To compare three or more models use the **Model comparison** card in **Fit history** (tick the fits → **Compare**).
 4. Samples that should share parameters (e.g. N and R shared across temperatures of one sample): at the top of card 1 switch “Mode” to **Joint fit of several datasets**, select several **Data**, one path table per dataset; parameters with the same name are shared. With an independent prior (e.g. S0² ± error from the standard) add a **restraint** below the parameter table. Read the “joint fits” tab of the fit guide (top right) first.
 
@@ -193,7 +208,7 @@ The AI runs commands such as `xafsmith qc`, `process`, `feff`, `fit`, `diagnose`
 
 | What to check | Where |
 |---|---|
-| The AI's fit models; rerun, fit diagnosis, robustness | top of the left column of **EXAFS fitting** → **Run a saved model** |
+| The AI's fit models; rerun, fit diagnosis, robustness | top of the left column of **EXAFS fitting › Detailed fit** → **Run a saved model** |
 | Model comparison table, F-test | **Fit history** |
 | Deglitch ranges and reasons | bottom of **Quality check** |
 | Processing parameters | **Calibrate & process → Processing parameters** |
@@ -216,7 +231,7 @@ After updating XAFSmith, click “Write / update” on **AI assistant** again.
 | “Windows protected your PC” when running the installer | The installer is not code-signed: click **More info → Run anyway** |
 | Double-clicking `installer.py` (source install) does nothing or opens a text editor | Right-click → Open with → Python, or reinstall Python with “Add python.exe to PATH” ticked |
 | “No reference ref_file, cannot calibrate” | The batch has no reference: add it and **Scan and register** again, or choose ref_file in the table |
-| Sharp spikes in χ(k) or in the fit residual | Glitches: step 5 “Deglitch” and the hints in the Fit diagnosis on EXAFS fitting |
+| Sharp spikes in χ(k) or in the fit residual | Glitches: step 5 “Deglitch” and the hints in the Fit diagnosis on EXAFS fitting › Detailed fit |
 | Poor fit, large R-factor | Read [Improving fit quality](src/xafsmith/docs/fit_quality_guide_en.md): diagnose first, then check data → processing → theory → model |
 | FEFF produces no paths | Does the structure contain the absorber? Keep RMAX ≤ 8 Å |
 | The AI cannot find the xafsmith command | AI assistant → “Write / update AI instruction files” again, then ask the AI to reread AGENTS.md |
