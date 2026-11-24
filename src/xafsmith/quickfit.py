@@ -117,14 +117,15 @@ def peak_stats(r, chir_mag, rmax):
 def auto_rmin(r, chir_mag, rmax):
     """(Rmin, R_p)。R_p = |χ(R)| 在 [1.0 Å, rmax] 内最大值所在的 R；在 [0.7 Å, R_p] 找最小值，
     最小值落在 0.7 Å 端点（该范围内无极小，|χ(R)| 单调上升）或不在 R_p 之前 → Rmin = 1.0 Å；
-    找到的极小低于 R_p − RMIN_BELOW_PEAK → 取 R_p − RMIN_BELOW_PEAK。"""
+    两种情况都不低于 R_p − RMIN_BELOW_PEAK（例：金属第一峰 2.3 Å、单调上升 → 1.7 Å，而非 1.0 Å）。"""
     r, m = np.asarray(r, float), np.asarray(chir_mag, float)
     r_p, _, _ = peak_stats(r, m, rmax)
     idx = np.flatnonzero((r >= RMIN_LO) & (r <= r_p))
     i = idx[int(np.argmin(m[idx]))]
+    floor = round(r_p - RMIN_BELOW_PEAK, 4)
     if i == idx[0] or r[i] >= r_p:
-        return RMIN_DEFAULT, r_p
-    return max(float(r[i]), round(r_p - RMIN_BELOW_PEAK, 4)), r_p
+        return max(RMIN_DEFAULT, floor), r_p
+    return max(float(r[i]), floor), r_p
 
 
 # ---------------------------------------------------------------- 建模型

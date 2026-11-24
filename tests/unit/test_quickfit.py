@@ -81,6 +81,12 @@ def test_auto_rmin_without_minimum_uses_1():
     assert qf.auto_rmin(R, mag, 2.5) == (1.0, pytest.approx(1.6, abs=0.021))
 
 
+def test_auto_rmin_without_minimum_far_peak_is_clamped():
+    mag = 3 * _peak(2.3) + 0.05 * R                                          # 单调上升到 2.3 Å 的峰（如金属）
+    rmin, rp = qf.auto_rmin(R, mag, 3.0)
+    assert rp == pytest.approx(2.3, abs=0.021) and rmin == pytest.approx(rp - qf.RMIN_BELOW_PEAK)
+
+
 def test_auto_rmin_minimum_far_below_peak_is_clamped():
     mag = 3 * _peak(1.5) + 0.8 * _peak(0.5, 0.02) + 0.02 * (R - 0.74) ** 2        # 谷在 ≈ 0.74 Å，离峰 0.76 Å
     rmin, rp = qf.auto_rmin(R, mag, 2.5)
