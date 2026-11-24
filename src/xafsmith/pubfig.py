@@ -68,8 +68,6 @@ for _k, _fam, _kind, _zh, _en, _cs in _RAW:
     PALETTES[_k] = dict(zh=f"{_fz} · {_zh}（{KIND_NAMES[_kind][0]}）", en=f"{_fe} · {_en} ({KIND_NAMES[_kind][1]})",
                         family=_fam, kind=_kind, colors=_cs, ramp=_kind == "mono",
                         refs=None if _k == "basalt" else _GREY)
-PALETTES["glacier"]["zh"] = "水域 · 冰川（单色渐变；参照 IrCoOx 工程：样品蓝、标样灰）"
-PALETTES["glacier"]["en"] = "Waters · Glacier (monochrome; reference project: blue samples, grey standards)"
 DEFAULT_PALETTE = "glacier"
 REF_PATTERN = r"foil|powder|metal|箔|标样|std|standard"
 
