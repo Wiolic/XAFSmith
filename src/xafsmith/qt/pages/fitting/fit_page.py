@@ -22,6 +22,18 @@ from .fit_view import FitView
 _TMODEL_RE = re.compile(r"\bsigma2_debye\b|\bsigma2_eins\b|\btempK\b")   # B6：路径 σ² 用了温度模型
 
 
+# 路径表列顺序：先是常改的（use … note），再是 FEFF 给的只读信息；file 隐藏
+PATH_COLS = ["use", "label", "N", "deltar", "sigma2", "e0", "s02", "third", "note",
+             "reff", "degen", "nleg", "amp_ratio", "dir", "file"]
+
+
+def order_path_cols(df):
+    """路径表的列按 PATH_COLS 排列；未知列放最后（保持原相对顺序）；不增减列、不改数据。已是新顺序则原样返回。"""
+    cols = list(df.columns)
+    new = [c for c in PATH_COLS if c in cols] + [c for c in cols if c not in PATH_COLS]
+    return df if new == cols else df[new].copy()
+
+
 def saved_model_job(S, mf_v, names):
     """已保存模型的后台任务（须在界面线程调用）：模型文件名等普通值已读好；run_model 回退时会读的会话谱在此深拷贝，
     后台线程不碰控件与活的 State。"""
@@ -519,7 +531,7 @@ class FitPage(Page):
                 rows.append(dict(use=bool(sh == 0), label=f"{r.label}@{r.reff:.3f}", reff=r.reff, degen=r.degen, nleg=r.nleg,
                                  amp_ratio=r.amp_ratio, N=f"{r.degen:g}", s02="s02", e0="e0", deltar=f"dr{sh + 1}",
                                  sigma2=f"ss{sh + 1}", third="", note="", dir=r.dir, file=r.file))
-            return pd.DataFrame(rows)
+            return pd.DataFrame(rows, columns=PATH_COLS)
         for k in keys:
             if tkey(k) not in self.state:
                 src = self.state.get(tkey(keys[0])) if k != keys[0] else None      # 新数据集：复制第一个数据集当前的路径表
@@ -609,6 +621,7 @@ class FitPage(Page):
                 df_ = self.state[tkey(k)].copy()
                 df_.insert(list(df_.columns).index("third") + 1 if "third" in df_.columns else len(df_.columns), "note", "")
                 self.state[tkey(k)] = df_
+            self.state[tkey(k)] = order_path_cols(self.state[tkey(k)])      # 旧草稿 / 会话里的旧列顺序
             ptab = W.Table(self.state[tkey(k)], editable=["use", "label", "N", "s02", "e0", "deltar", "sigma2", "third", "note"],
                            bools=["use"], max_height=280, click_edit=True)
             ptab.hide_cols("file")
