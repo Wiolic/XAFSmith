@@ -153,6 +153,66 @@ def copy_register_check(app, w):
         w.open_project(str(PROJ))
 
 
+def container_checks(app, w, S, P, k1, fdir):
+    """F2-1：EXAFS 拟合页是容器（快速拟合 | 精细拟合）：进入默认快速拟合、切换后状态保留；
+    路径表新列顺序；旧顺序的路径表载入后重排，且拟合所用的模型 JSON 与重排前逐字相同。"""
+    import json
+    from xafsmith.qt.pages.fitting.fit_page import PATH_COLS
+    box = P["fit"]
+    pg = box.detailed_page
+    w.go("fit")
+    say(box.mode == "quick" and box.stack.currentWidget() is box.quick_page, "进入“EXAFS 拟合”：默认快速拟合")
+    say("只拟合第一壳层" in texts(box.quick_page), "快速拟合页是占位卡片")
+    box.show_detailed()
+    say(box.stack.currentWidget() is pg and box.mode == "detailed" and box.seg.value() == "detailed", "show_detailed 切到精细拟合")
+    st = pg.state
+    st.update(multi=False, data=k1)
+    st["fdirs_" + k1] = [str(PROJ / fdir)]
+    st["_f21_marker"] = 123
+    st.pop("partab", None)
+    for k in [k for k in st if k.startswith("pathtab_")]:
+        st.pop(k)
+    pg.refresh()
+    pump(app)
+    box.show_quick()
+    say(box.stack.currentWidget() is box.quick_page, "show_quick 切回快速拟合")
+    box.show_detailed()
+    say(st.get("_f21_marker") == 123 and st.get("data") == k1, "来回切换后精细拟合状态保留")
+    w.go("data")
+    w.go("fit")
+    say(box.mode == "quick", "离开再进入：又是快速拟合")
+    box.show_detailed()
+
+    def path_tab():
+        return next((t for t in pg.findChildren(W.Table) if {"use", "sigma2", "note"} <= set(t.m.df.columns)), None)
+    pt = path_tab()
+    say(pt is not None and list(pt.m.df.columns) == PATH_COLS, "路径表列顺序：use,label,N,deltar,sigma2,e0,s02,third,note,reff,degen,nleg,amp_ratio,dir,file")
+    if pt is None:
+        return
+    key = next(k for k in st if k.startswith("pathtab_"))
+    new_df = st[key].copy()
+    n0, n = len(S.fits), len(W.ERRORS)
+    click(pg, "拟合")
+    wait(app)
+    step("新顺序路径表拟合", n)
+    m_new = S.fits[-1]["model"] if len(S.fits) == n0 + 1 else None
+    old_cols = ["file", "dir", "amp_ratio", "nleg", "degen", "reff", "note", "third", "deltar", "sigma2", "e0", "s02", "N", "label", "use"]
+    st[key] = new_df[old_cols].copy()
+    pg.refresh()
+    pump(app)
+    pt = path_tab()
+    say(pt is not None and list(pt.m.df.columns) == PATH_COLS and pt.m.df.astype(str).equals(new_df.astype(str)),
+        "旧顺序路径表载入后按新顺序重排，内容不变")
+    click(pg, "拟合")
+    wait(app)
+    m_old = S.fits[-1]["model"] if len(S.fits) == n0 + 2 else None
+    say(m_new is not None and m_old is not None and json.dumps(m_new, sort_keys=True, default=str) == json.dumps(m_old, sort_keys=True, default=str),
+        "重排前后模型 JSON 逐字相同")
+    S.fits[:] = S.fits[:n0]
+    st.pop("_f21_marker", None)
+    pg.refresh()
+
+
 def restraint_checks(app, w, S, P, k1, fdir):
     """B3：拟合页软约束表。空表 → 模型无 restraints 键；添加一行 → 拟合 → 结果区有软约束表；草稿保存再读回表内容相同。"""
     import numpy as np
@@ -1168,6 +1228,7 @@ def demo_suite(app, w, S, P):
     try:
         multi_fit_checks(app, w, S, P, "cu_metal_rt", "cu_b2copy", "output/feff/_b2test_Cu_CuK",
                          rng=dict(kmin=3, kmax=17, dk=4, win="kaiser", kws=[2], rmin=1.4, rmax=3.0, space="r"), alias=True)
+        container_checks(app, w, S, P, "cu_metal_rt", "output/feff/_b2test_Cu_CuK")
         restraint_checks(app, w, S, P, "cu_metal_rt", "output/feff/_b2test_Cu_CuK")
         sigma2_checks(app, w, S, P, "cu_metal_rt", "output/feff/_b2test_Cu_CuK")
         sigma2_dialog_checks(app, w, S, P, "cu_metal_rt", "cu_b6copy", "output/feff/_b2test_Cu_CuK")
