@@ -93,8 +93,8 @@ class FitView(QWidget):
             card.add(W.hbox(W.label(T("查看数据集", "Dataset"), "faint"), dsc,
                             W.label(T(f"R 因子 <b>{row['rfactor']:.4f}</b>　N_idp <b>{row['n_idp']:.1f}</b>　χ² 占比 <b>{row['chi2_share']:.2f}</b>"
                                       f"　（样品 {row['sample']}）",
-                                      f"R-factor <b>{row['rfactor']:.4f}</b>　N_idp <b>{row['n_idp']:.1f}</b>　χ² share <b>{row['chi2_share']:.2f}</b>"
-                                      f"　(sample {row['sample']})"), rich=True), None))
+                                      f"R-factor <b>{row['rfactor']:.4f}</b> &nbsp;·&nbsp; N_idp <b>{row['n_idp']:.1f}</b> &nbsp;·&nbsp; χ² share <b>{row['chi2_share']:.2f}</b>"
+                                      f" &nbsp;(sample {row['sample']})"), rich=True), None))
         else:
             card.add(W.metrics((T("R 因子", "R-factor"), f"{s['rfactor']:.4f}"), ("χ²_ν", f"{s['chi2_reduced']:.1f}"),
                                ("N_idp", f"{s['n_idp']:.1f}"), (T("变量数", "Variables"), s["nvarys"]),

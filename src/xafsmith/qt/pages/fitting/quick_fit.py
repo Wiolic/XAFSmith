@@ -449,7 +449,7 @@ class QuickFitPage(Page):
             res = self._res["res"]
             c4.add(Banner("ok" if batch.ok else "warn",
                           T("整批：", "Batch: ") + self._vtext(batch) + T(f"　联合 R 因子 {res.rfactor:.4f}，共享 ΔE0 = {self._ex(res.e0, res.e0_err, '.2f')} eV",
-                                                                      f"　joint R-factor {res.rfactor:.4f}, shared ΔE0 = {self._ex(res.e0, res.e0_err, '.2f')} eV")))
+                                                                      f" · joint R-factor {res.rfactor:.4f}, shared ΔE0 = {self._ex(res.e0, res.e0_err, '.2f')} eV")))
             if batch.items:
                 c4.add(self._items_box(batch.items))
         # 结果表
@@ -508,7 +508,7 @@ class QuickFitPage(Page):
         W._clear_layout(self._detail.layout())
         r, lay = rs[i], self._detail.layout()
         v = r.verdict
-        lay.addWidget(W.label(f"<b>{r.sample}</b>　" + self._vtext(v), rich=True))
+        lay.addWidget(W.label(f"<b>{r.sample}</b>" + T("　", "&nbsp;&nbsp;") + self._vtext(v), rich=True))
         lay.addWidget(self._rplot(i, r))
         lay.addWidget(self._items_box(v.items))
 
