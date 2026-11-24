@@ -382,28 +382,81 @@ def _quickfit_s02(a):
     return "sample", None, None
 
 
+def _quickfit_s02_from(a, sample, edges, s2):
+    """--s02-from：取与样品同吸收边、S0² 为拟合量的标样拟合的 S0² → (s02, s02_source)。"""
+    ek = edges.get(sample)
+    if not ek or len(ek) != 1:
+        sys.exit(f"样品 {sample} 的吸收边不唯一或不在 meta.csv / the edge of {sample} is not unique or not in meta.csv")
+    cands = [c for c in s2.list_candidates(next(iter(ek))) if c.model == a.s02_from]
+    if not cands:
+        sys.exit(f"没有同吸收边（{next(iter(ek))}）、S0² 为拟合量的标样拟合“{a.s02_from}” / no standard fit "
+                 f"“{a.s02_from}” on {next(iter(ek))} with a fitted S0²")
+    return cands[0].value, cands[0].source()
+
+
+def _quickfit_joint(a, s02, src, kw, edges, s2):
+    """≥ 2 个样品（样品模式）→ 联合快速拟合：每样品一行 + 整批判定 + 趋势表；--save 另写趋势 CSV。"""
+    from . import paths, pipeline as pl, quickfit as qf, fit_exafs as fx, report as xrep, trend as tr
+    from .common import write_params, write_text_atomic
+    try:
+        if a.s02_from:
+            s02, src = _quickfit_s02_from(a, a.samples[0], edges, s2)      # 同一边由 build_joint_model 核对
+        model = qf.build_joint_model(a.samples, a.feff, a.rmax, s02=s02, s02_source=src, rmin=a.rmin, kweight=kw,
+                                     name=(a.name or None))
+        res = qf.run(model)
+    except qf.QuickFitError as e:
+        sys.exit(f"联合拟合 / joint fit: {e}")
+    print(qf.format_joint_text(res), end="\n\n")
+    table = res.trend()
+    for n in table.attrs["seq_notes"]:
+        print("提示:", n)
+    print(f"趋势表（序列变量：{tr.SEQ_LABELS[table.attrs['seq_source']]}，来源 {table.attrs['seq_source']}）")
+    print(table.drop(columns=["seq_source"]).to_string(index=False))
+    print("\n样品 / sample | N | R (Å) | σ² (Å²) | R-factor | 判定 / verdict")
+    for r in res.samples:
+        print(f"{r.sample} | {r.n:.2f} | {r.r:.4f} | {r.sigma2:.5f} | {r.rfactor:.4f} | "
+              f"{r.verdict.summary('zh')} / {r.verdict.summary('en')}")
+    print(f"整批 / batch: ΔE0 {res.e0:.2f} eV | R-factor {res.rfactor:.4f} | {res.verdict.summary('zh')} / {res.verdict.summary('en')}")
+    if not a.save:
+        print("\n（未加 --save：只打印，未写任何文件） / (no --save: nothing written)")
+        return
+    base = pl.safe(model["name"])
+    if (paths.MODELS / f"{base}.json").exists():
+        sys.exit(f"模型 {base} 已存在，不覆盖：用 --name 换名 / model {base} already exists and is not overwritten: use --name")
+    for d in (paths.MODELS, paths.FITS, paths.FIGS):
+        d.mkdir(parents=True, exist_ok=True)
+    write_text_atomic(paths.MODELS / f"{base}.json", json.dumps(model, ensure_ascii=False, indent=2))
+    (paths.FITS / f"{base}.fit_report.txt").write_text(res.fit["report"], encoding="utf-8")
+    fx.write_result_row(res.fit["summ"], paths.FITS_CSV)
+    figs = []
+    for d in fx.normalize_model(model)["datasets"]:
+        f = paths.FIGS / f"{base}_{pl.safe(d['id'])}_fit.png"
+        xrep.plot_fit(res.fit["curves"][d["id"]], fx.dataset_view(res.fit["summ"], d["id"]), kweight=_last_kw(model["kweight"]), out=f)
+        figs.append(paths.rel(f))
+    write_params(paths.FITS / f"{base}.params.json", model, "xafsmith quickfit")
+    csv = tr.save_trend(table, base, model["name"], "xafsmith quickfit")
+    print(f"→ {paths.rel(paths.MODELS)}/{base}.json, {paths.rel(paths.FITS)}/{base}.fit_report.txt, {paths.rel(paths.FITS_CSV)}, "
+          f"{paths.rel(csv)}, {', '.join(str(f) for f in figs)}")
+
+
 def cmd_quickfit(a):
-    """快速拟合：只拟合第一壳层并给出判定；默认只打印，--save 才写 models/、拟合记录与图。"""
+    """快速拟合：只拟合第一壳层并给出判定；默认只打印，--save 才写 models/、拟合记录与图。
+    样品模式给 ≥ 2 个样品 → 联合拟合（公共窗口、共享 ΔE0、趋势表）；标样模式只能一个样品。"""
     from . import paths, pipeline as pl, quickfit as qf, fit_exafs as fx, report as xrep, s02_source as s2
     from .common import write_params, write_text_atomic
     mode, s02, src = _quickfit_s02(a)
-    if a.name and len(a.samples) > 1:
-        sys.exit("--name 只能用于一个样品 / --name is for a single sample only")
+    if mode == "standard" and len(a.samples) > 1:
+        sys.exit("标样模式只能选一个样品（联合拟合只用于样品） / standard mode takes a single sample (joint fits are for samples)")
     kw = [int(x) for x in a.kweight.split(",") if x.strip()] if a.kweight else None
     meta = pl.load_meta()
     edges = s2.sample_edges(meta)
+    if len(a.samples) >= 2:
+        return _quickfit_joint(a, s02, src, kw, edges, s2)
     results = []
     for sample in a.samples:
         try:
             if mode == "sample" and a.s02_from:
-                ek = edges.get(sample)
-                if not ek or len(ek) != 1:
-                    sys.exit(f"样品 {sample} 的吸收边不唯一或不在 meta.csv / the edge of {sample} is not unique or not in meta.csv")
-                cands = [c for c in s2.list_candidates(next(iter(ek))) if c.model == a.s02_from]
-                if not cands:
-                    sys.exit(f"没有同吸收边（{next(iter(ek))}）、S0² 为拟合量的标样拟合“{a.s02_from}” / no standard fit "
-                             f"“{a.s02_from}” on {next(iter(ek))} with a fitted S0²")
-                s02, src = cands[0].value, cands[0].source()
+                s02, src = _quickfit_s02_from(a, sample, edges, s2)
             model = qf.build_model(sample, a.feff, a.rmax, mode, s02=s02, s02_source=src, rmin=a.rmin, kweight=kw,
                                    name=(a.name or None))
             res = qf.run(model)
@@ -847,7 +900,7 @@ def build_parser():
     p.add_argument("--nosave", action="store_true", help="只打印，不写文件")
     p.set_defaults(f=cmd_fit)
     p = sp.add_parser("quickfit", help="快速拟合：只拟合第一壳层，并给出可信与否的判定（默认只打印，--save 才写文件）")
-    p.add_argument("samples", nargs="+", help="样品名（meta.csv 的 sample 列），可多个，各自独立拟合")
+    p.add_argument("samples", nargs="+", help="样品名（meta.csv 的 sample 列）；样品模式给 ≥ 2 个 = 联合拟合（公共窗口、共享 ΔE0、趋势表）；标样模式只能一个")
     p.add_argument("--feff", required=True, help="FEFF 文件夹（含 feffNNNN.dat，或其下唯一的位点文件夹）")
     p.add_argument("--rmax", type=float, default=2.5, help="Rmax (Å)，默认 2.5")
     g = p.add_mutually_exclusive_group(required=True)
@@ -856,8 +909,8 @@ def build_parser():
     g.add_argument("--s02-from", dest="s02_from", help="样品：取同吸收边、S0² 为拟合量的标样拟合（模型名）的 S0²")
     p.add_argument("--rmin", type=float, help="覆盖自动 Rmin (Å)（测试用）")
     p.add_argument("--kweight", help="覆盖 k 权重，逗号分隔，如 1,2,3（缺省 1,2,3）（测试用）")
-    p.add_argument("--name", help="模型名（缺省 QF_<样品>；只用于单个样品）")
-    p.add_argument("--save", action="store_true", help="写 models/<名>.json 并按常规保存拟合结果与图（默认不写）")
+    p.add_argument("--name", help="模型名（缺省 QF_<样品>；联合拟合缺省 QF_joint_<首>__<末>）")
+    p.add_argument("--save", action="store_true", help="写 models/<名>.json 并按常规保存拟合结果与图；联合拟合另写 output/fits/<名>_trend.csv（默认不写）")
     p.set_defaults(f=cmd_quickfit)
     p = sp.add_parser("trend", help="联合拟合序列 → 趋势表与趋势图（N、R、σ²、ΔE0、边位置）")
     p.add_argument("model"); p.add_argument("--seq-label", default=None, help="横轴标题（缺省：按序列来源）")
