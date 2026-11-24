@@ -172,6 +172,36 @@ def _shared_flags(nm):
     return out
 
 
+# ------------------------------------------------------------------ 快速拟合的第一壳层合并
+def _quickfit_rows(model, dsets, summ, seq_of, sv, e0e):
+    """带 quickfit 键的联合快速拟合模型：每个数据集只出一行“第一壳层”（路径名 “Ir–O first shell”）。
+    N = n1_<id> ± stderr，R = r_cif + dr1_<id>（误差取 dr1 的），σ² = ss1_<id>，ΔE0 = 共享的 e0。
+    模型结构与 quickfit 生成的不符（被改过：缺参数、路径数不同）→ 返回 None，调用方按原来的逐路径行处理。"""
+    qk = model.get("quickfit")
+    if not isinstance(qk, dict) or qk.get("mode") != "joint" or not isinstance(qk.get("shell"), dict):
+        return None
+    from .quickfit import joint_param_names
+    sh, P = qk["shell"], summ.get("params", {})
+    try:
+        n_members, r_cif = len(sh["members"]), float(sh["r_cif"])
+        name = f"{sh['absorber']}–{sh['scatterer']} first shell"
+    except (KeyError, TypeError, ValueError):
+        return None
+    pn = {d["id"]: joint_param_names(d["id"]) for d in dsets}
+    if "e0" not in P or any(len(d["paths"]) != n_members or not all(v in P for v in pn[d["id"]].values()) for d in dsets):
+        return None
+    rows = []
+    for d in dsets:
+        n, dr, ss = (P[pn[d["id"]][k]] for k in ("n", "dr", "ss"))
+        ne = None if (not n["vary"] or n.get("stderr") in (None, 0.0)) else float(n["stderr"])
+        rows.append(dict(dataset=d["id"], sample=d["sample"], seq=seq_of[d["id"]], seq_source=sv["source"], path=name,
+                         N=n["value"], N_err=ne, R=r_cif + dr["value"], R_err=dr.get("stderr"), sigma2=ss["value"],
+                         sigma2_err=ss.get("stderr"), dE0=P["e0"]["value"], dE0_err=P["e0"].get("stderr"),
+                         E0_edge=e0e.get(d["sample"]), shared_N=False, shared_R=False, shared_sigma2=False,
+                         shared_dE0=True))
+    return rows
+
+
 # ------------------------------------------------------------------ 趋势表
 def trend_table(summ, model, meta=None, processed=None):
     """联合拟合摘要 → 趋势表（列见 COLUMNS）。summ：summarize_multi 的结果（路径行需有 dataset）；
@@ -194,7 +224,8 @@ def trend_table(summ, model, meta=None, processed=None):
     params = summ.get("params", {})
     amp = summ.get("path_amp_err") or [None] * len(summ["paths"])
     rows, composite = [], []
-    for d in dsets:
+    qrows = _quickfit_rows(model, dsets, summ, seq_of, sv, e0e)
+    for d in (dsets if qrows is None else []):
         prs = [(r, a) for r, a in zip(summ["paths"], amp) if r.get("dataset") == d["id"]]
         specs = d["paths"] if len(d["paths"]) == len(prs) else [{}] * len(prs)      # 位置对应；不对应时不给规格
         for spec, (r, a_err) in zip(specs, prs):
@@ -209,7 +240,7 @@ def trend_table(summ, model, meta=None, processed=None):
             for col, _, _ in _SHARED:
                 row["shared_" + col] = fl.get("shared_" + col, False)
             rows.append(row)
-    df = pd.DataFrame(rows, columns=COLUMNS)
+    df = pd.DataFrame(rows if qrows is None else qrows, columns=COLUMNS)
     edge = ""
     if meta is not None and {"sample", "edge_key"} <= set(meta.columns):
         eks = sorted({str(e) for e in meta[meta["sample"].isin([d["sample"] for d in dsets])]["edge_key"] if str(e).strip()})
