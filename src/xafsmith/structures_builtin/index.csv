@@ -1,0 +1,56 @@
+name,formula,phase,space_group,a,b,c,cod_id,reference,absorbers,first_shell
+Ni,Ni,fcc,Fm-3m,3.5251,3.5251,3.5251,2100646,"Jørgensen, Jens-Erik; Smith, R. I.; Acta Crystallographica, Section B (2006)",Ni,Ni-Ni x12 2.493
+Cu,Cu,fcc,Fm-3m,3.615,3.615,3.615,9008468,"Wyckoff, R. W. G.; Crystal Structures (1963)",Cu,Cu-Cu x12 2.556
+Rh,Rh,fcc,Fm-3m,3.8031,3.8031,3.8031,9008482,"Wyckoff, R. W. G.; Crystal Structures (1963)",Rh,Rh-Rh x12 2.689
+Pd,Pd,fcc,Fm-3m,3.8898,3.8898,3.8898,9008478,"Wyckoff, R. W. G.; Crystal Structures (1963)",Pd,Pd-Pd x12 2.751
+Ag,Ag,fcc,Fm-3m,4.0862,4.0862,4.0862,9008459,"Wyckoff, R. W. G.; Crystal Structures (1963)",Ag,Ag-Ag x12 2.889
+Pt,Pt,fcc,Fm-3m,3.9231,3.9231,3.9231,9008480,"Wyckoff, R. W. G.; Crystal Structures (1963)",Pt,Pt-Pt x12 2.774
+Au,Au,fcc,Fm-3m,4.0782,4.0782,4.0782,9008463,"Wyckoff, R. W. G.; Crystal Structures (1963)",Au,Au-Au x12 2.884
+V,V,bcc,Im-3m,3.024,3.024,3.024,9008557,"Wyckoff, R. W. G.; Crystal Structures (1963)",V,V-V x8 2.619
+Cr,Cr,bcc,Im-3m,2.8839,2.8839,2.8839,9008531,"Wyckoff, R. W. G.; Crystal Structures (1963)",Cr,Cr-Cr x8 2.498
+Fe,Fe,bcc,Im-3m,2.8654,2.8654,2.8654,9006587,"Zhang, J.; Guyot, F.; Physics and Chemistry of Minerals (1999)",Fe,Fe-Fe x8 2.482
+Nb,Nb,bcc,Im-3m,3.3004,3.3004,3.3004,9008546,"Wyckoff, R. W. G.; Crystal Structures (1963)",Nb,Nb-Nb x8 2.858
+Mo,Mo,bcc,Im-3m,3.1473,3.1473,3.1473,9008543,"Wyckoff, R. W. G.; Crystal Structures (1963)",Mo,Mo-Mo x8 2.726
+W,W,bcc,Im-3m,3.1648,3.1648,3.1648,9006486,"Dubrovinsky, L. S.; Saxena, S. K.; Physics and Chemistry of Minerals (1997)",W,W-W x8 2.741
+Ti,Ti,hcp,P6_3/mmc,2.95,2.95,4.686,9008517,"Wyckoff, R. W. G.; Crystal Structures (1963)",Ti,Ti-Ti x12 2.897
+Zn,Zn,hcp,P6_3/mmc,2.6648,2.6648,4.9467,9008522,"Wyckoff, R. W. G.; Crystal Structures (1963)",Zn,Zn-Zn x6 2.665
+Zr,Zr,hcp,P6_3/mmc,3.232,3.232,5.147,9008523,"Wyckoff, R. W. G.; Crystal Structures (1963)",Zr,Zr-Zr x12 3.179
+Ru,Ru,hcp,P6_3/mmc,2.7039,2.7039,4.2817,9008513,"Wyckoff, R. W. G.; Crystal Structures (1963)",Ru,Ru-Ru x12 2.650
+Re,Re,hcp,P6_3/mmc,2.7608,2.7608,4.4582,9008512,"Wyckoff, R. W. G.; Crystal Structures (1963)",Re,Re-Re x12 2.740
+Os,Os,hcp,P6_3/mmc,2.7352,2.7352,4.319,9008510,"Wyckoff, R. W. G.; Crystal Structures (1963)",Os,Os-Os x12 2.675
+TiO2_rutile,TiO2,rutile,P4_2/mnm,4.5937,4.5937,2.9581,9009083,"Wyckoff, R. W. G.; Crystal Structures (1963)",Ti,Ti-O x6 1.946
+TiO2_anatase,TiO2,anatase,I4_1/amd,3.785,3.785,9.514,9009086,"Wyckoff, R. W. G.; Crystal Structures (1963)",Ti,Ti-O x6 1.937
+V2O5,V2O5,orthorhombic,Pmmn,11.512,3.564,4.368,2020756,"Enjalbert, Renee; Galy, Jean; Acta Crystallographica, Section C: Crystal Structure Communications (1986)",V,V-O x1 1.576
+Cr2O3,Cr2O3,corundum,R-3c,4.957,4.957,13.5923,9014036,"Sawada, H.; Materials Research Bulletin (1994)",Cr,Cr-O x6 1.965
+MnO,MnO,rocksalt,Fm-3m,4.4448,4.4448,4.4448,9008674,"Wyckoff, R. W. G.; Crystal Structures (1963)",Mn,Mn-O x6 2.222
+Mn2O3,Mn2O3,bixbyite,Ia-3,9.4146,9.4146,9.4146,2105791,"Geller, S.; Acta Crystallographica, Section B: Structural Crystallography and Crystal Chemistry (1971)",Mn,Mn-O x6 2.003
+MnO2,MnO2,pyrolusite,P4_2/mnm,4.396,4.396,2.871,9009081,"Wyckoff, R. W. G.; Crystal Structures (1963)",Mn,Mn-O x6 1.877
+Mn3O4,Mn3O4,hausmannite,I4_1/amd,5.765,5.765,9.442,1514115,"Jarosch, D.; Mineralogy and Petrology (1987)",Mn,Mn-O x4 2.040
+FeO,FeO,wüstite,Fm-3m,4.3108,4.3108,4.3108,9008636,"Wyckoff, R. W. G.; Crystal Structures (1963)",Fe,Fe-O x6 2.155
+Fe2O3,Fe2O3,hematite,R-3c,5.038,5.038,13.772,9000139,"Blake, R. L.; Hessevick, R. E.; Zoltai, T.; Finger, L. W.; American Mineralogist (1966)",Fe,Fe-O x3 1.946
+Fe3O4,Fe3O4,magnetite,Fd-3m,8.3949,8.3949,8.3949,9005836,"Nakagiri, N.; Manghnani, M. H.; Ming, L. C.; Kimura, S.; Physics and Chemistry of Minerals (1986)",Fe,Fe-O x4 1.889
+NiO,NiO,rocksalt,Fm-3m,4.1684,4.1684,4.1684,9008693,"Wyckoff, R. W. G.; Crystal Structures (1963)",Ni,Ni-O x6 2.084
+CuO,CuO,tenorite,C2/c,4.653,3.41,5.108,9008961,"Wyckoff, R. W. G.; Crystal Structures (1963)",Cu,Cu-O x4 1.947
+Cu2O,Cu2O,cuprite,Pn-3m,4.258,4.258,4.258,1010963,"Yamaguti, T; Proceedings of the Physico-Mathematical Society of Japan (1938)",Cu,Cu-O x2 1.844
+ZnO,ZnO,wurtzite,P6_3mc,3.2494,3.2494,5.2038,9004178,"Kihara, K.; Donnay, G.; The Canadian Mineralogist (1985)",Zn,Zn-O x4 1.974
+ZrO2,ZrO2,baddeleyite,P2_1/c,5.1477,5.2096,5.3164,2300296,"Suzuki-Muresan, T.; Deniard, P.; Gautron, E.; Petříček, V.; ; Journal of Applied Crystallography (2010)",Zr,Zr-O x3 2.037
+MoO2,MoO2,monoclinic,P2_1/c,5.584,4.842,5.608,9009090,"Wyckoff, R. W. G.; Crystal Structures (1963)",Mo,Mo-O x4 1.939
+MoO3,MoO3,orthorhombic,Pnma,3.9616,13.856,3.6978,9009669,"Sitepu, H.; O'Connor B H; Li, D.; Journal of Applied Crystallography (2005)",Mo,Mo-O x1 1.692
+RuO2,RuO2,rutile,P4_2/mnm,4.4919,4.4919,3.1066,1548818,"Zhao, Qing; Kulik, Heather J.; Journal of Chemical Theory and Computation (2018)",Ru,Ru-O x6 1.943
+PdO,PdO,tetragonal,P4_2/mmc,3.03,3.03,5.33,1009031,"Waser, J.; Levy, H. A.; Peterson, S. W.; Acta Crystallographica (1953)",Pd,Pd-O x4 2.018
+Ag2O,Ag2O,cuprite-type,Pn-3m,4.7306,4.7306,4.7306,4318188,P. Norby; R. Dinnebier; A. N. Fitch; Inorganic Chemistry (2002),Ag,Ag-O x2 2.048
+SnO2,SnO2,rutile,P4_2/mnm,4.7373,4.7373,3.1864,9009082,"Wyckoff, R. W. G.; Crystal Structures (1963)",Sn,Sn-O x6 2.052
+CeO2,CeO2,fluorite,Fm-3m,5.411,5.411,5.411,9009008,"Wyckoff, R. W. G.; Crystal Structures (1963)",Ce,Ce-O x8 2.343
+WO3,WO3,monoclinic,P2_1/c,7.688,7.539,10.515,2311041,"Loopstra, B.O.; Boldrini, P.; Acta Crystallographica (1,1948-23,1967) (1966)",W,W-O x2 1.715
+In2O3,In2O3,bixbyite,Ia-3,10.117,10.117,10.117,2310009,"Marezio, M.; Acta Crystallographica (1966)",In,In-O x6 2.161
+GeO2,GeO2,rutile,P4_2/mnm,4.395,4.395,2.859,9009080,"Wyckoff, R. W. G.; Crystal Structures (1963)",Ge,Ge-O x6 1.866
+ZnS,ZnS,sphalerite,F-43m,5.4093,5.4093,5.4093,9000107,"Skinner, B. J.; American Mineralogist (1961)",Zn,Zn-S x4 2.342
+MoS2,MoS2,2H,P6_3/mmc,3.169,3.169,12.324,1531960,"Petkov, V.; Billinge, S.J.L.; Larson, P.; Mahanti, S.D.; Ran; Physical Review, Serie 3. B - Condensed Matter (18,1978-) (2002)",Mo,Mo-S x6 2.408
+FeS2,FeS2,pyrite,Pa-3,5.417,5.417,5.417,1544891,"Fujii, T.; Yoshida, A.; Tanaka, K.; Marumo, F.; Noda, Y.; Mineralogical Journal (1986)",Fe,Fe-S x6 2.264
+SrTiO3,SrTiO3,perovskite,Pm-3m,3.9053,3.9053,3.9053,9006864,"Mitchell, R. H.; Chakhmouradian, A. R.; Woodward, P. M.; Physics and Chemistry of Minerals (2000)",Ti Sr,Ti-O x6 1.953; Sr-O x12 2.761
+LiCoO2,LiCoO2,layered,R-3m,2.815,2.815,14.0516,4505482,"Lin, Qiyin; Li, Qing’an; Gray, Kenneth E.; Mitchell, John F.; Crystal Growth & Design (2012)",Co,Co-O x6 1.922
+BaTiO3,BaTiO3,tetragonal,P4mm,3.9915,3.9915,4.025,1525437,"Waesche, R.; Denner, W.; Schulz, H.; Materials Research Bulletin (1981)",Ti Ba,Ti-O x1 1.884; Ba-O x8 2.775
+LiFePO4,LiFePO4,olivine,Pnma,10.227,6.0048,4.6918,7222394,"Garcia-Moreno, O.; Gallardo Amores, J.M.; Alvarez-Vega, M.; ; Journal of Materials Chemistry (2001)",Fe,Fe-O x3 1.979
+ZnFe2O4,Zn(FeO2)2,spinel,Fd-3m,8.4412,8.4412,8.4412,9006893,"Levy, D.; Pavese, A.; Hanfland, M.; Physics and Chemistry of Minerals (2000)",Fe Zn,Fe-O x6 2.026; Zn-O x4 1.981
+Co_OH2,CoO2,brucite-type,P-3m1,3.173,3.173,4.64,9009101,"Wyckoff, R. W. G.; Crystal Structures (1963)",Co,Co-O x6 2.097
+Ni_OH2,NiO2,brucite-type,P-3m1,3.117,3.117,4.595,9009112,"Wyckoff, R. W. G.; Crystal Structures (1963)",Ni,Ni-O x6 2.135
