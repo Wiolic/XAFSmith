@@ -81,6 +81,17 @@ def test_auto_rmin_without_minimum_uses_1():
     assert qf.auto_rmin(R, mag, 2.5) == (1.0, pytest.approx(1.6, abs=0.021))
 
 
+def test_auto_rmin_minimum_far_below_peak_is_clamped():
+    mag = 3 * _peak(1.5) + 0.8 * _peak(0.5, 0.02) + 0.02 * (R - 0.74) ** 2        # 谷在 ≈ 0.74 Å，离峰 0.76 Å
+    rmin, rp = qf.auto_rmin(R, mag, 2.5)
+    assert rp == pytest.approx(1.5, abs=0.021) and rmin == pytest.approx(rp - qf.RMIN_BELOW_PEAK)
+
+
+def test_first_shell_site_labels_are_reduced_to_elements():
+    s = qf.first_shell(table(("Ta1-O1", 1.98, 4), ("Ta1-O2", 2.01, 2), ("Ta1-K1", 3.4, 8)))
+    assert (s.absorber, s.scatterer, s.n_ref) == ("Ta", "O", 6) and not s.other_elements
+
+
 def test_auto_rmin_peak_search_limited_to_rmax():
     mag = _peak(1.6) + 2 * _peak(3.5)
     assert qf.auto_rmin(R, mag, 2.5)[1] == pytest.approx(1.6, abs=0.021)

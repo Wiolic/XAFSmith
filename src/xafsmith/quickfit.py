@@ -11,6 +11,7 @@ from __future__ import annotations
 import copy
 import html
 import math
+import re
 from datetime import datetime
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -22,6 +23,7 @@ from . import fitcheck
 # ---------------------------------------------------------------- 阈值（设计：quick-fit-f2.md；不得放宽）
 SHELL_GAP = 0.3         # Å：同一壳层内相邻路径的 Reff 间隔上限；≥ 此值（或异种元素）即另一壳层（≈ EXAFS 分辨率量级，与 GLOSSARY 的“第一壳层”一致）
 RMIN_LO = 0.7           # Å：自动 Rmin 的搜索下端（低于它是 FT 低 R 的背景残余）
+RMIN_BELOW_PEAK = 0.6   # Å：Rmin 不低于 R_p − 0.6（第一峰低 R 侧半宽约 0.4–0.5 Å；再往下是背景残余，Opus 2026-11-24 定）
 RMIN_DEFAULT = 1.0      # Å：|χ(R)| 在 0.7 Å 到第一峰之间没有极小时的 Rmin；同时是第一峰搜索下端
 RMAX_DEFAULT = 2.5      # Å：用户未给时的 Rmax
 PEAK_KWEIGHT = 2        # 自动 Rmin / Rmax 检查用的 |χ(R)| 的 k 权重（k² 为处理默认；f2 简报未指定，见交接说明）
@@ -56,10 +58,19 @@ class FirstShell:
         return [m["file"] for m in self.members]
 
 
+_EL = re.compile(r"[A-Z][a-z]?")
+
+
+def _el(s):
+    """label 片段 → 元素符号（去掉位点编号、括号等：'O1'、'O(2)' → 'O'）；读不出 → None。"""
+    m = _EL.match(str(s).strip())
+    return m.group(0) if m else None
+
+
 def _ends(label):
-    """单散射路径 label 'A-B' → (吸收元素, 散射元素)。"""
+    """单散射路径 label 'A-B' → (吸收元素, 散射元素)，只取元素符号。"""
     parts = str(label).split("-")
-    return (parts[0], parts[1]) if len(parts) >= 2 else (None, None)
+    return (_el(parts[0]), _el(parts[1])) if len(parts) >= 2 else (None, None)
 
 
 def first_shell(paths_df) -> FirstShell:
@@ -102,14 +113,15 @@ def peak_stats(r, chir_mag, rmax):
 
 def auto_rmin(r, chir_mag, rmax):
     """(Rmin, R_p)。R_p = |χ(R)| 在 [1.0 Å, rmax] 内最大值所在的 R；在 [0.7 Å, R_p] 找最小值，
-    最小值落在 0.7 Å 端点（该范围内无极小，|χ(R)| 单调上升）或不在 R_p 之前 → Rmin = 1.0 Å。"""
+    最小值落在 0.7 Å 端点（该范围内无极小，|χ(R)| 单调上升）或不在 R_p 之前 → Rmin = 1.0 Å；
+    找到的极小低于 R_p − RMIN_BELOW_PEAK → 取 R_p − RMIN_BELOW_PEAK。"""
     r, m = np.asarray(r, float), np.asarray(chir_mag, float)
     r_p, _, _ = peak_stats(r, m, rmax)
     idx = np.flatnonzero((r >= RMIN_LO) & (r <= r_p))
     i = idx[int(np.argmin(m[idx]))]
     if i == idx[0] or r[i] >= r_p:
         return RMIN_DEFAULT, r_p
-    return float(r[i]), r_p
+    return max(float(r[i]), round(r_p - RMIN_BELOW_PEAK, 4)), r_p
 
 
 # ---------------------------------------------------------------- 建模型
