@@ -453,6 +453,16 @@ def quickfit_checks(app, w):
         say(len(S.fits) == n0 + 1 and r.mode == "sample" and r.model["s02_source"]["model"] == base and 0 < r.n < 20,
             f"样品拟合：N = {r.n:.2f}，s02_source 记录来源")
         say(len(q.findChildren(W.Plot)) == 1 and not q._b_fig.isEnabled() and q._b_det.isEnabled(), "单样品：只有 R 空间图，“去图片导出”不可用")
+        # G3：导出汇报包（未保存的拟合也能导出；文件齐全、HTML 引用的图都在）
+        n0, n = len(W.ERRORS), len(W.ERRORS)
+        q._b_rep.click()
+        wait(app)
+        rep_dirs = sorted((td / "output" / "reports").glob(f"{r.model['name']}_*"))
+        names_ = {f.name for f in rep_dirs[-1].iterdir()} if rep_dirs else set()
+        say(bool(rep_dirs) and {"参数表.csv", "判定.txt", "方法.md", "报告.html", "cu_metal_rt_chiR.png", "cu_metal_rt_chik.png"} <= names_
+            and "汇报包" in texts(q) and len(W.ERRORS) == n0, f"G3 导出汇报包：{sorted(names_)}")
+        imgs_ = _re.findall(r"<img src='([^']+)'", (rep_dirs[-1] / "报告.html").read_text(encoding="utf-8")) if rep_dirs else []
+        say(bool(imgs_) and all((rep_dirs[-1] / i_).is_file() for i_ in imgs_), "G3 报告.html 引用的图都存在")
         pubfig_overlay_check(app, w, r.fit, ["cu_metal_rt"], "快速拟合（单样品）")
         # G1：判定里未通过的条目后面跟操作按钮（构造 fail 条目，不改拟合结果）
         from xafsmith.quickfit import VerdictItem
