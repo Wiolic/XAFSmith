@@ -21,7 +21,7 @@ from ...widgets import T, Banner, Card, Page
 
 # ---------------------------------------------------------------- 后台任务（须在界面线程调用，返回无控件引用的函数）
 def quick_job(S, samples, feff, rmax, mode, s02, src, name=None):
-    """快速拟合的后台任务。样品的谱在这里深拷贝（会话里已有 χ(k) 的用会话的，与精细拟合一致），其余在后台线程现建。
+    """快速拟合的后台任务。样品的谱在这里深拷贝（取会话里已有 χ(k) 的，与精细拟合一致）；会话里没有的（仅命令行 / 兜底）在后台线程现建。
     返回 work(progress) → dict(kind="single"|"joint", res, table)；res 是 QuickResult 或 JointResult。"""
     from xafsmith import pipeline as pl
     snap = {s: copy.deepcopy(S.groups[s]) for s in samples if s in S.groups and has_chi(S.groups[s])}
@@ -102,11 +102,8 @@ class QuickFitPage(Page):
 
     # ------------------------------------------------------------ 数据
     def _samples_available(self):
-        from xafsmith import pipeline as pl
-        if not paths.META.exists():
-            return []
-        m = pl.load_meta()
-        return list(dict.fromkeys(m[m["use"] != "0"]["sample"]))
+        """可拟合的样品 = 当前会话已载入并算出 χ(k) 的谱（与精细拟合同一规则）"""
+        return [k for k, g in self.S.groups.items() if has_chi(g)]
 
     def _edge_of(self, samples):
         return s2.edge_of_samples(samples) if samples else None
@@ -132,8 +129,8 @@ class QuickFitPage(Page):
         samples = self._samples_available()
         dirs = feff_dirs()
         if not samples or not dirs:
-            self.add(Banner("info", T("需要：已登记的样品（data/meta.csv）与 FEFF 计算（FEFF 路径）。",
-                                      "Needs registered samples (data/meta.csv) and a FEFF calculation (FEFF paths).")))
+            self.add(Banner("info", T("需要：已载入并算出 χ(k) 的数据（载入谱 / χ(k) 与 FT）与 FEFF 计算（FEFF 路径）。",
+                                      "Needs data with χ(k) (Load spectra / χ(k) & FT) and a FEFF calculation (FEFF paths).")))
             self._sel = None
             return
         # ① 样品与 FEFF

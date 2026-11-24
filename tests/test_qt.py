@@ -237,7 +237,17 @@ def quickfit_checks(app, w):
         S, P = w.S, w.pages
         box = P["fit"]
         q, det = box.quick_page, box.detailed_page
+        from xafsmith import pipeline as pl
         w.go("fit")
+        say("已载入并算出 χ(k)" in texts(q), "F2-6 ① 会话里没有载入样品：提示去载入（不列 meta.csv 的样品）")
+        S.groups["cu_metal_rt"] = pl.build_sample("cu_metal_rt")[0]
+        S.emit("groups")
+        w.go("fit")
+        say(q._smp.opts == ["cu_metal_rt"], f"F2-6 ① 快速拟合样品列表 = 会话已载入样品（只有 cu_metal_rt，meta.csv 里还有 cu_rt01）：{q._smp.opts}")
+        S.groups["cu_rt01"] = pl.build_sample("cu_rt01")[0]
+        S.emit("groups")
+        w.go("fit")
+        say(q._smp.opts == list(S.groups) and "cu_rt01" in q._smp.opts, "F2-6 ① 载入第二个样品后列表刷新")
         say(box.mode == "quick", "快速拟合：进入页默认快速拟合")
         feff = next(d for d in q._feff._vals if d.name == Path(fdir).name)
         q._feff.setCurrentIndex(q._feff._vals.index(feff))
