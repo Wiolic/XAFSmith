@@ -394,6 +394,14 @@ def _quickfit_s02_from(a, sample, edges, s2):
     return cands[0].value, cands[0].source()
 
 
+def _quickfit_report(res, table=None):
+    """--report：把这次快速拟合写成汇报包（output/reports/<模型名>_<时间>/；与界面“导出汇报包”同一函数）"""
+    from . import quickfit_report as qr
+    d = qr.default_dir(res)
+    page = qr.write(res, d, lang="zh", table=table)
+    print(f"→ 汇报包 / report: {page.parent}")
+
+
 def _quickfit_joint(a, s02, src, kw, edges, s2):
     """≥ 2 个样品（样品模式）→ 联合快速拟合：每样品一行 + 整批判定 + 趋势表；--save 另写趋势 CSV。"""
     from . import paths, pipeline as pl, quickfit as qf, fit_exafs as fx, report as xrep, trend as tr
@@ -424,8 +432,10 @@ def _quickfit_joint(a, s02, src, kw, edges, s2):
         print(f"{r.sample} | {r.n:.2f} | {r.r:.4f} | {r.sigma2:.5f} | {p2}{r.rfactor:.4f} | "
               f"{r.verdict.summary('zh')} / {r.verdict.summary('en')}")
     print(f"整批 / batch: ΔE0 {res.e0:.2f} eV | R-factor {res.rfactor:.4f} | {res.verdict.summary('zh')} / {res.verdict.summary('en')}")
+    if a.report:
+        _quickfit_report(res, table)
     if not a.save:
-        print("\n（未加 --save：只打印，未写任何文件） / (no --save: nothing written)")
+        print("\n（未加 --save：只打印，未写任何文件） / (no --save: nothing written)" + ("（--report 的汇报包除外）" if a.report else ""))
         return
     base = pl.safe(model["name"])
     if (paths.MODELS / f"{base}.json").exists():
@@ -477,8 +487,11 @@ def cmd_quickfit(a):
         p2 = f"{r.phase2['n']:.2f} | {r.phase2['r']:.4f} | {r.phase2['sigma2']:.5f} | " if r.phase2 else ""
         print(f"{r.sample} | {r.n:.2f} | {r.r:.4f} | {r.sigma2:.5f} | {p2}{r.e0:.2f} | {r.s02:.3f} | {r.rfactor:.4f} | "
               f"{r.verdict.summary('zh')} / {r.verdict.summary('en')}")
+    if a.report:
+        for r in results:
+            _quickfit_report(r)
     if not a.save:
-        print("\n（未加 --save：只打印，未写任何文件） / (no --save: nothing written)")
+        print("\n（未加 --save：只打印，未写任何文件） / (no --save: nothing written)" + ("（--report 的汇报包除外）" if a.report else ""))
         return
     for r in results:
         base = pl.safe(r.model["name"])
@@ -922,6 +935,7 @@ def build_parser():
     p.add_argument("--kweight", help="覆盖 k 权重，逗号分隔，如 1,2,3（缺省 1,2,3）（测试用）")
     p.add_argument("--name", help="模型名（缺省 QF_<样品>；联合拟合缺省 QF_joint_<首>__<末>）")
     p.add_argument("--save", action="store_true", help="写 models/<名>.json 并按常规保存拟合结果与图；联合拟合另写 output/fits/<名>_trend.csv（默认不写）")
+    p.add_argument("--report", action="store_true", help="另写“汇报包”到 output/reports/<模型名>_<时间>/：每样品的 |χ(R)| 与 k²χ(k) 图、参数表.csv、判定.txt、方法.md、报告.html（联合拟合另有趋势图）；不需要 --save")
     p.set_defaults(f=cmd_quickfit)
     p = sp.add_parser("trend", help="联合拟合序列 → 趋势表与趋势图（N、R、σ²、ΔE0、边位置）")
     p.add_argument("model"); p.add_argument("--seq-label", default=None, help="横轴标题（缺省：按序列来源）")
