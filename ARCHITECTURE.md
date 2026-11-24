@@ -18,6 +18,7 @@ This document is for developers and for AI assistants that change the code. For 
             │ wavelet │ feff_wrap │ fit_exafs │ fit_lcf │ xanes │      │  ← computation, no Qt
             │ mut_planner │ report / pubfig / summary / methods_text  │
             │ trend │ seqtools │ msbind │ sigma2 │ origin_export      │
+            │ quickfit │ fitcheck │ s02_source                         │
             ├────────────────────────────────────────────────────────┤
             │ paths │ schema │ logs │ tasks │ update │ about           │  ← infrastructure
             └─────────────┬──────────────────────────────────────────┘
@@ -81,7 +82,7 @@ wizard, `readers/wizard.py`) are stored in `xafsmith.json` → `formats`. Design
 | `session.py` | session snapshot (`output/gui/session.json`) and named fit drafts (`output/gui/drafts/`) |
 | `pages/project.py` | home / project page |
 | `pages/process/` | load, QC, calibration, normalization, χ(k)/FT, wavelet |
-| `pages/fitting/` | FEFF, fit page, fit view (quality / diagnostics / robustness), history, LCF, XANES |
+| `pages/fitting/` | FEFF; the “EXAFS fitting” container `fit_container.py` with Quick fit (`quick_fit.py`) and Detailed fit (`fit_page.py`); fit view (quality / diagnostics / robustness), trend view, history, LCF, XANES |
 | `pages/output.py` | figures, Origin, reports, methods text |
 | `widgets/` | shared widgets (`T()` bilingual text, tables, plots, prose/help, background tasks) |
 | `help.py` | help window (guides, about, diagnostics, updates) |
@@ -156,7 +157,8 @@ Test data are public only (`tests/data/demo_project/SOURCES.md` records source a
 |---|---|
 | new data format | `readers/base.py`, `readers/formats.py`, `docs/dev/io_readers.md` |
 | processing parameters / validation | `pipeline.py`, `schema.py`, `docs/数据标准.md` |
-| fitting | `fit_exafs.py`, `qt/pages/fitting/fit_page.py`, `docs/XAFS处理规范.md` |
-| joint-fit series (trend table, trend figure, σ² independence, tick sync) | `trend.py` (no Qt: seq variable, N_err rule, shared flags), `seqtools.py`, `pubfig.trend`, `origin_export._errorbar_parts`, `qt/pages/fitting/trend_view.py`, `docs/数据标准.md` |
+| fitting (Detailed fit) | `fit_exafs.py`, `qt/pages/fitting/fit_page.py`, `docs/XAFS处理规范.md` |
+| Quick fit (first shell, joint, mixed phase, verdict) | `quickfit.py` (no Qt: first shell, automatic Rmin, model building, verdict thresholds as module constants), `fitcheck.py` (quality checks shared with Detailed fit), `s02_source.py` (standard-fit S0² candidates), `qt/pages/fitting/quick_fit.py`, `GLOSSARY.md`, `docs/adr/0001-*` |
+| joint-fit series (trend table, trend figure, user trend order, σ² independence, tick sync) | `trend.py` (no Qt: seq variable, N_err rule, shared flags, quick-fit first-shell rows, user order), `seqtools.py`, `pubfig.trend`, `origin_export._errorbar_parts`, `qt/pages/fitting/trend_view.py`, `docs/数据标准.md` |
 | a GUI page | `qt/app.py` (navigation), the page module, `qt/widgets/` |
 | release | `packaging/`, `.github/workflows/release.yml`, `docs/dev/RELEASING.md` |
