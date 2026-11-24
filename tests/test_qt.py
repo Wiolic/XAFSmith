@@ -454,6 +454,21 @@ def quickfit_checks(app, w):
             f"样品拟合：N = {r.n:.2f}，s02_source 记录来源")
         say(len(q.findChildren(W.Plot)) == 1 and not q._b_fig.isEnabled() and q._b_det.isEnabled(), "单样品：只有 R 空间图，“去图片导出”不可用")
         pubfig_overlay_check(app, w, r.fit, ["cu_metal_rt"], "快速拟合（单样品）")
+        # G1：判定里未通过的条目后面跟操作按钮（构造 fail 条目，不改拟合结果）
+        from xafsmith.quickfit import VerdictItem
+        rm_now, rc_now = q._ctx()
+        box_ = q._items_box([VerdictItem("fail", "rmax_leak", "x", "x"), VerdictItem("fail", "r_cif", "x", "x"),
+                             VerdictItem("fail", "e0", "x", "x"), VerdictItem("fail", "n_ratio", "x", "x"),
+                             VerdictItem("fail", "noise", "x", "x"), VerdictItem("note", "manual_s02", "x", "x")])
+        btn = [b.text() for b in box_.findChildren(W.QPushButton)] if hasattr(W, "QPushButton") else               [b.text() for b in box_.findChildren(__import__("PySide6.QtWidgets", fromlist=["QPushButton"]).QPushButton)]
+        want_rm = f"{round(rm_now - 0.2, 2):g}"
+        say(any(want_rm in t and "Rmax" in t for t in btn) == (round(rm_now - 0.2, 2) >= rc_now)
+            and sum("结构" in t for t in btn) + sum("structure" in t for t in btn) == 2
+            and len(btn) == (6 if round(rm_now - 0.2, 2) >= rc_now else 5),
+            f"G1 判定按钮：{btn}")
+        q._rmax.setValue(3.0)
+        q._change_structure()
+        say(True, "G1 换结构：滚动并聚焦 FEFF 下拉不报错")
         w.go("fit")
         # 在精细拟合中继续
         fit = r.fit
