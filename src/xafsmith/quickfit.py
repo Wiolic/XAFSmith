@@ -37,6 +37,7 @@ DR_INIT, DR_RANGE = 0.0, (-0.5, 0.5)
 SS_INIT, SS_RANGE = 0.003, (0.0, 0.05)
 S02_INIT, S02_RANGE = 0.85, (0.3, 1.5)
 N_MAX_FACTOR = 2.0      # 样品模式 N 的范围 [0, 2·N_ref]
+MIN_K_SPAN = 6.0        # Å⁻¹：联合拟合公共 k 窗的最小宽度（再窄则 N_idp 太少，与 σ²、N 难以分开）
 
 
 class QuickFitError(ValueError):
@@ -227,7 +228,18 @@ def build_model(sample, feff_dir, rmax=RMAX_DEFAULT, mode="sample", s02=None, s0
                  norm=dict(c["norm"]), bkg=dict(c["bkg"]))
     if mode == "sample":
         model["s02_source"] = dict(s02_source) if s02_source else dict(manual=True, value=float(s02))
+    model["quickfit"] = quickfit_key(mode, shell, root)
     return model
+
+
+def quickfit_key(mode, shell, root, windows=None) -> dict:
+    """模型里的说明键 quickfit（计算忽略）：mode ∈ standard / sample / joint；shell = 第一壳层（趋势表用 r_cif 与 n_ref）。
+    windows（联合）：{数据集 id: 该样品自己的处理 k 窗}，判定里据此提示 dk / 窗函数不一致。"""
+    k = dict(mode=mode, shell=dict(absorber=shell.absorber, scatterer=shell.scatterer, n_ref=shell.n_ref,
+                                   r_cif=shell.r_cif, members=[dict(m, file=_rel_file(m["file"], root)) for m in shell.members]))
+    if windows:
+        k["windows"] = windows
+    return k
 
 
 # ---------------------------------------------------------------- 判定
@@ -292,18 +304,10 @@ ADVICE = {
 }
 
 
-def verdict(fit, shell, mode, rmax, peak_amp=None, amp_at_rmax=None, s02_source=None) -> Verdict:
-    """fit：run_model 同形的拟合记录（summ / model / result）；shell：FirstShell；mode：standard / sample。
-    peak_amp、amp_at_rmax：|χ(R)| 的第一峰高与 Rmax 处的值（缺省则不做窗口检查）。
-    条目：fitcheck 各项（变量数用 Stern 准则）+ R 与 CIF 之差、样品 N / N_ref、Rmax 处残余；
-    手动 S0² 与第一层有异种元素只作 note，不判失败。"""
+def _shell_items(rows, n, shell, mode, rmax, peak_amp, amp_at_rmax):
+    """第一壳层专有的三项检查（单样品与联合的每个样品共用）：R 与结构之差、N / N_ref（样品模式，n 为拟合 N）、Rmax 处残余。
+    rows：该样品的路径行（与 shell.members 同序）。"""
     items = []
-    for c in fitcheck.fit_checks(fit, None, stern=True, robust_hint=False):
-        lvl = "note" if c.ok is None else ("pass" if c.ok else "fail")
-        a = ADVICE.get(c.code, ("", "")) if lvl == "fail" else ("", "")
-        items.append(VerdictItem(lvl, c.code, c.zh, c.en, *a))
-    summ = fit["summ"]
-    rows = summ["paths"]
     r_fit = sum(m["degen"] * p["R"] for m, p in zip(shell.members, rows)) / shell.n_ref
     d = abs(r_fit - shell.r_cif)
     ok = d <= R_CIF_TOL
@@ -314,7 +318,6 @@ def verdict(fit, shell, mode, rmax, peak_amp=None, amp_at_rmax=None, s02_source=
                              + (f" (within {R_CIF_TOL} Å)" if ok else f": beyond {R_CIF_TOL} Å"),
                              *(("", "") if ok else ADVICE["r_cif"])))
     if mode == "sample":
-        n = summ["params"]["n1"]["value"]
         ok = n <= N_RATIO_MAX * shell.n_ref
         items.append(VerdictItem("pass" if ok else "fail", "n_ratio",
                                  f"N = {n:.2f}，结构值 {shell.n_ref:g}（{n / shell.n_ref:.2f} 倍）"
@@ -331,6 +334,22 @@ def verdict(fit, shell, mode, rmax, peak_amp=None, amp_at_rmax=None, s02_source=
                                  f"|χ(R)| at Rmax = {rmax:g} Å is {frac * 100:.0f}% of the first peak"
                                  + ("" if ok else f": beyond {RMAX_LEAK * 100:.0f}%; the window may cut into the second shell"),
                                  *(("", "") if ok else ADVICE["rmax_leak"])))
+    return items
+
+
+def verdict(fit, shell, mode, rmax, peak_amp=None, amp_at_rmax=None, s02_source=None) -> Verdict:
+    """fit：run_model 同形的拟合记录（summ / model / result）；shell：FirstShell；mode：standard / sample。
+    peak_amp、amp_at_rmax：|χ(R)| 的第一峰高与 Rmax 处的值（缺省则不做窗口检查）。
+    条目：fitcheck 各项（变量数用 Stern 准则）+ R 与 CIF 之差、样品 N / N_ref、Rmax 处残余；
+    手动 S0² 与第一层有异种元素只作 note，不判失败。"""
+    items = []
+    for c in fitcheck.fit_checks(fit, None, stern=True, robust_hint=False):
+        lvl = "note" if c.ok is None else ("pass" if c.ok else "fail")
+        a = ADVICE.get(c.code, ("", "")) if lvl == "fail" else ("", "")
+        items.append(VerdictItem(lvl, c.code, c.zh, c.en, *a))
+    summ = fit["summ"]
+    n = summ["params"]["n1"]["value"] if mode == "sample" else None
+    items += _shell_items(summ["paths"], n, shell, mode, rmax, peak_amp, amp_at_rmax)
     if mode == "sample" and (s02_source or {}).get("manual"):
         items.append(VerdictItem("note", "manual_s02", f"手动 S0² = {s02_source['value']:g}，没有标样依据",
                                  f"Manual S0² = {s02_source['value']:g}, no standard behind it"))
@@ -375,19 +394,23 @@ def shell_of_model(model, root=None) -> FirstShell:
     from . import paths
     from .feff_wrap import list_paths
     root = Path(root) if root else paths.ROOT
-    f = Path(model["paths"][0]["file"])
+    blocks = [d["paths"] for d in model["datasets"]] if "datasets" in model else [model["paths"]]
+    f = Path(blocks[0][0]["file"])
     f = f if f.is_absolute() else root / f
     sh = first_shell(list_paths(f.parent))
-    want = [Path(p["file"]).name for p in model["paths"]]
-    if [Path(x).name for x in sh.files] != want:
+    want = [Path(x).name for x in sh.files]
+    if any([Path(p["file"]).name for p in b] != want for b in blocks):
         raise QuickFitError("模型的路径不是该 FEFF 文件夹的第一壳层（模型被改过？），请在精细拟合里查看 / "
                             "the model paths are not the first shell of their FEFF folder (edited?); open it in Detailed fit")
     return sh
 
 
 def run(model, group=None, root=None) -> QuickResult:
-    """拟合并判定。group：该样品已处理的谱（缺省现建）；不保存任何文件（调用方决定，fit 记录可进会话历史）。"""
+    """拟合并判定。group：该样品已处理的谱（缺省现建）；不保存任何文件（调用方决定，fit 记录可进会话历史）。
+    联合模型（有 datasets）→ 转 run_joint（group 此时是 {数据集 id: 谱}），返回 JointResult。"""
     from . import fit_exafs as fx, pipeline as pl
+    if "datasets" in model:
+        return run_joint(model, group, root)
     sample = model["sample"]
     g = group if group is not None else pl.build_sample(sample)[0]
     shell = shell_of_model(model, root)
@@ -433,4 +456,291 @@ def format_text(res: QuickResult, lang="zh") -> str:
         L.append(f"  {mark[i.level]} " + html.unescape(i.zh if zh else i.en))
         if i.level == "fail" and (i.advice_zh if zh else i.advice_en):
             L.append("      → " + (i.advice_zh if zh else i.advice_en))
+    return "\n".join(L)
+
+
+# ================================================================ 联合快速拟合
+# 选 ≥ 2 个样品（样品用途）→ 一个联合模型：S0² 固定；ΔE0（e0）全批共享；每个样品各自 n1_<id>、dr1_<id>、ss1_<id>。
+# 窗口全批统一：k 窗 = 各样品处理设置的交集，Rmin = 各样品自动 Rmin 的最大值，Rmax 用户给。
+# Joint quick fit: one model for ≥ 2 samples; S0² fixed, one shared ΔE0, per-sample N / ΔR / σ²; one common k window
+# (intersection of the processing windows), Rmin = the largest automatic Rmin, Rmax from the user.
+def joint_param_names(ds_id) -> dict:
+    """数据集 id → 联合模型里该样品的参数名（id 里不是字母数字下划线的字符换成 _）。"""
+    s = re.sub(r"\W", "_", str(ds_id))
+    return dict(n=f"n1_{s}", dr=f"dr1_{s}", ss=f"ss1_{s}")
+
+
+def common_k_window(wins: dict):
+    """wins：{数据集 id: {kmin,kmax,dk,window}}（该样品的处理设置）→ 公共 k 窗 dict。
+    kmin 取最大、kmax 取最小；dk / 窗函数取第一个样品的（不一致由判定 note 提示）；宽度 < MIN_K_SPAN → QuickFitError。"""
+    first = next(iter(wins.values()))
+    kmin = max(w["kmin"] for w in wins.values())
+    kmax = min(w["kmax"] for w in wins.values())
+    if kmax - kmin < MIN_K_SPAN:
+        det = "；".join(f"{i}: {w['kmin']:g}–{w['kmax']:g}" for i, w in wins.items())
+        det_en = "; ".join(f"{i}: {w['kmin']:g}–{w['kmax']:g}" for i, w in wins.items())
+        raise QuickFitError(f"各样品处理 k 窗的交集是 {kmin:g}–{kmax:g} Å⁻¹，不足 {MIN_K_SPAN:g} Å⁻¹，无法联合拟合（{det}）。"
+                            f"请先在“处理”里统一 k 窗，或分别快速拟合 / "
+                            f"the intersection of the processing k windows is {kmin:g}–{kmax:g} Å⁻¹, below {MIN_K_SPAN:g} Å⁻¹; "
+                            f"a joint fit is not possible ({det_en}). Unify the k windows in Processing, or quick-fit them one by one")
+    return dict(kmin=kmin, kmax=kmax, dk=first["dk"], window=first["window"])
+
+
+def build_joint_model(samples, feff_dir, rmax=RMAX_DEFAULT, s02=None, s02_source=None, rmin=None, krange=None,
+                      kweight=None, name=None, groups=None, root=None) -> dict:
+    """联合快速拟合的模型 dict（多数据集格式，数据集 id = pipeline.safe(样品)）。样品必须 ≥ 2 个、同一吸收边、共用 FEFF 与 S0²。
+    groups：{数据集 id 或样品名: 已处理的谱}（界面线程应传深拷贝；缺的现建）。krange 覆盖公共 k 窗；rmin 缺省 = 各样品自动 Rmin 的最大值
+    （用公共 k 窗算）。参数初值与范围同单样品样品模式；n1 初值 N_ref、范围 [0, 2·N_ref]。"""
+    from . import paths, pipeline as pl
+    from .feff_wrap import list_paths
+    samples = list(dict.fromkeys(samples))
+    if len(samples) < 2:
+        raise QuickFitError("联合拟合需要至少 2 个样品 / a joint fit needs at least 2 samples")
+    if s02 is None:
+        raise QuickFitError("联合拟合需要 S0²（取自标样，或手填） / a joint fit needs S0² (from a standard, or entered by hand)")
+    root = Path(root) if root else paths.ROOT
+    shell = first_shell(list_paths(resolve_feff_dir(feff_dir, root)))
+    cfg, meta = pl.load_config(), pl.load_meta()
+    ids = {sm: pl.safe(sm) for sm in samples}
+    pn = {i: joint_param_names(i) for i in ids.values()}
+    if len(set(ids.values())) < len(samples) or len({v for d in pn.values() for v in d.values()}) < 3 * len(samples):
+        raise QuickFitError("样品名清理后重名（只含字母数字、点、横线、下划线的部分相同） / sample names collide after cleaning")
+    wins, eks = {}, set()
+    for sm, i in ids.items():
+        rows = meta[(meta["sample"] == sm) & (meta["use"] != "0")]
+        if not len(rows):
+            raise QuickFitError(f"meta.csv 中没有可用的样品 {sm} / no usable sample {sm} in meta.csv")
+        ek = rows.edge_key.iloc[0]
+        eks.add(ek)
+        c, wins[i] = _ft_window(cfg, ek, sm)
+        el = c.get("element")
+        if el and shell.absorber and el != shell.absorber:
+            raise QuickFitError(f"FEFF 的吸收原子是 {shell.absorber}，样品 {sm} 的吸收边是 {ek} / "
+                                f"the FEFF absorber is {shell.absorber} but sample {sm} is on {ek}")
+    if len(eks) > 1:
+        raise QuickFitError(f"联合拟合的样品必须同一吸收边，实际有 {', '.join(sorted(eks))} / "
+                            f"samples of a joint fit must share one absorption edge, got {', '.join(sorted(eks))}")
+    win = common_k_window(wins)
+    if krange:
+        win.update({k: v for k, v in krange.items() if k in win and v is not None})
+        if win["kmax"] - win["kmin"] < MIN_K_SPAN:
+            raise QuickFitError(f"k 窗 {win['kmin']:g}–{win['kmax']:g} Å⁻¹ 不足 {MIN_K_SPAN:g} Å⁻¹ / "
+                                f"the k window {win['kmin']:g}–{win['kmax']:g} Å⁻¹ is below {MIN_K_SPAN:g} Å⁻¹")
+    rmax = float(rmax)
+    if rmin is None:
+        rmins = []
+        for sm, i in ids.items():
+            g = (groups or {}).get(i) or (groups or {}).get(sm)
+            if g is None:
+                g = pl.build_sample(sm, cfg, meta)[0]
+            rmins.append(auto_rmin(*_chir(g, win), rmax)[0])
+        rmin = max(rmins)
+    rmin = float(rmin)
+    if rmax - rmin < 0.3:
+        raise QuickFitError(f"Rmin = {rmin:.2f}、Rmax = {rmax:.2f} Å 太窄 / the R window {rmin:.2f}–{rmax:.2f} Å is too narrow")
+    spec = lambda v, rg: dict(value=v, vary=True, min=rg[0], max=rg[1])    # noqa: E731
+    params = {"s02": dict(value=float(s02), vary=False), "e0": spec(E0_INIT, E0_RANGE)}
+    for i in ids.values():
+        params[pn[i]["n"]] = dict(value=shell.n_ref, vary=True, min=0.0, max=N_MAX_FACTOR * shell.n_ref)
+        params[pn[i]["dr"]] = spec(DR_INIT, DR_RANGE)
+        params[pn[i]["ss"]] = spec(SS_INIT, SS_RANGE)
+    datasets = []
+    for sm, i in ids.items():
+        mp = [dict(file=_rel_file(m["file"], root), label=f"{m['label']}@{m['reff']:.3f}", s02="s02", e0="e0",
+                   deltar=pn[i]["dr"], sigma2=pn[i]["ss"], N=f"{pn[i]['n']}*{m['degen']!r}/{shell.n_ref!r}")
+              for m in shell.members]
+        datasets.append(dict(id=i, sample=sm, paths=mp))
+    model = dict(name=name or f"QF_joint_{ids[samples[0]]}__{ids[samples[-1]]}", kmin=win["kmin"], kmax=win["kmax"],
+                 dk=win["dk"], window=win["window"], kweight=list(kweight) if kweight else list(DEFAULT_KWEIGHT),
+                 rmin=rmin, rmax=rmax, fitspace="r", params=params, datasets=datasets,
+                 s02_source=dict(s02_source) if s02_source else dict(manual=True, value=float(s02)))
+    model["quickfit"] = quickfit_key("joint", shell, root, windows=wins)
+    return model
+
+
+@dataclass
+class JointVerdict:
+    """两层判定：items = 整批条目；samples = {数据集 id: Verdict}（每个样品自己的条目）。任一 fail → ok = False。"""
+    ok: bool
+    items: list
+    samples: dict
+
+    @property
+    def failed(self):
+        return [i for i in self.items if i.level == "fail"]
+
+    @property
+    def notes(self):
+        return [i for i in self.items if i.level == "note"]
+
+    @property
+    def failed_samples(self):
+        return [k for k, v in self.samples.items() if not v.ok]
+
+    def summary(self, lang="zh"):
+        zh = lang == "zh"
+        if self.ok:
+            return "✅ 整批可信" if zh else "✅ Batch trustworthy"
+        bad = self.failed_samples
+        pz = ([f"整批 {len(self.failed)} 项"] if self.failed else []) + ([f"样品 {', '.join(bad)}"] if bad else [])
+        pe = ([f"batch: {len(self.failed)} issue(s)"] if self.failed else []) + ([f"sample(s) {', '.join(bad)}"] if bad else [])
+        return ("⚠ 需注意：" + "；".join(pz)) if zh else ("⚠ To look at: " + "; ".join(pe))
+
+
+_BATCH_CODES = ("rfactor", "nvarys", "nvarys_low_info", "e0", "correl", "single_k")
+_BATCH_PARAM_CODES = ("err_none", "err_big", "at_bound")
+_SAMPLE_CODES = ("rfactor", "err_none", "err_big", "at_bound", "sigma2_neg", "sigma2_big", "sigma2_ok", "dr")
+
+
+def _items(checks, codes):
+    out = []
+    for c in checks:
+        if c.code in codes:
+            lvl = "note" if c.ok is None else ("pass" if c.ok else "fail")
+            a = ADVICE.get(c.code, ("", "")) if lvl == "fail" else ("", "")
+            out.append(VerdictItem(lvl, c.code, c.zh, c.en, *a))
+    return out
+
+
+def _restrict(summ, ds_id, names):
+    """联合摘要 → 只含一个样品的路径与参数、该样品自己的 R 因子与 N_idp 的摘要（fitcheck 的逐样品检查用）。"""
+    row = next(r for r in summ["datasets"] if r["id"] == ds_id)
+    keep = set(names.values())
+    return dict(summ, params={k: v for k, v in summ["params"].items() if k in keep},
+                paths=[p for p in summ["paths"] if p.get("dataset") == ds_id], rfactor=row["rfactor"],
+                n_idp=row["n_idp"], sample=row["sample"], dataset=ds_id)
+
+
+def verdict_joint(fit, shell, rmax, peaks, s02_source=None, windows=None) -> JointVerdict:
+    """联合模型的两层判定。fit：run_joint 的拟合记录（多数据集 summ）；peaks：{数据集 id: (第一峰高, Rmax 处 |χ(R)|)}；
+    windows：{id: 该样品自己的处理 k 窗}（dk / 窗函数不一致 → note）。
+    整批：总 R 因子、Stern 准则（对 Σ N_idp）、ΔE0 及其误差 / 边界、强相关；每个样品：自己的 R 因子、R 与结构之差、N 倍数、
+    Rmax 处残余、自己参数（n1 / dr1 / ss1）的误差与边界、σ² 与 ΔR 是否合理。手动 S0²、第一层异种元素、窗口参数不一致只作整批 note。"""
+    summ = fit["summ"]
+    P = summ["params"]
+    own = {r["id"]: joint_param_names(r["id"]) for r in summ["datasets"]}
+    mine = {v for d in own.values() for v in d.values()}
+    items = _items(fitcheck.fit_checks(fit, None, stern=True, robust_hint=False), _BATCH_CODES)
+    shared = dict(fit, summ=dict(summ, params={k: v for k, v in P.items() if k not in mine}))
+    items += _items(fitcheck.fit_checks(shared, None, stern=True, robust_hint=False), _BATCH_PARAM_CODES)
+    if (s02_source or {}).get("manual"):
+        items.append(VerdictItem("note", "manual_s02", f"手动 S0² = {s02_source['value']:g}，没有标样依据",
+                                 f"Manual S0² = {s02_source['value']:g}, no standard behind it"))
+    if shell.other_elements:
+        els = ", ".join(f"{e}（{r:.2f} Å）" for e, r in shell.other_elements)
+        els_en = ", ".join(f"{e} ({r:.2f} Å)" for e, r in shell.other_elements)
+        items.append(VerdictItem("note", "other_elements", f"第一层还有 {els}，未考虑", f"The first layer also has {els_en}, not included"))
+    ws = list((windows or {}).items())
+    if ws and any((w["dk"], w["window"]) != (ws[0][1]["dk"], ws[0][1]["window"]) for _, w in ws):
+        items.append(VerdictItem("note", "window_mismatch",
+                                 f"各样品处理的 dk / 窗函数不一致，联合拟合统一用 {ws[0][0]} 的（dk {ws[0][1]['dk']:g}，{ws[0][1]['window']}）",
+                                 f"The processing dk / window function differ between samples; the joint fit uses those of {ws[0][0]} "
+                                 f"(dk {ws[0][1]['dk']:g}, {ws[0][1]['window']})"))
+    per = {}
+    for r in summ["datasets"]:
+        i = r["id"]
+        v = dict(fit, summ=_restrict(summ, i, own[i]))
+        sit = _items(fitcheck.fit_checks(v, None, stern=True, robust_hint=False), _SAMPLE_CODES)
+        rows = [p for p in summ["paths"] if p.get("dataset") == i]
+        pk, at = peaks.get(i, (None, None))
+        sit += _shell_items(rows, P[own[i]["n"]]["value"], shell, "sample", rmax, pk, at)
+        per[i] = Verdict(not any(x.level == "fail" for x in sit), sit)
+    ok = not any(x.level == "fail" for x in items) and all(v.ok for v in per.values())
+    return JointVerdict(ok, items, per)
+
+
+@dataclass
+class JointResult:
+    model: dict
+    shell: FirstShell
+    samples: list               # [QuickResult]，每个样品一个（其 .fit 是同一个联合拟合记录，.verdict 是该样品的 Verdict）
+    e0: float
+    e0_err: float | None
+    s02: float
+    rfactor: float              # 联合
+    n_idp: float                # Σ N_idp
+    nvarys: int
+    window: dict                # kmin, kmax, dk, window, kweight, rmin, rmax（全批统一）
+    verdict: JointVerdict
+    fit: dict                   # run_model 同形（multi=True）：model, summ, result, curves, report, time；可进会话历史 / 图片导出
+    r_rmin: dict = field(default_factory=dict)   # {数据集 id: 该样品自己的自动 Rmin}；公共 Rmin = 其最大值（Rmin 由用户给时仅供参考）
+
+    def trend(self, meta=None, processed=None):
+        """趋势表（trend.trend_table；缺省读当前项目的 meta.csv 与 process_summary.csv）。"""
+        from . import trend as tr
+        if meta is None and processed is None:
+            meta, processed = tr.load_project_tables()
+        return tr.trend_table(self.fit["summ"], self.model, meta, processed)
+
+
+def run_joint(model, groups=None, root=None) -> JointResult:
+    """联合拟合并判定。groups：{数据集 id: 已处理的谱}（缺的现建）；不保存任何文件。"""
+    from . import fit_exafs as fx, pipeline as pl
+    nm = fx.normalize_model(model)
+    shell = shell_of_model(model, root)
+    qk = model.get("quickfit") or {}
+    win = {k: model[k] for k in ("kmin", "kmax", "dk", "window")}
+    groups = dict(groups or {})
+    built = {}
+    for d in nm["datasets"]:
+        if d["id"] not in groups:
+            if d["sample"] not in built:
+                built[d["sample"]] = pl.build_sample(d["sample"])[0]
+            groups[d["id"]] = built[d["sample"]]
+    peaks, rmins = {}, {}
+    for d in nm["datasets"]:
+        r, m = _chir(groups[d["id"]], win)
+        _, pk, at = peak_stats(r, m, model["rmax"])
+        peaks[d["id"]] = (pk, at)
+        rmins[d["id"]] = auto_rmin(r, m, model["rmax"])[0]
+    res, dsets, summ = fx.fit_multi(groups, model, root)
+    fit = dict(model=model, summ=summ, result=res, curves=fx.model_curves_all(dsets, nm), report=fx.report_text(res),
+               time=datetime.now().strftime("%H:%M:%S"), multi=True)
+    v = verdict_joint(fit, shell, model["rmax"], peaks, model.get("s02_source"), qk.get("windows"))
+    P = summ["params"]
+    full = dict(win, kweight=model["kweight"], rmin=model["rmin"], rmax=model["rmax"])
+    out = []
+    for r in summ["datasets"]:
+        i = r["id"]
+        names = joint_param_names(i)
+        rows = [p for p in summ["paths"] if p.get("dataset") == i]
+        r_fit = sum(m["degen"] * p["R"] for m, p in zip(shell.members, rows)) / shell.n_ref
+        out.append(QuickResult(r["sample"], "sample", model, shell, P[names["n"]]["value"], P[names["n"]]["stderr"], r_fit,
+                               P[names["dr"]]["stderr"], P[names["ss"]]["value"], P[names["ss"]]["stderr"],
+                               P["e0"]["value"], P["e0"]["stderr"], P["s02"]["value"], None, r["rfactor"], r["n_idp"],
+                               summ["nvarys"], full, v.samples[i], fit, None, *peaks[i]))
+    return JointResult(model, shell, out, P["e0"]["value"], P["e0"]["stderr"], P["s02"]["value"], summ["rfactor"],
+                       summ["n_idp"], summ["nvarys"], full, v, fit, rmins)
+
+
+def format_joint_text(res: JointResult, lang="zh") -> str:
+    """联合结果与两层判定（CLI 用；HTML 实体已还原）。"""
+    zh = lang == "zh"
+    s, w = res.shell, res.window
+    ex = lambda v, e, f: (f"{v:{f}}" if e is None else f"{v:{f}} ± {e:{f}}") if v is not None else "-"    # noqa: E731
+    L = [f"== 联合快速拟合：{len(res.samples)} 个样品（{', '.join(r.sample for r in res.samples)}）" if zh else
+         f"== Joint quick fit: {len(res.samples)} samples ({', '.join(r.sample for r in res.samples)})",
+         ("第一壳层：" if zh else "First shell: ") + f"{s.absorber}–{s.scatterer}, N_ref = {s.n_ref:g}, R_CIF = {s.r_cif:.3f} Å"]
+    L += [f"    {m['label']}  Reff {m['reff']:.4f}  degen {m['degen']:g}  {Path(m['file']).name}" for m in s.members]
+    rm = ", ".join(f"{i} {v:.2f}" for i, v in res.r_rmin.items())
+    L.append(("公共窗口：" if zh else "Common window: ") + f"k {w['kmin']:g}–{w['kmax']:g} (dk {w['dk']:g}, {w['window']}), "
+             f"kweight {w['kweight']}, R {w['rmin']:.2f}–{w['rmax']:.2f} Å"
+             + (f"（各样品自动 Rmin：{rm}，取最大）" if zh else f" (per-sample automatic Rmin: {rm}; the largest is used)"))
+    L.append(f"ΔE0 {'（共享）' if zh else '(shared) '}{ex(res.e0, res.e0_err, '.2f')} eV | S0² {res.s02:.3f}{'（固定）' if zh else ' (fixed)'} | "
+             f"{'联合 ' if zh else 'joint '}R-factor {res.rfactor:.4f} | Σ N_idp {res.n_idp:.1f}, vars {res.nvarys}")
+    mark = {"pass": "✓", "fail": "✗", "note": "·"}
+
+    def lines(v, pad):
+        out = []
+        for i in v.items:
+            out.append(f"{pad}{mark[i.level]} " + html.unescape(i.zh if zh else i.en))
+            if i.level == "fail" and (i.advice_zh if zh else i.advice_en):
+                out.append(f"{pad}    → " + (i.advice_zh if zh else i.advice_en))
+        return out
+    L.append(("整批判定：" if zh else "Batch verdict: ") + res.verdict.summary(lang))
+    L += lines(res.verdict, "  ")
+    for r, sv in zip(res.samples, res.verdict.samples.values()):
+        L.append(f"-- {r.sample}：N {ex(r.n, r.n_err, '.2f')} | R {ex(r.r, r.r_err, '.4f')} Å | σ² {ex(r.sigma2, r.sigma2_err, '.5f')} Å² | "
+                 f"R-factor {r.rfactor:.4f} | {sv.summary(lang)}")
+        L += lines(sv, "  ")
     return "\n".join(L)
