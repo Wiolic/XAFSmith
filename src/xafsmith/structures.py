@@ -21,8 +21,19 @@ SOURCES = {
     "CoO": "rocksalt Fm-3m, a=4.2615 Å",
     "Co3O4": "spinel Fd-3m (origin 2), a=8.0837 Å, O 32e u=0.2633 (Liu & Prewitt 1990 近似值)",
     "KTaO3": "cubic perovskite Pm-3m, a=3.9885 Å",
+    "Cu": "fcc Fm-3m, a=3.6149 Å (Wyckoff 1963)",
+    "Ni": "fcc Fm-3m, a=3.5240 Å (Wyckoff 1963)",
+    "Pd": "fcc Fm-3m, a=3.8907 Å (Wyckoff 1963)",
+    "Ag": "fcc Fm-3m, a=4.0862 Å (Wyckoff 1963)",
+    "Pt": "fcc Fm-3m, a=3.9242 Å (Wyckoff 1963)",
+    "Au": "fcc Fm-3m, a=4.0782 Å (Wyckoff 1963)",
+    "Fe": "bcc Im-3m, a=2.8665 Å (Wyckoff 1963)",
+    "NiO": "rocksalt Fm-3m, a=4.1771 Å (Wyckoff 1963)",
     "Ta2O5_approx": "未内置：Ta2O5 多晶型、结构复杂，请提供 CIF",
 }
+
+
+FCC_A = {"Cu": 3.6149, "Ni": 3.5240, "Pd": 3.8907, "Ag": 4.0862, "Pt": 3.9242, "Au": 4.0782}     # fcc 金属（Wyckoff 1963，室温）
 
 
 def builtin(name):
@@ -49,10 +60,21 @@ def builtin(name):
     if name == "KTaO3":
         return Structure.from_spacegroup("Pm-3m", Lattice.cubic(3.9885), ["Ta", "K", "O"],
                                          [[0, 0, 0], [0.5, 0.5, 0.5], [0.5, 0, 0]])
+    if name in FCC_A:
+        return Structure.from_spacegroup("Fm-3m", Lattice.cubic(FCC_A[name]), [name], [[0, 0, 0]])
+    if name == "Fe":
+        return Structure.from_spacegroup("Im-3m", Lattice.cubic(2.8665), ["Fe"], [[0, 0, 0]])
+    if name == "NiO":
+        return Structure.from_spacegroup("Fm-3m", Lattice.cubic(4.1771), ["Ni", "O"], [[0, 0, 0], [0.5, 0.5, 0.5]])
     raise KeyError(f"无内置结构 {name}；可用：{[k for k in SOURCES if 'approx' not in k]}")
 
 
 BUILTIN_NAMES = [k for k in SOURCES if "approx" not in k]
+
+
+def builtin_for(element):
+    """含该元素的内置结构名列表（按 BUILTIN_NAMES 顺序）；元素符号大小写须正确（如 "Ir"）"""
+    return [n for n in BUILTIN_NAMES if element in {sp.symbol for sp in builtin(n).composition.elements}]
 
 
 def read_cif(path_or_text):
