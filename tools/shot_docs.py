@@ -171,9 +171,22 @@ def run(ctx):
     # —— Origin 工程：本机有 Origin（originpro）才做；用 Origin 自己渲染三张图拼成一张。没有就保留 docs/images 里的旧图
     make_origin_figure(ctx, pg, idx)
 
-    # —— 方法导出
+    # —— 方法导出：点“生成方法段落”让中英文段落显示出来；参数表只选单样品标样拟合（一行）
+    from xafsmith import si_text as si
     ctx.resize(1440, 1100)
     ctx.go("methods")
+    mp = P["methods"]
+    click(mp, "Generate" if ctx.lang == "en" else "生成方法段落")
+    ctx.pump(1.0)
+    one = [k for k in si.fit_keys() if f"QF_{STD}" in k]
+    mp.state["sel"] = one[-1:]
+    mp.refresh()
+    ctx.pump(1.0)
+    from PySide6.QtWidgets import QTextBrowser
+    for tb in mp.findChildren(QTextBrowser):
+        tb.setMinimumHeight(200)           # 两段文字各留 200 px，段落开头和参数表能同屏
+    ctx.pump(0.5)
+    ctx.scroll_to(mp.findChildren(W.Table)[-1], 520)
     ctx.shot("methods_export")
 
     # —— 流程弹窗（放在最后，此时各步已有内容）
