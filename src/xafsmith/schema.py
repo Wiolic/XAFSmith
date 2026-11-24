@@ -205,7 +205,9 @@ def check_meta(rep, meta, cfg):
         if r.edge_key not in cfg.get("edges", {}):
             rep.warn(at, f"{paths.MARKER} 中没有吸收边 {r.edge_key}")
         if not r.ref_file:
-            rep.err(at, "没有参比 ref_file：不能校准（数据标准要求每条谱与同批参比一起处理）")
+            rep.err(at, "没有参比 ref_file：不能校准（数据标准要求每条谱与同批参比一起处理；确实没有参比时填 none，先跳过校准，结果中会注明未校准）")
+        elif str(r.ref_file).strip().lower() == "none":
+            pass                      # 有意不校准（没有参比）：数据标准的特殊值，结果中会注明未校准
         elif r.ref_file not in refs:
             rep.warn(at, f"ref_file {r.ref_file} 在 meta.csv 中不是 role=reference")
     # 同一样品名 = 同一吸收边、同一模式；seq 在同一样品的各行中应一致（空行忽略）

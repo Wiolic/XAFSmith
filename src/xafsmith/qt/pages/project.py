@@ -210,14 +210,14 @@ class DataPage(Page):
                      tip=T("放弃表格里未保存的修改，从磁盘重读", "Discard unsaved table edits and reload from disk")),
             W.button(T("打开 data 文件夹", "Open data folder"), icon_name="external", slot=lambda: W.open_folder(paths.DATA))])
         if paths.META.exists():
-            meta = pd.read_csv(paths.META, dtype=str, encoding="utf-8-sig").fillna("")
+            meta = pd.read_csv(paths.META, dtype=str, encoding="utf-8-sig", keep_default_na=False)       # "None" 原样保留（ref_file）
         else:
             meta = pd.DataFrame()
         if len(meta):
-            card.add(W.label(T("双击单元格修改：sample（同名 = 合并）、role、use（0 = 不用，须写 note）、ref_file（校准参比）、note。",
+            card.add(W.label(T("双击单元格修改：sample（同名 = 合并）、role、use（0 = 不用，须写 note）、ref_file（校准参比；没有参比时填 none = 先不校准）、note。",
                                "Double-click to edit: sample (same name = merged), role, use (0 = excluded, note required), "
-                               "ref_file (calibration reference), note."), "faint"))
-            refs = [""] + sorted(set(meta[meta.role == "reference"].file)) if "role" in meta else [""]
+                               "ref_file (calibration reference; none = skip the calibration when there is no reference), note."), "faint"))
+            refs = ["", "none"] + sorted(set(meta[meta.role == "reference"].file)) if "role" in meta else ["", "none"]
             editable = [c for c in meta.columns if c not in ("file", "edge_key", "time", "npts", "emax", "batch")]
             tab = W.Table(meta, editable=editable,
                           choices={"role": ["reference", "standard", "sample"], "use": ["1", "0"],

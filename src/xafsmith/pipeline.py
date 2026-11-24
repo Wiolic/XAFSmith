@@ -53,6 +53,14 @@ def batch_of(rel):
     return parts[2] if len(parts) > 3 and parts[:2] == ["data", "raw"] else ""
 
 
+NO_REF = "none"          # meta.csv ref_file 的特殊值：有意不校准（没有参比时先跳过）
+
+
+def is_no_ref(v):
+    """ref_file 是否为“有意不校准”（none，大小写不敏感）"""
+    return str(v).strip().lower() == NO_REF
+
+
 def assign_refs(meta):
     """给 ref_file 为空的行填参比：同批次、同吸收边的 role=reference 文件（多个时取测量时间最近的）。"""
     from .calib import time_gap_hours
@@ -146,7 +154,7 @@ def scan_raw(raw_dir=None, meta_path=None):
 
 def load_meta(path: str | Path | None = None) -> pd.DataFrame:
     path = path or paths.META
-    m = pd.read_csv(path, dtype=str, encoding="utf-8-sig").fillna("")
+    m = pd.read_csv(path, dtype=str, encoding="utf-8-sig", keep_default_na=False)     # 不把 "None" / "NA" 当缺失：ref_file 的 none 须原样保留
     m["use"] = m["use"].replace("", "1")
     return assign_refs(m)
 
@@ -252,7 +260,7 @@ def run_calib(cfg: dict, meta: pd.DataFrame, out: str | Path | None = None,
     progress(f, 名称)：可选，每个参比开始前调用（同时是取消点）。"""
     out = out or paths.CALIB_JSON
     res = {}
-    refs = sorted(set(meta.ref_file) - {""})
+    refs = sorted(r for r in set(meta.ref_file) - {""} if not is_no_ref(r))
     for i, ref in enumerate(refs):
         if progress:
             progress(i / len(refs), ref)
@@ -296,11 +304,17 @@ def load_scan(row, cfg, calib):
     g.element, g.edge = c["element"], c["edge"]
     ref = row.get("ref_file", "")
     if not ref:
-        raise ValueError(f"{row.file}：meta.csv 未指定参比 ref_file，不能校准（必须与参比一起处理）")
-    if ref not in calib:                       # 尚未运行 calib：当场计算（不写文件）
-        calib[ref] = calibrate_ref_file(ref, cfg, row.edge_key)
-    xcal.apply_shift([g], calib[ref]["delta_e"])
-    g.calib_ref = ref
+        raise ValueError(f"{row.file}：没有参比：建议同时测参比箔；没有的话在 meta.csv 的 ref_file 填 none 先跳过校准（结果中会注明未校准） / "
+                         f"{row.file}: no reference: measure a reference foil with the sample; if there is none, enter none in the ref_file "
+                         "column of meta.csv to skip the calibration for now (the results are then marked uncalibrated)")
+    if is_no_ref(ref):                         # 有意不校准：ΔE = 0，不平移能量轴
+        g.calib_ref = ""
+        g.uncalibrated = True
+    else:
+        if ref not in calib:                   # 尚未运行 calib：当场计算（不写文件）
+            calib[ref] = calibrate_ref_file(ref, cfg, row.edge_key)
+        xcal.apply_shift([g], calib[ref]["delta_e"])
+        g.calib_ref = ref
     # config.json "deglitch": {样品名: [[E_lo, E_hi], ...]}（校准后能量；理由写在 "deglitch_reason"）
     dg = cfg.get("deglitch", {}).get(row["sample"])
     if dg:
@@ -334,8 +348,14 @@ def build_sample(sample: str, cfg: dict | None = None, meta: pd.DataFrame | None
     g.label = sample
     g.edge_key = ek
     g.role = rows.role.iloc[0]
-    g.calib_ref = ";".join(dict.fromkeys(rows.ref_file))
-    g.e_shift = float(np.mean([calib[r]["delta_e"] for r in dict.fromkeys(rows.ref_file)]))
+    refs_ = list(dict.fromkeys(rows.ref_file))
+    real = [r for r in refs_ if not is_no_ref(r)]
+    if real and len(real) != len(refs_):
+        raise ValueError(f"样品 {sample}：同一样品的扫描里有的有参比、有的 ref_file 填了 none，不能合并；请统一 / "
+                         f"sample {sample}: some scans have a reference and others have ref_file = none; make them consistent")
+    g.calib_ref = ";".join(real)
+    g.e_shift = float(np.mean([calib[r]["delta_e"] for r in real])) if real else 0.0
+    g.uncalibrated = not real
     if do_chi:
         xbkg.autobk(g, **c["bkg"])
         xft.forward(g, **c["ft"])
