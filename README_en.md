@@ -4,16 +4,16 @@
 
 **Agent-ready synchrotron XAFS analysis software.**
 
-XAFSmith processes synchrotron X-ray absorption spectra (XANES + EXAFS): energy calibration, normalization, χ(k), Fourier and wavelet transforms, FEFF calculations, EXAFS fitting, linear combination fitting, oxidation-state estimation, figure export (including Origin files) and reports. Use it in either of two ways, or mix them:
+XAFSmith takes synchrotron X-ray absorption spectra (XANES + EXAFS) all the way from raw data to journal figures and the methods section: energy calibration, normalization, χ(k), Fourier and wavelet transforms, FEFF calculations, EXAFS fitting (Quick fit and Detailed fit), linear combination fitting, oxidation-state estimation, figure export (including Origin files), reports and methods text. Use it in either of two ways, or mix them:
 
 - **🖱 Mouse**: the graphical interface covers every feature — no code, no command line;
 - **🤖 AI assistant**: open an AI assistant such as Claude Code, Codex or Cursor in the project folder and **say what you want in plain language**. It drives XAFSmith to process, fit, plot and report, writes everything back into the project, and you check each step in the GUI.
 
-The computational core is [Larch](https://xraypy.github.io/xraylarch/) (xraylarch) and FEFF, both widely used in the synchrotron community. XAFSmith is written for chemists and materials scientists who understand XAFS but do not program.
+The computational core is [Larch](https://xraypy.github.io/xraylarch/) (xraylarch) and FEFF, both widely used in the synchrotron community. XAFSmith is written for chemists and materials scientists who understand XAFS but do not program; if you have never fitted EXAFS before, start with **Quick fit**.
 
 > [!WARNING]
-> **Disclaimer** — XAFSmith is provided “as is”, without warranty of any kind; the authors accept no responsibility for results obtained with it.
-> Please verify your results and **cross-check key results against Athena / Artemis** (XAFSmith exports Athena project files in one click). Conclusions drafted by an AI assistant must be verified too.
+> **Disclaimer** — XAFSmith is provided without any warranty that its results are correct; please verify them yourself. The authors accept no responsibility for results obtained with it.
+> **Cross-check key results against Athena / Artemis** (XAFSmith exports Athena project files in one click). Conclusions drafted by an AI assistant must be verified too.
 
 ---
 
@@ -30,65 +30,82 @@ The computational core is [Larch](https://xraypy.github.io/xraylarch/) (xraylarc
 
 ## Why XAFSmith
 
-Compared with a typical Athena / Artemis workflow:
+### ① Quick fit: EXAFS fitting without prior experience
 
-| Task | Typically in Athena / Artemis | In XAFSmith |
-|---|---|---|
-| **Let an AI assistant process and fit for you** | — | Projects are standardized folders with instructions for AI (`AGENTS.md`); the AI performs every step with commands, and everything can be inspected, changed and rerun in the GUI |
-| Calibrate, normalize and merge dozens of spectra from one beamtime | Import, mark references, align, set parameters and merge group by group, then save a project | Drop files into a folder → **Scan and register** → **One-click processing**: calibration against the reference of the same batch, one parameter set for normalization, automatic merging (outlier scans removed with a recorded reason) |
-| Make sure a sample series uses **one** parameter set | Check each one yourself | One parameter set per edge stored in the project and shared by all samples; exceptions need a written reason |
-| Apply one fit model to a series (time, potential, temperature) | Usually copy and adjust per sample | **Run a saved model** → select samples → done |
-| Fit several datasets at once with shared parameters (temperatures, samples, edges) | Add each dataset to the project and set up shared parameters | Switch the Detailed-fit page “Mode” to **Joint fit of several datasets**: one path table per dataset, parameters with the same name shared, results switchable per dataset; misfit between datasets is checked and variables are compared with Σ N_idp |
-| Constrain parameters with an independent prior (known S0², two similar σ²) | restraint expressions | **Restraints** table (expr, value, sigma): weighted on the scale of the reported errors, not counted in N_idp; a pull beyond 2σ raises a warning |
-| Bind ΔR and σ² of multiple-scattering paths to single-scattering paths | Derive the expressions from the geometry yourself | **Multiple-scattering binding…** suggests deltar / sigma2 expressions for the ticked multiple-scattering paths from the FEFF path geometry, with the basis; nothing changes until Apply |
-| σ² of multi-temperature data (Debye / Einstein model) | Hand-written σ² functions and temperatures | Tick **Use a σ² temperature model**, enter each dataset's temperature: one θ replaces one σ² per temperature; a **σ²(T)** plot in the result area |
-| How structural parameters change along a series (time, potential) | Fit one by one, collect the numbers, plot the trend in Origin | **Trend** tab of a joint fit: N, R, σ², ΔE0 and edge position against `seq` from `meta.csv`, 1σ error bars, shared parameters marked; a **Trend** figure on the Figure export page (Origin project too); one-click **Independent σ² per dataset** and **Sync ticked paths to all datasets**; the help page's “Joint fitting of a series” walks through the whole workflow |
-| FEFF calculations | Atoms builds the input from a CIF, then run FEFF | Pick a CIF or built-in structure → one click; **FEFF6L (seconds) and FEFF8L (self-consistent) built in**, easy to compare, no separate FEFF install |
-| Wavelet transform (light vs heavy scatterers, overlapping shells) | Needs other software | Built in (Morlet / Cauchy); k of the maximum per R window, **one-click export of data and figure**, in-page guidance on every parameter |
-| Judge a fit and find out why it does not match | Mostly the R-factor and experience | An **automatic quality check** after every fit (R-factor, variables, residual/noise, errors, bounds, ΔE0, σ², ΔR, correlations, point by point); **fit diagnosis** (k-space residual, glitches located and converted to energy, misfit by segment, hints); **robustness check**; **F-test**; **model comparison table** (R-factor, χ²_ν, variables, N_idp and the F-test against the neighbouring model for several models, with the reason when the F-test does not apply) |
-| Methods section and Supporting Information | Write methods by hand, copy parameters from Artemis reports | **Methods export**: a Methods paragraph (English and Chinese) from the project records, one-click copy of the parameter table (N, R, σ², ΔE0, R-factor), .md with the fitting text |
-| Publication figures | Export data, redraw and format in Origin | **Figure export**: **exports Origin files (.opju) directly**, in one consistent format (font sizes, line widths, layer size) and editable in Origin; also single / double column, 600 dpi TIFF, PNG, SVG, PDF with English captions; 24 palettes, standards drawn in grey automatically |
-| Collect all results | Copy tables by hand | **One-click summary report**: Excel + HTML with figures |
-| Cross-check with Athena / Artemis | — | **One-click export of an Athena project (.prj)** with XAFSmith's processing parameters |
-| Reproduce results months later | Find the project file, recall the parameters | Raw data are read-only and all parameters live in project files; results can always be regenerated from the raw data |
-| Learn the principles of XAFS | Find a textbook | Built-in **XAFS basics** lecture: from X-ray absorption to fitting, with formulas, measured spectra and worked examples |
+Choose the samples and a FEFF calculation, then click **Start fit**. Quick fit fits the first shell only: the fitting window is set automatically and the parameters start from sensible values and ranges. Afterwards every result is checked and the conclusion is stated in plain words: **trustworthy**, or what is wrong and what to try next.
 
-Also: XANES quantification (edge position, white line, oxidation-state calibration, pre-edge peak fitting), XANES / χ(k) LCF with combination search, sample design (μt, edge step, pellet mass, interfering edges), visual deglitching, Chinese / English interface, in-app updates.
+- Fit a standard first to get S0²; when fitting a sample, **Pick standard value…** takes it over and records where it came from;
+- fit a whole series (time, potential, temperature) jointly in one go and get **trend plots of coordination number and bond length** straight away, with an adjustable sample order;
+- for a two-phase sample (e.g. metal + oxide), add a second phase and get the coordination number of each phase;
+- when you need more shells or multiple scattering, **Continue in Detailed fit** carries the paths and parameters over unchanged.
+
+![Quick fit](docs/images/en/quick_fit_single.png)
+
+### ② Normalize many spectra in one click
+
+A beamtime gave you dozens of spectra: put the files in a folder, **Scan and register** them, then click **One-click processing**.
+
+- Each spectrum is energy-calibrated against the reference measured in the same batch;
+- one set of normalization parameters per absorption edge is shared by all samples, and an exception has to state its reason;
+- repeated scans of a sample are merged automatically; outlier scans are rejected with the reason recorded;
+- all parameters live in the project files, so every result can be regenerated from the raw data months later.
+
+![Normalizing many spectra](docs/images/en/normalization.png)
+
+### ③ Direct export to Origin
+
+On the **Figure export** page, choose the spectra and the plot type (XANES, χ(k), |χ(R)|, fit overlays, trend plots …) and XAFSmith writes an Origin project (.opju) with journal formatting: layer size, font sizes, line widths and ticks are consistent, and you can keep editing in Origin. Without Origin, export single- or double-column TIFF, PNG, SVG or PDF at 600 dpi with an English caption drafted for you; 24 palettes, and standards are drawn in grey automatically.
+
+![Exported Origin graphs](docs/images/en/origin_export.png)
+
+### ④ Methods section and Supporting Information (SI)
+
+**Methods export** drafts the methods paragraph in English and Chinese from the project records: reference and energy calibration, processing parameters, fitting ranges, N_idp, the source of S0², software versions. It states only what is recorded and marks missing details in [brackets] for you to fill in. The fit-parameter table (N, R, σ², ΔE0, R-factor, errors in parentheses) is copied to Excel / Word in one click or saved as .csv or as a .md with fit notes, ready for an SI table.
+
+![Methods export](docs/images/en/methods_export.png)
+
+### And more
+
+- **AI assistant**: a project is a standard folder with instructions written for AI (`AGENTS.md`). The AI runs each step as a command, and every result can be checked, edited and rerun in the GUI. See [Connecting an AI assistant](#connecting-an-ai-assistant-step-by-step) below.
+- **FEFF**: one-click calculation from a CIF or a built-in structure; FEFF6L (seconds) and FEFF8L (self-consistent potentials) are built in and can be compared directly, with no separate FEFF installation.
+- **Detailed fit**: Artemis-style path and parameter tables, with the coordination number N among the first columns so it is easy to change. Multi-dataset joint fits (parameters with the same name are shared); restraints (priors such as a known S0² or two similar σ²); multiple-scattering ΔR / σ² constraints suggested from the FEFF path geometry; Debye / Einstein σ² temperature models; a saved model runs over a whole set of samples at once.
+- **Fit quality**: every fit is checked item by item (R-factor, number of variables, residual vs noise, errors, bounds, ΔE0, σ², ΔR, correlations); plus fit diagnostics (k-space residual, automatic glitch location, segment mismatch), robustness checks, F-tests and a model-comparison table.
+- **Series of samples**: trend page and trend figure of a joint fit (N, R, σ², ΔE0, edge position with 1σ error bars, exportable to Origin).
+- **Wavelet transform** (Morlet / Cauchy): separate light and heavy scatterers and overlapping shells, read the k of the maximum in each R range, export data and figures in one click.
+- **XANES**: edge position, white line, oxidation-state calibration, pre-edge peak fitting; XANES / χ(k) linear combination fitting (with combinatorial search).
+- **Cross-check with Athena / Artemis**: one-click Athena project export (.prj) carrying XAFSmith's processing parameters.
+- **Also**: sample-preparation planner (pellet calculator, interfering-edge screening), edge lookup (edges, fluorescence lines, filters), visual deglitching, a built-in XAFS primer, Chinese and English interface, in-app updates.
 
 ---
 
 ## A look at the interface
 
-A native desktop window (PySide6) that opens in seconds. Pages are grouped by workflow on the left; a disclaimer is always visible at the bottom. Screenshots come from a demo project (Ir foil and IrO₂, Ir L3 edge).
+A native desktop window (PySide6) that opens in seconds. The left bar follows the workflow; the disclaimer is always shown at the bottom. The screenshots use Ir foil and IrO₂ standards (Ir L3 edge).
 
-**Workflow & project**: a button fixed at the top right; hover for the six workflow steps (finished ones ticked, the next framed in blue, click to go) and project information.
+**Joint quick fit**: two IrO₂ samples fitted together, with the batch verdict, a per-sample result table and the coordination-number trend on one page.
 
-![workflow pop-up](docs/images/en/flow.png)
+![Joint quick fit and trend](docs/images/en/quick_fit.png)
 
-**EXAFS fitting**: a switch **Quick fit | Detailed fit** at the top. **Quick fit** fits the first shell only: choose samples (several allowed), FEFF, purpose (Standard / Sample) and Rmax; the window is set automatically and a verdict says in plain words whether the result is trustworthy; ≥ 2 samples run as a joint fit with a trend plot. **Detailed fit**: settings on the left (data, ranges, paths, parameters; the Fit button pinned at the bottom), the result always on the right — change, fit and read without scrolling; one click adopts the fitted values as the next start values. Command line: `xafsmith quickfit`.
+**Detailed fit**: settings (data, ranges, paths, parameters) on the left, results always on the right; change, fit and inspect without scrolling.
 
-![fit result](docs/images/en/fit_result.png)
-
-**Quality check**: after every fit, an automatic point-by-point check (R-factor, variables, residual/noise, errors, bounds, ΔE0, σ², ΔR, correlations); diagnosis, robustness and the full report sit in the same set of tabs.
-
-![fit quality](docs/images/en/fit_quality.png)
+![Detailed fit](docs/images/en/fit_detailed.png)
 
 <table>
 <tr>
-<td width="50%"><b>Wavelet transform</b>: two spectra side by side, maxima per R window, one-click data export, parameter guidance<br/><img src="docs/images/en/wavelet.png"/></td>
-<td width="50%"><b>χ(k) &amp; FT</b>: recomputed as you change parameters<br/><img src="docs/images/en/chi_ft.png"/></td>
+<td width="50%"><b>Fit quality checks</b>: every fit is checked item by item; diagnostics, robustness and the full report sit in the same tabs<br/><img src="docs/images/en/fit_quality.png"/></td>
+<td width="50%"><b>Trend figure export</b>: choose which quantity to export and the sample order; exports Origin projects<br/><img src="docs/images/en/trend.png"/></td>
 </tr>
 <tr>
-<td><b>Methods export</b>: Methods paragraph and fit-parameter table, one-click copy<br/><img src="docs/images/en/methods_export.png"/></td>
-<td><b>AI assistant</b>: one click writes the instruction files for the AI<br/><img src="docs/images/en/ai_assistant.png"/></td>
+<td><b>Figure export</b>: |χ(R)| with fit overlay; 24 palettes, 600 dpi, English captions<br/><img src="docs/images/en/journal_figure.png"/></td>
+<td><b>χ(k) and FT</b>: recalculated as soon as a parameter changes<br/><img src="docs/images/en/chi_ft.png"/></td>
 </tr>
 <tr>
-<td><b>Normalization</b>: pre/post-edge lines, overlay, derivative, merging<br/><img src="docs/images/en/normalization.png"/></td>
-<td><b>Figure export</b>: exports Origin files directly; 24 palettes, 600 dpi, English captions<br/><img src="docs/images/en/journal_figure.png"/></td>
+<td><b>Wavelet transform</b>: two spectra side by side, maxima per R range, one-click data export, with notes on every parameter<br/><img src="docs/images/en/wavelet.png"/></td>
+<td><b>AI assistant</b>: writes the instruction files for AI in one click<br/><img src="docs/images/en/ai_assistant.png"/></td>
 </tr>
 <tr>
-<td><b>Exported Origin project</b>: 25×19 cm layer, Arial 32 pt, boxed frame, outward ticks; XANES, k²χ(k) and |χ(R)| of Ir foil 1W1B and IrO2 Batch 1 with EXAFS fits (dashed)<br/><img src="docs/images/en/origin_export.png"/></td>
-<td><b>Edge lookup</b>: click an element for edges, fluorescence lines and a filter<br/><img src="docs/images/en/edge_lookup.png"/></td>
+<td><b>Workflow &amp; project</b>: the button at the top right pops up the six workflow steps (done ticked, next one framed, click to jump) and the project summary<br/><img src="docs/images/en/flow.png"/></td>
+<td><b>Edge lookup</b>: click an element for its edges, fluorescence lines and filters<br/><img src="docs/images/en/edge_lookup.png"/></td>
 </tr>
 </table>
 
