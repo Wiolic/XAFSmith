@@ -91,49 +91,55 @@ Click **Save parameters**.
 3. **FEFF version**: **FEFF6L** (seconds) or **FEFF8L** (self-consistent potential, 1–3 min, usually more accurate). You can compute both; they go to separate folders;
 4. click **Run**; the table lists each scattering path's distance, degeneracy and relative amplitude.
 
-### Step 7 — Fit the standard and determine S0² (10 min)
+### Step 7 — Fit the standard and determine S0² (5 min)
 
-The **EXAFS fitting** page has a switch **Quick fit | Detailed fit** at the top; it opens on **Quick fit**: first shell only, Rmin chosen automatically, and a “trustworthy / look at this” verdict. To set every path and parameter yourself (more shells, multiple scattering, custom constraints) switch to **Detailed fit**. Start with Quick fit and go to Detailed fit when you need more.
+The **EXAFS fitting** page has a switch **Quick fit | Detailed fit** at the top and opens on Quick fit. Use it for your first fit: it fits the first shell only, sets the window and parameters for you, and tells you in plain words whether the result can be trusted.
 
-**Option A: Quick fit (recommended)**
+**Quick fit (recommended)**
 
-1. **1  Samples and FEFF**: choose the standard as the sample and its structure as **FEFF folder** (the page shows the first shell: absorber–scatterer, count, distance, N_ref, R_ref);
-2. **2  Purpose, S0² and window**: **Purpose** = **Standard** (N fixed to the structure's degeneracy, S0² fitted); **Rmax (Å)** defaults to 2.5 (first shell only); the k window comes from the standard's processing settings and Rmin is set automatically from the first peak;
-3. **3  Run** → **Start fit**;
-4. **4  Result**: read the window, the result table (N, R, σ², ΔE0, S0², R-factor, Verdict), the |χ(R)| plot of data and fit, and the checks one by one (✓ passed / ✗ to look at, with advice / ℹ note): R-factor, number of variables (Stern criterion), fitted R within 0.15 Å of the CIF, |χ(R)| at Rmax ≤ 30% of the first peak, data first-peak position matching the structure's first shell, and so on;
-5. When the verdict is “Trustworthy” click **Save** (model `models/QF_<sample>.json` and the fit records). Once the standard is fitted, **Pick standard value…** in Sample mode can take its S0²;
-6. If something is ✗: follow the advice (Rmax, FEFF structure), or click **Continue in Detailed fit** to load the same model into Detailed fit and adjust it there.
+1. **1  Samples and FEFF**: choose the standard as the sample and the structure from step 6 as **FEFF folder**. The page shows the first shell it found (e.g. Ir–O ×6 at 1.98 Å);
+2. **2  Purpose, S0² and window**: **Purpose** = **Standard**: N is fixed to the coordination number of the structure and S0² is fitted. Keep **Rmax (Å)** at the default 2.5 (first shell only); Rmin is set automatically from the first peak of the data;
+3. click **Start fit**;
+4. **4  Result**: the table gives N, R, σ², ΔE0, S0² and the R-factor; below are the |χ(R)| data and fit and the checks one by one: ✓ passed, ✗ to look at (with one line of advice), ℹ note;
+5. when the verdict is **Trustworthy**, click **Save**. In step 8 you pick this standard's S0² directly, with no copying by hand;
+6. if something is ✗, follow the advice (usually Rmax or the structure used for FEFF), or click **Continue in Detailed fit** to refine the same model there.
 
-**Option B: Detailed fit** (open **Before you fit · what is a good fit** at the top right — a separate window — and read it before your first fit). Settings on the left, result on the right:
+![Quick fit: standard](docs/images/en/quick_fit_single.png)
+
+**Detailed fit** (when you want to set every path and parameter yourself; before your first fit open **Before you fit · what is a good fit** at the top right and read it). Settings on the left, result on the right:
 
 1. **Data**: the standard; **FEFF folders**: its structure;
-2. **Fit range**: the k range from step 5; an R window covering only the first shell (e.g. 1.0–2.1 Å); tick k-weights 1, 2 and 3. N_idp is shown;
-3. **Paths**: only the first shell; N = crystallographic coordination number (fixed);
-4. **Parameters**: S0², ΔE0, ΔR and σ² free → **Fit**;
-5. check the result:
-   - does the fit follow the data inside the window (both |χ(R)| and Re χ(R))?
-   - the **Quality** tab on the right (automatic): which points are ✓ and which ⚠, with the reason;
-   - the **Diagnosis** tab: where is the residual, any glitch hints?
-   - the **Robustness** tab → run: every parameter should be “stable”;
-   - to keep refining from this result, click **Use fitted values as start**, change parameters and fit again (Ctrl+Enter);
-
-   ![fit result](docs/images/en/fit_result.png)
-
-   ![fit quality check](docs/images/en/fit_quality.png)
-
+2. **Fit range**: the k range from step 5; an R window covering only the first shell (e.g. 1.0–2.1 Å); tick k-weights 1, 2 and 3; N_idp is shown;
+3. **Paths**: only the first shell, N = crystallographic coordination number (fixed);
+4. **Parameters**: S0², ΔE0, ΔR and σ² free, then **Fit**;
+5. check the result: does the fit follow the data inside the window (both |χ(R)| and Re χ(R))? The **Quality** tab marks each point ✓ or ⚠; the **Diagnosis** tab shows where the residual sits and any glitches; after running the **Robustness** tab every parameter should be “stable”. To keep refining from this result, click **Use fitted values as start**, change parameters and fit again (Ctrl+Enter);
 6. note S0² (e.g. 0.85 ± 0.08) under **Calibrate & process → Processing parameters** and save;
 7. **Save result**: the model goes to `models/` and can be rerun in one click.
 
-### Step 8 — Fit the samples (batch)
+![Detailed fit](docs/images/en/fit_detailed.png)
 
-**Quick fit (recommended)**: on **EXAFS fitting › Quick fit** choose one or all samples under **Samples (several)** (one absorption edge), **Purpose** = **Sample**, and for S0² click **Pick standard value…** and choose the step-7 standard fit (or type one; the verdict then notes “no standard behind it”), then **Start fit**. With ≥ 2 samples a joint fit runs automatically: one common k / R window, a shared ΔE0, and N, R, σ² per sample; the result has a batch-level and a per-sample verdict and an in-page trend plot of N / R / σ². **Save** writes the model, the fit records and the trend CSV; **Go to Figure export** opens **Figure export › Trend** for a publication figure (you choose which quantities to export).
+![Fit quality checks](docs/images/en/fit_quality.png)
+
+### Step 8 — Fit the samples (as a batch)
+
+**Quick fit (recommended)**
+
+1. Under **Samples (several)** choose the samples to fit (one absorption edge) and set **Purpose** = **Sample**;
+2. for S0² click **Pick standard value…** and choose the standard fit from step 7. You can also type a value, but the verdict will then note that there is no standard behind it;
+3. click **Start fit**. One sample is fitted on its own; two or more run a **joint fit** automatically: one common k / R window, a shared ΔE0, and N, R, σ² per sample;
+4. the result page gives a verdict for the batch and then for each sample; the **trend plot** below switches between N, R and σ², and **X-axis order** lets you rearrange the samples;
+5. **Save** writes the model, the fit records and the trend table (CSV); **Go to Figure export** opens **Figure export › Trend** for the publication figure.
+
+For a two-phase sample (e.g. metal + oxide), also choose a **Second-phase FEFF (optional)** under **1  Samples and FEFF**: the coordination number of each phase is reported, and Rmax defaults to 3.0 Å.
+
+![Joint quick fit and trend](docs/images/en/quick_fit.png)
 
 **Detailed fit** (when you need more shells, multiple scattering or constraints):
 
-1. On **EXAFS fitting › Detailed fit** choose one sample as **Data**, with the same paths and ranges as the standard; in **4 Parameters** set **s02's value to the step-7 result and untick vary** (fixed). **Fit** → check → **Save result**.
-2. At the top of the left column of **Detailed fit** open **Run a saved model** → choose this sample model → select **all samples** → **Run**. Results go to **Fit history**.
-3. Second shell: fit once with the extra path, then **Fit history** → select the fits without and with the shell → **F-test**. Only **p < 0.05** lets you say the shell is present. To compare three or more models use the **Model comparison** card in **Fit history** (tick the fits → **Compare**).
-4. Samples that should share parameters (e.g. N and R shared across temperatures of one sample): at the top of card 1 switch “Mode” to **Joint fit of several datasets**, select several **Data**, one path table per dataset; parameters with the same name are shared. With an independent prior (e.g. S0² ± error from the standard) add a **restraint** below the parameter table. Read the “joint fits” tab of the fit guide (top right) first.
+1. On **EXAFS fitting › Detailed fit** choose one sample as **Data**, with the same paths and ranges as the standard; in the parameter table set **s02's value to the step-7 result and untick vary** (fixed). **Fit**, check, then **Save result**;
+2. at the top of the left column open **Run a saved model**: choose this model, select all samples, then **Run**. The results go to **Fit history**;
+3. is there a second shell? Fit once more with the extra path, then in **Fit history** select the fits without and with it and click **F-test**; only **p < 0.05** lets you say the shell is present. To compare three or more models use the **Model comparison** table;
+4. samples that should share parameters (e.g. N and R across temperatures of one sample): at the top of card 1 switch “Mode” to **Joint fit of several datasets**; parameters with the same name are shared. With an independent prior (e.g. S0² ± error from the standard) add a **restraint** below the parameter table.
 
 ### Step 9 — Export (2 min)
 
