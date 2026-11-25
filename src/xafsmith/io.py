@@ -19,6 +19,7 @@ from pathlib import Path
 
 import numpy as np
 
+from . import defaults
 from .readers import ReadError, detect_format, list_formats, read_file, read_scan   # noqa: F401  门面：供 xio.* 调用
 
 
@@ -58,19 +59,22 @@ def write_prj(groups, path, norm=None, bkg=None, ft=None):
         if e0 is not None:
             x.e0 = float(e0)
             x.edge_step = float(getattr(g, "edge_step", 1.0))   # 有 e0 + edge_step 时 larch 不会用默认参数重算
+        # norm2：None 在这里按“e_end−e0（偏移 0）”处理，与 normalize.normalize / 新建配置的 -10 不等价；不要合并（会改 .prj 内容）
         x.pre_edge_details = Group(pre1=np_.get("pre1", -150), pre2=np_.get("pre2", -30),
                                    norm1=np_.get("norm1", 100),
                                    norm2=(np_.get("norm2") if (np_.get("norm2") or 0) > 0
                                           else float(g.energy[-1] - (e0 or g.energy[0]) + (np_.get("norm2") or 0))),
-                                   nnorm=np_.get("nnorm", 2), e0=e0)
+                                   nnorm=np_.get("nnorm", defaults.NORM["nnorm"]), e0=e0)
         from .common import ETOK
         kmax_data = float(np.sqrt(ETOK * max(g.energy[-1] - (e0 or g.energy[0]), 0)))
-        x.autobk_details = Group(call_args=dict(rbkg=bp.get("rbkg", 1.0), kmin=0, kmax=kmax_data,
-                                                kweight=bp.get("kweight", 2), dk=0.1, win="hanning",
-                                                nclamp=3, clamp_lo=0, clamp_hi=1))
+        x.autobk_details = Group(call_args=dict(rbkg=bp.get("rbkg", defaults.BKG["rbkg"]), kmin=0, kmax=kmax_data,
+                                                kweight=bp.get("kweight", defaults.BKG["kweight"]),
+                                                dk=defaults.BKG["dk"], win=defaults.BKG["win"],
+                                                nclamp=defaults.BKG["nclamp"], clamp_lo=defaults.BKG["clamp_lo"],
+                                                clamp_hi=defaults.BKG["clamp_hi"]))
         x.xftf_details = Group(call_args=dict(kmin=fp.get("kmin", 3), kmax=fp.get("kmax", 12),
-                                              kweight=fp.get("kweight", 2), dk=fp.get("dk", 1),
-                                              window=fp.get("window", "hanning")))
+                                              kweight=fp.get("kweight", defaults.FT["kweight"]), dk=fp.get("dk", 1),
+                                              window=fp.get("window", defaults.FT["window"])))
         prj.add_group(x)
     prj.save(str(path))
     return path

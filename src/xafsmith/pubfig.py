@@ -11,6 +11,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt      # noqa: E402
 import numpy as np                   # noqa: E402
 
+from . import defaults               # noqa: E402
+
 SIZES = {
     "单栏 85 mm": dict(w=3.35, h=2.6, font=8, lw=1.0),
     "1.5 栏 120 mm": dict(w=4.72, h=3.3, font=8, lw=1.0),
@@ -257,10 +259,10 @@ def chir(groups, size="单栏 85 mm", kweight=2, rmax=6.0, offset=0.0, show_re=F
         f = (fits or {}).get(g.label)
         if f is not None:        # 叠加拟合时，数据与拟合用同一套 FT 参数（拟合的 k 范围、窗口），否则两条曲线振幅不可比
             fp.update(kmin=f["summ"]["kmin"], kmax=f["summ"]["kmax"], dk=(f.get("model") or {}).get("dk", fp.get("dk", 1)),
-                      window=(f.get("model") or {}).get("window", fp.get("window", "hanning")))
+                      window=(f.get("model") or {}).get("window", fp.get("window", defaults.FT["window"])))
         t = Group(k=g.k, chi=g.chi)
         xftf(t, kmin=fp.get("kmin", 3), kmax=fp.get("kmax", 12), dk=fp.get("dk", 1),
-             window=fp.get("window", "hanning"), kweight=kweight)
+             window=fp.get("window", defaults.FT["window"]), kweight=kweight)
         line, = ax.plot(t.r, t.chir_mag + i * offset, label=chem(g.label, sub), **_style_of(i, s, colors))
         if show_re:
             ax.plot(t.r, t.chir_re + i * offset, color=line.get_color(), lw=0.6 * s["lw"], ls="--" if not fits else "-")
@@ -268,7 +270,7 @@ def chir(groups, size="单栏 85 mm", kweight=2, rmax=6.0, offset=0.0, show_re=F
             c, md, sm = f["curves"], f.get("model") or {}, f["summ"]
             tf = Group(k=c["kfit"], chi=c["chifit"])
             xftf(tf, kmin=sm["kmin"], kmax=sm["kmax"], dk=md.get("dk", fp.get("dk", 1)),
-                 window=md.get("window", fp.get("window", "hanning")), kweight=kweight)
+                 window=md.get("window", fp.get("window", defaults.FT["window"])), kweight=kweight)
             fc = _fit_color(line.get_color(), len(fits) == 1)
             ax.plot(tf.r, tf.chir_mag + i * offset, color=fc, ls="--", lw=0.9 * s["lw"], label=chem(g.label, sub) + " fit")
             if show_re:
@@ -299,7 +301,7 @@ def fit(curves, summ, size="双栏 178 mm", kweight=2, rmax=6.0, model=None):
     md = model or {}
     gd, gf = Group(k=c["k"], chi=c["chi"]), Group(k=c["kfit"], chi=c["chifit"])
     for gg in (gd, gf):
-        xftf(gg, kmin=summ["kmin"], kmax=summ["kmax"], dk=md.get("dk", 1), window=md.get("window", "hanning"),
+        xftf(gg, kmin=summ["kmin"], kmax=summ["kmax"], dk=md.get("dk", 1), window=md.get("window", defaults.FT["window"]),
              kweight=kweight)
     a2.axvspan(summ["rmin"], summ["rmax"], color="0.92", lw=0)
     a2.plot(gd.r, gd.chir_mag, color="k", label="|χ(R)| data")

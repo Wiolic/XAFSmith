@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import paths
+from . import defaults, paths
 from .pipeline import is_no_ref
 
 INSTRUMENT_KEYS = {
@@ -191,19 +191,19 @@ def build(samples=None, fits_csv=None):
             + (f"每个样品合并 {e['scans']} 次扫描。" if e["scans"] != "1" else "每个样品 1 次扫描。")
             + 
             f"E0 取平滑后一阶导数最大值；边前直线拟合范围 E0{n.get('pre1', -150):+g} 至 E0{n.get('pre2', -30):+g} eV，"
-            f"边后 {n.get('nnorm', 2)} 次多项式拟合范围 E0+{n.get('norm1', 100):g} eV 至{n2z}。"
-            f"背景用 AUTOBK 算法扣除（Rbkg = {b.get('rbkg', 1.0)} Å，k 权重 {b.get('kweight', 2)}）。"
-            f"k{str(t.get('kweight', 2)).translate(SUP)} 加权的 χ(k) 在 k = {t.get('kmin', 3)}–{t.get('kmax', 12)} Å⁻¹ 范围内用 "
-            f"{str(t.get('window', 'hanning')).capitalize()} 窗（dk = {t.get('dk', 1)} Å⁻¹）做傅里叶变换；文中 R 空间谱均未做相移校正。")
+            f"边后 {n.get('nnorm', defaults.NORM['nnorm'])} 次多项式拟合范围 E0+{n.get('norm1', 100):g} eV 至{n2z}。"
+            f"背景用 AUTOBK 算法扣除（Rbkg = {b.get('rbkg', defaults.BKG['rbkg'])} Å，k 权重 {b.get('kweight', defaults.BKG['kweight'])}）。"
+            f"k{str(t.get('kweight', defaults.FT['kweight'])).translate(SUP)} 加权的 χ(k) 在 k = {t.get('kmin', 3)}–{t.get('kmax', 12)} Å⁻¹ 范围内用 "
+            f"{str(t.get('window', defaults.FT['window'])).capitalize()} 窗（dk = {t.get('dk', 1)} Å⁻¹）做傅里叶变换；文中 R 空间谱均未做相移校正。")
         en.append(
             cal_en + (f"{_dash(e['scans'])} scans were merged per sample. " if e["scans"] != "1"
                                   else "One scan was used per sample. ") + "E0 was taken as the maximum of the "
             f"smoothed first derivative. Spectra were normalized with a linear pre-edge line "
             f"(E0{n.get('pre1', -150):+g} to E0{n.get('pre2', -30):+g} eV) and a polynomial of order "
-            f"{n.get('nnorm', 2)} for the post-edge (E0+{n.get('norm1', 100):g} eV to {n2e}). The background was "
-            f"removed with the AUTOBK algorithm (Rbkg = {b.get('rbkg', 1.0)} Å, k-weight {b.get('kweight', 2)}). "
-            f"The k{str(t.get('kweight', 2)).translate(SUP)}-weighted χ(k) was Fourier transformed over k = {t.get('kmin', 3)}–"
-            f"{t.get('kmax', 12)} Å⁻¹ with a {str(t.get('window', 'hanning')).capitalize()} window (dk = {t.get('dk', 1)} Å⁻¹); "
+            f"{n.get('nnorm', defaults.NORM['nnorm'])} for the post-edge (E0+{n.get('norm1', 100):g} eV to {n2e}). The background was "
+            f"removed with the AUTOBK algorithm (Rbkg = {b.get('rbkg', defaults.BKG['rbkg'])} Å, k-weight {b.get('kweight', defaults.BKG['kweight'])}). "
+            f"The k{str(t.get('kweight', defaults.FT['kweight'])).translate(SUP)}-weighted χ(k) was Fourier transformed over k = {t.get('kmin', 3)}–"
+            f"{t.get('kmax', 12)} Å⁻¹ with a {str(t.get('window', defaults.FT['window'])).capitalize()} window (dk = {t.get('dk', 1)} Å⁻¹); "
             f"R-space data are shown without phase correction.")
     fits = f["fits"]
     uses = set(fits["feff"]) if len(fits) and "feff" in fits else set()
