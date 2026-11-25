@@ -9,7 +9,6 @@ Codex、Cursor 等读取 AGENTS.md；Claude Code 读取 CLAUDE.md（其中 @AGEN
 命令行：xafsmith agent            显示接入信息
         xafsmith agent --write    写入 / 更新 AGENTS.md 与 CLAUDE.md
 """
-import os
 import re
 import shutil
 import sys
@@ -154,4 +153,5 @@ def main_text(root):
 
 
 if __name__ == "__main__":
-    print(main_text(Path(os.getcwd())))
+    from . import cli
+    raise SystemExit(cli.main(["agent", *sys.argv[1:]]))
