@@ -27,7 +27,7 @@ RLABEL = "R (Å, not phase-corrected)"
 _GREY = ["#808080", "#C0C0C0", "#A0A0A0", "#606060"]
 FAMILIES = {"waters": ("水域", "Waters"), "forests": ("森林", "Forests"), "earth": ("大地", "Earth"),
             "skies": ("天穹", "Skies"), "stone": ("山岩", "Stone"), "fields": ("原野", "Fields")}
-KIND_NAMES = {"mono": ("单色渐变", "monochrome"), "poly": ("多色对比", "contrast"), "soft": ("柔和期刊", "soft"),
+KIND_NAMES = {"mono": ("单色渐变", "monochrome"), "poly": ("多色对比", "contrast"), "soft": ("柔和", "soft"),
               "cvd": ("色盲友好", "colour-blind safe")}
 
 
