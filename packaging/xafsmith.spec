@@ -11,6 +11,8 @@ datas, binaries, hiddenimports = [], [], []
 for pkg in ("larch", "xraydb", "xafsmith"):
     d, b, h = collect_all(pkg)
     datas += d; binaries += b; hiddenimports += h
+# 内置结构（COD 的 CIF + index.csv + README）：collect_all("xafsmith") 已带上，这里显式写出以防被改动
+datas += collect_data_files("xafsmith", includes=["structures_builtin/*"])
 # pymatgen 只用到 Element 与 SpacegroupAnalyzer；其数据文件（元素表等）必须带上
 datas += collect_data_files("pymatgen")
 hiddenimports += collect_submodules("pymatgen.core") + collect_submodules("pymatgen.symmetry") \

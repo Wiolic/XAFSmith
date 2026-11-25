@@ -47,7 +47,7 @@ xafsmith = "xafsmith.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-xafsmith = ["templates/*", "docs/*.md", "docs/images/basics/*/*.png", "assets/*"]
+xafsmith = ["templates/*", "docs/*.md", "docs/images/basics/*/*.png", "assets/*", "structures_builtin/*.cif", "structures_builtin/index.csv", "structures_builtin/README.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests/unit", "tests/benchmark"]
