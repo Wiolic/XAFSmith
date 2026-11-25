@@ -13,7 +13,7 @@ from xafsmith import defaults, paths
 
 FUNCS = {"sqrt", "exp", "log", "abs", "min", "max", "pi", "sin", "cos", "tan", "reff", "degen", "e", "log10",
          "sigma2_debye", "sigma2_eins", "tempK"}      # B6：σ² 温度模型的函数与保留符号不是参数名
-RECENT = Path.home() / ".xafsmith" / "recent.json"
+RECENT = paths.USER_DIR / "recent.json"
 
 
 VER = {"data": 0}          # 数据版本号：save_cfg 等不带 S 的函数也能 bump

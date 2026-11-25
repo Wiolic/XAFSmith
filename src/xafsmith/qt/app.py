@@ -975,7 +975,7 @@ def _no_console_output():
     if sys.stdout is not None and sys.stderr is not None:
         return
     try:
-        d = Path.home() / ".xafsmith"
+        d = paths.USER_DIR
         d.mkdir(parents=True, exist_ok=True)
         f = open(d / "console.log", "w", encoding="utf-8", buffering=1)
     except Exception:

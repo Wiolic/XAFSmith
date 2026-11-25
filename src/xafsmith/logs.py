@@ -17,7 +17,9 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-LOG_DIR = Path.home() / ".xafsmith"
+from . import defaults
+
+LOG_DIR = defaults.USER_DIR
 LOG_FILE = LOG_DIR / "xafsmith.log"
 
 log = logging.getLogger("xafsmith")

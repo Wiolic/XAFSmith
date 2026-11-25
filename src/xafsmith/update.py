@@ -15,14 +15,14 @@ import sys
 import urllib.request
 from pathlib import Path
 
-from . import __version__
+from . import __version__, defaults
 
 REPO = "Wiolic/XAFSmith"
 RAW_URL = f"https://raw.githubusercontent.com/{REPO}/main/pyproject.toml"
 ZIP_URL = f"https://github.com/{REPO}/archive/refs/heads/main.zip"
 RELEASE_API = f"https://api.github.com/repos/{REPO}/releases/latest"
 RELEASES_PAGE = f"https://github.com/{REPO}/releases/latest"
-SETTINGS = Path.home() / ".xafsmith" / "settings.json"
+SETTINGS = defaults.USER_DIR / "settings.json"
 
 
 def load_settings():

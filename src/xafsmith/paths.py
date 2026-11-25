@@ -18,8 +18,11 @@
 import os
 from pathlib import Path
 
+from . import defaults
+
 MARKER = "xafsmith.json"
 SCHEMA_VERSION = "1.1"
+USER_DIR = defaults.USER_DIR      # 用户级目录：日志、最近项目、设置（定义在 defaults，见那里的说明）
 
 
 def find_root(start=None):

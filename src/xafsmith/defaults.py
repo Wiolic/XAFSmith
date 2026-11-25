@@ -2,6 +2,11 @@
 
 normalize / autobk / ft 的 DEFAULT_* 与 schema / pipeline / qt 里的同名常量都指向这里。
 """
+from pathlib import Path
+
+# 用户级目录（日志、最近项目、设置），在导入时求值。paths.USER_DIR 指向同一对象；
+# logs / update 在 cli 解析 --project 之前就被导入，不能为此导入 paths（paths 导入时即确定项目根目录），所以定义放在这里
+USER_DIR = Path.home() / ".xafsmith"
 
 # 处理参数默认值（normalize.DEFAULT_NORM / autobk.DEFAULT_BKG / ft.DEFAULT_FT 即这三个对象）
 # 注意 norm2：这里是 None；写进新建 xafsmith.json 的是 -10（CONFIG_EDGE_DEFAULTS）。
