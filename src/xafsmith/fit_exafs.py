@@ -33,6 +33,7 @@ import numpy as np
 import pandas as pd
 from larch import Group
 
+from . import modelcheck
 from .common import ETOK, n_idp
 from .sigma2 import einstein_ms_warning, expand_for_path, parse_temperature, raise_on_errors, sigma2_extra
 
@@ -112,7 +113,6 @@ def build_paths(model, root=None):
 
 
 # ------------------------------------------------------------------ 模型规范化（B1：多数据集）
-_RANGE_KEYS = ("kmin", "kmax", "rmin", "rmax", "kweight")
 _FIT_KEYS = ("kmin", "kmax", "dk", "window", "kweight", "rmin", "rmax", "fitspace")
 _BUILTIN = dict(dk=1, window="hanning", fitspace="r")     # 与 v1.1 run_fit 的默认相同
 
@@ -172,44 +172,20 @@ def normalize_model(model: dict) -> dict:
     raise_on_errors(m)                                       # B6：temperature / tempK / σ² 模型函数的错误级检查
     out = dict(name=m.get("name", ""), params=m.get("params", {}), multi=is_multi(m), datasets=[],
                restraints=_normalize_restraints(m.get("restraints")))
+    modelcheck.raise_on_errors(m)                            # E11：结构检查（与 validate 共用 modelcheck；先后顺序同 v1.4.1）
     if not out["multi"]:
         ds = dict(id=m.get("sample") or "data", sample=m.get("sample", ""))
         for k in _FIT_KEYS:
             ds[k] = m.get(k, _BUILTIN.get(k, 2 if k == "kweight" else None))   # kweight 缺省 2（v1.1）
-        miss = [k for k in _RANGE_KEYS if ds[k] is None]
-        if miss:
-            raise ValueError(f"模型缺少 {', '.join(miss)} / model is missing {', '.join(miss)}")
         ds["epsilon_k"] = None                      # 旧格式从不传 epsilon_k（与 v1.1 相同）
         ds["temperature"] = parse_temperature(m.get("temperature"))
         ds["paths"] = m.get("paths", [])
         out["datasets"].append(ds)
         return out
-    dl = m["datasets"]
-    if not isinstance(dl, list) or not dl:
-        raise ValueError("datasets 必须是非空数组 / datasets must be a non-empty array")
-    for k in ("sample", "paths"):
-        if k in m:
-            raise ValueError(f"多数据集模型不得有顶层 {k}（写进 datasets[i]） / "
-                             f"a multi-dataset model must not have a top-level '{k}' (put it in datasets[i])")
-    seen = set()
-    for i, d in enumerate(dl):
-        if not isinstance(d, dict):
-            raise ValueError(f"datasets[{i}] 不是对象 / datasets[{i}] is not an object")
-        for k in ("sample", "paths"):
-            if not d.get(k):
-                raise ValueError(f"datasets[{i}].{k} 缺失或为空 / datasets[{i}].{k} is missing or empty")
+    for i, d in enumerate(m["datasets"]):                    # 结构已由 modelcheck 查过（数据集是对象、sample/paths 非空、id 唯一、范围键齐全）
         ds = dict(id=d.get("id", d["sample"]), sample=d["sample"])
-        if not isinstance(ds["id"], str) or not ds["id"]:
-            raise ValueError(f"datasets[{i}].id 为空 / datasets[{i}].id is empty")
-        if ds["id"] in seen:
-            raise ValueError(f"datasets[{i}].id 重复：{ds['id']} / duplicate datasets[{i}].id: {ds['id']}")
-        seen.add(ds["id"])
         for k in _FIT_KEYS:
             ds[k] = d[k] if k in d else m.get(k, _BUILTIN.get(k))
-        miss = [k for k in _RANGE_KEYS if ds[k] is None]
-        if miss:
-            raise ValueError(f"datasets[{i}].{'/'.join(miss)} 缺失（数据集与顶层都没有） / "
-                             f"datasets[{i}].{'/'.join(miss)} missing (neither in the dataset nor at top level)")
         ds["epsilon_k"] = d.get("epsilon_k")
         ds["temperature"] = parse_temperature(d["temperature"] if "temperature" in d else m.get("temperature"),
                                               f"datasets[{i}].temperature")
