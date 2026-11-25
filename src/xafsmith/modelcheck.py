@@ -20,6 +20,8 @@ strict=False 时 中文 / English 已是 normalize_model 一直抛出的完整�
 """
 from __future__ import annotations
 
+from .errors import ModelError
+
 RANGE_KEYS = ("kmin", "kmax", "rmin", "rmax", "kweight")
 MODEL_REQUIRED = ["name", "sample", "kmin", "kmax", "rmin", "rmax", "kweight", "params", "paths"]
 MODEL_REQUIRED_MULTI = ["name", "params", "datasets"]
@@ -152,4 +154,4 @@ def raise_on_errors(m, strict=False):
     """normalize_model 用：第一条 error → ValueError("中文 / English")。惰性求值：与逐条检查时一样，在第一个错误处停下。"""
     for level, _where, zh, en in _iter(m, strict):
         if level == "error":
-            raise ValueError(f"{zh} / {en}")
+            raise ModelError(f"{zh} / {en}")

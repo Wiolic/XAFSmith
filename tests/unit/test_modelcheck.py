@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from xafsmith.errors import shown_name
 from xafsmith import fit_exafs as fx
 from xafsmith import paths, schema
 
@@ -166,7 +167,7 @@ def _norm_obs(m):
     try:
         r = fx.normalize_model(m)
     except Exception as ex:                                  # noqa: BLE001  记录异常类型与消息
-        return ["raise", type(ex).__name__, str(ex)]
+        return ["raise", shown_name(ex), str(ex)]
     return ["ok", json.dumps(r, sort_keys=True, default=str, ensure_ascii=False)]
 
 
@@ -178,7 +179,7 @@ def _validate_obs(m, models_dir):
     try:
         schema.check_models(rep, None, {})
     except Exception as ex:                                  # noqa: BLE001
-        return [["raise", type(ex).__name__, str(ex)]]
+        return [["raise", shown_name(ex), str(ex)]]
     return [list(i) for i in rep.items]
 
 
