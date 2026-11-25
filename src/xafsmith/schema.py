@@ -90,8 +90,11 @@ def check_layout(rep):
 
 
 def check_config(rep, cfg):
-    ver = cfg.get("xafsmith", {}).get("schema")
-    if ver is None:
+    x = cfg.get("xafsmith", {})
+    ver = x.get("schema") if isinstance(x, dict) else None
+    if not isinstance(x, dict):
+        rep.err(paths.MARKER, '"xafsmith" 应是对象，如 {"schema": "1.1"}')
+    elif ver is None:
         rep.warn(paths.MARKER, '缺少 "xafsmith": {"schema": ...}')
     elif not migrate.is_valid(ver):           # 读入时 upgrade 会拒绝它，validate 不能放过
         rep.err(paths.MARKER, f"配置版本 {ver!r} 无法识别（应形如 \"1.1\"）")
