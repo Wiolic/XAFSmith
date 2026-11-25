@@ -24,6 +24,8 @@ def parse_version(v) -> tuple[int, ...]:
     except ValueError:
         raise ValueError(f"无法识别的配置版本 {v!r}（应形如 \"1.1\"） / "
                          f"unrecognized config version {v!r} (expected like \"1.1\")") from None
+    while len(parts) > 2 and parts[-1] == 0:      # "1.1.0" 与 "1.1" 是同一版本（至少留两段：迁移表按 "1.0" 登记）
+        parts = parts[:-1]
     return parts
 
 

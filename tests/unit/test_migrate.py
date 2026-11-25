@@ -106,3 +106,15 @@ def test_check_config_rejects_unparseable_version():
     rep = schema.Report()
     schema.check_config(rep, {"xafsmith": {"schema": "abc"}, "edges": {}})
     assert any(lv == "错误" and "无法识别" in m for lv, _w, m in rep.items)
+
+
+def test_trailing_zero_is_same_version():
+    assert migrate.parse_version("1.1.0") == migrate.parse_version("1.1")
+    assert not migrate.is_newer(paths.SCHEMA_VERSION + ".0")
+
+
+def test_check_config_xafsmith_not_object():
+    from xafsmith import schema
+    rep = schema.Report()
+    schema.check_config(rep, {"xafsmith": "1.0", "edges": {}})
+    assert any(lv == "错误" and "应是对象" in m for lv, _w, m in rep.items)
