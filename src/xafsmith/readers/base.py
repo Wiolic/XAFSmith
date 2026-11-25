@@ -13,9 +13,10 @@ import numpy as np
 from larch import Group
 
 from ..common import guess_edge
+from ..errors import DataError
 
 
-class ReadError(Exception):
+class ReadError(DataError):
     """读入失败：同时带中文与英文说明。"""
 
     def __init__(self, zh, en=None):
