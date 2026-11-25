@@ -20,7 +20,8 @@ This document is for developers and for AI assistants that change the code. For 
             │ trend │ seqtools │ msbind │ sigma2 │ origin_export      │
             │ quickfit │ fitcheck │ s02_source                         │
             ├────────────────────────────────────────────────────────┤
-            │ paths │ schema │ logs │ tasks │ update │ about           │  ← infrastructure
+            │ paths │ defaults │ schema │ modelcheck │ migrate         │  ← infrastructure
+            │ logs │ tasks │ update │ about                            │
             └─────────────┬──────────────────────────────────────────┘
                           │
                  Larch (xraylarch), FEFF6L / FEFF8L, numpy / scipy / lmfit, xraydb
@@ -157,6 +158,9 @@ Test data are public only (`tests/data/demo_project/SOURCES.md` records source a
 |---|---|
 | new data format | `readers/base.py`, `readers/formats.py`, `docs/dev/io_readers.md` |
 | processing parameters / validation | `pipeline.py`, `schema.py`, `docs/数据标准.md` |
+| default values and shared constants | `defaults.py` (no Qt, no larch: processing defaults `NORM` / `BKG` / `FT` behind `normalize.DEFAULT_NORM`, `autobk.DEFAULT_BKG`, `ft.DEFAULT_FT`; the norm / bkg / ft written into a new `xafsmith.json` (`norm2 = -10`, not `None`: see the comment there); `META_COLS`; the two data-suffix sets, which differ on purpose; `USER_DIR` = `~/.xafsmith`, also `paths.USER_DIR`, kept here because `logs` is imported before `--project` is parsed); `tests/unit/test_defaults.py` |
+| model JSON structure checks | `modelcheck.py`: one set of structure rules used two ways, like `sigma2.model_issues`: `schema` reports every issue (`strict=True`), `fit_exafs.normalize_model` raises on the first (`strict=False`). The two modes keep the rules each side had before v1.4.2 (listed in the module); `tests/unit/test_modelcheck.py` pins both outputs for 97 synthetic models |
+| config version and migration | `migrate.py`: `pipeline.load_config` upgrades an older `xafsmith.json` in memory, step by step through `MIGRATIONS`, and never writes the file back; a version newer than `paths.SCHEMA_VERSION` or one that cannot be parsed is refused. `schema.validate` reads the file as it is. To change the data standard: raise `SCHEMA_VERSION`, register a step from the previous version, update `docs/数据标准.md`; `tests/unit/test_migrate.py` |
 | fitting (Detailed fit) | `fit_exafs.py`, `qt/pages/fitting/fit_page.py`, `docs/XAFS处理规范.md` |
 | Quick fit (first shell, joint, mixed phase, verdict) | `quickfit.py` (no Qt: first shell, automatic Rmin, model building, verdict thresholds as module constants), `fitcheck.py` (quality checks shared with Detailed fit), `s02_source.py` (standard-fit S0² candidates), `qt/pages/fitting/quick_fit.py`, `GLOSSARY.md`, `docs/adr/0001-*` |
 | joint-fit series (trend table, trend figure, user trend order, σ² independence, tick sync) | `trend.py` (no Qt: seq variable, N_err rule, shared flags, quick-fit first-shell rows, user order), `seqtools.py`, `pubfig.trend`, `origin_export._errorbar_parts`, `qt/pages/fitting/trend_view.py`, `docs/数据标准.md` |
