@@ -303,62 +303,27 @@ def cmd_feff(a):
         print(df[["name", "label", "reff", "degen", "nleg", "amp_ratio"]].to_string(index=False))
 
 
-def _load_model(name):
-    from . import paths
-    f = paths.model_file(name)
-    model = json.loads(f.read_text(encoding="utf-8-sig"))
-    model.setdefault("name", f.stem)
-    return model
-
-
-def _run_model(name):
-    """旧格式：(model, Group, res, dset, summ)；多数据集：(model, {id: Group}, res, [dset…], summ)。"""
-    from . import pipeline as pl, fit_exafs as fx
-    model = _load_model(name)
-    if fx.is_multi(model):
-        groups = pl.build_model_groups(model)
-        res, dsets, summ = fx.fit_multi(groups, model)
-        return model, groups, res, dsets, summ
-    g, _ = pl.build_sample(model["sample"])
-    res, dset, summ = fx.run_fit(g, model)
-    return model, g, res, dset, summ
-
-
 def _last_kw(kw):
     return kw[-1] if isinstance(kw, list) else kw
 
 
 def cmd_fit(a):
-    from . import paths, pipeline as pl, fit_exafs as fx, report as xrep
-    from .common import write_params
-    model, g, res, dset, summ = _run_model(a.model)
-    rep = fx.report_text(res)
-    print(rep)
+    from . import paths, services as sv
+    model = sv.load_model(a.model)
+    fit = sv.run_model(model, sv.resolve_groups(model))
+    summ = fit["summ"]
+    print(fit["report"])
     for w in summ["warnings"]:
         print("警告:", w)
     if a.nosave:
         _print_fit_summary(summ)
         print("\n（--nosave：只打印，未写任何文件）")
         return
-    base = pl.safe(model["name"])
-    for d in (paths.FITS, paths.FIGS):
-        d.mkdir(parents=True, exist_ok=True)
-    (paths.FITS / f"{base}.fit_report.txt").write_text(rep, encoding="utf-8")
-    fx.write_result_row(summ, paths.FITS_CSV)
-    if summ.get("multi"):
-        figs = []
-        for d, ds in zip(fx.normalize_model(model)["datasets"], dset):
-            f = paths.FIGS / f"{base}_{pl.safe(d['id'])}_fit.png"
-            xrep.plot_fit(fx.model_curves(ds), fx.dataset_view(summ, d["id"]), kweight=_last_kw(d["kweight"]), out=f)
-            figs.append(paths.rel(f))
-        fig_txt = ", ".join(str(f) for f in figs)
-    else:
-        xrep.plot_fit(fx.model_curves(dset), summ, kweight=_last_kw(model["kweight"]),
-                      out=paths.FIGS / f"{base}_fit.png")
-        fig_txt = f"{paths.rel(paths.FIGS)}/{base}_fit.png"
-    write_params(paths.FITS / f"{base}.params.json", model, "xafsmith fit")
+    saved = sv.save_fit(fit, "xafsmith fit", write_model=False)      # 模型就是读入的源文件，不回写
     _print_fit_summary(summ)
-    print(f"→ {paths.rel(paths.FITS)}/{base}.fit_report.txt, {paths.rel(paths.FITS_CSV)}, {fig_txt}")
+    figs = ", ".join(paths.rel(f) if summ.get("multi") else f"{paths.rel(paths.FIGS)}/{f.name}"
+                     for f in saved.files if f.suffix == ".png")
+    print(f"→ {paths.rel(paths.FITS)}/{saved.base}.fit_report.txt, {paths.rel(paths.FITS_CSV)}, {figs}")
 
 
 def _print_fit_summary(summ):
@@ -404,8 +369,7 @@ def _quickfit_report(res, table=None):
 
 def _quickfit_joint(a, s02, src, kw, edges, s2):
     """≥ 2 个样品（样品模式）→ 联合快速拟合：每样品一行 + 整批判定 + 趋势表；--save 另写趋势 CSV。"""
-    from . import paths, pipeline as pl, quickfit as qf, fit_exafs as fx, report as xrep, trend as tr
-    from .common import write_params, write_text_atomic
+    from . import paths, pipeline as pl, quickfit as qf, services as sv, trend as tr
     try:
         if a.s02_from:
             s02, src = _quickfit_s02_from(a, a.samples[0], edges, s2)      # 同一边由 build_joint_model 核对
@@ -440,18 +404,9 @@ def _quickfit_joint(a, s02, src, kw, edges, s2):
     base = pl.safe(model["name"])
     if (paths.MODELS / f"{base}.json").exists():
         sys.exit(f"模型 {base} 已存在，不覆盖：用 --name 换名 / model {base} already exists and is not overwritten: use --name")
-    for d in (paths.MODELS, paths.FITS, paths.FIGS):
-        d.mkdir(parents=True, exist_ok=True)
-    write_text_atomic(paths.MODELS / f"{base}.json", json.dumps(model, ensure_ascii=False, indent=2))
-    (paths.FITS / f"{base}.fit_report.txt").write_text(res.fit["report"], encoding="utf-8")
-    fx.write_result_row(res.fit["summ"], paths.FITS_CSV)
-    figs = []
-    for d in fx.normalize_model(model)["datasets"]:
-        f = paths.FIGS / f"{base}_{pl.safe(d['id'])}_fit.png"
-        xrep.plot_fit(res.fit["curves"][d["id"]], fx.dataset_view(res.fit["summ"], d["id"]), kweight=_last_kw(model["kweight"]), out=f)
-        figs.append(paths.rel(f))
-    write_params(paths.FITS / f"{base}.params.json", model, "xafsmith quickfit")
-    csv = tr.save_trend(table, base, model["name"], "xafsmith quickfit") if table is not None else None
+    saved = sv.save_fit(res.fit, "xafsmith quickfit")
+    csv = saved.trend
+    figs = [paths.rel(f) for f in saved.files if f.suffix == ".png"]
     print(f"→ {paths.rel(paths.MODELS)}/{base}.json, {paths.rel(paths.FITS)}/{base}.fit_report.txt, {paths.rel(paths.FITS_CSV)}, "
           + (f"{paths.rel(csv)}, " if csv else "") + ", ".join(str(f) for f in figs))
 
@@ -459,8 +414,7 @@ def _quickfit_joint(a, s02, src, kw, edges, s2):
 def cmd_quickfit(a):
     """快速拟合：只拟合第一壳层并给出判定；默认只打印，--save 才写 models/、拟合记录与图。
     样品模式给 ≥ 2 个样品 → 联合拟合（公共窗口、共享 ΔE0、趋势表）；标样模式只能一个样品。"""
-    from . import paths, pipeline as pl, quickfit as qf, fit_exafs as fx, report as xrep, s02_source as s2
-    from .common import write_params, write_text_atomic
+    from . import paths, pipeline as pl, quickfit as qf, s02_source as s2, services as sv
     mode, s02, src = _quickfit_s02(a)
     if mode == "standard" and len(a.samples) > 1:
         sys.exit("标样模式只能选一个样品（联合拟合只用于样品） / standard mode takes a single sample (joint fits are for samples)")
@@ -498,23 +452,16 @@ def cmd_quickfit(a):
         target = paths.MODELS / f"{base}.json"
         if target.exists():
             sys.exit(f"模型 {base} 已存在，不覆盖：用 --name 换名 / model {base} already exists and is not overwritten: use --name")
-    for d in (paths.MODELS, paths.FITS, paths.FIGS):
-        d.mkdir(parents=True, exist_ok=True)
     for r in results:
-        base = pl.safe(r.model["name"])
-        write_text_atomic(paths.MODELS / f"{base}.json", json.dumps(r.model, ensure_ascii=False, indent=2))
-        (paths.FITS / f"{base}.fit_report.txt").write_text(r.fit["report"], encoding="utf-8")
-        fx.write_result_row(r.fit["summ"], paths.FITS_CSV)
-        xrep.plot_fit(r.fit["curves"], r.fit["summ"], kweight=_last_kw(r.model["kweight"]), out=paths.FIGS / f"{base}_fit.png")
-        write_params(paths.FITS / f"{base}.params.json", r.model, "xafsmith quickfit")
+        base = sv.save_fit(r.fit, "xafsmith quickfit").base
         print(f"→ {paths.rel(paths.MODELS)}/{base}.json, {paths.rel(paths.FITS)}/{base}.fit_report.txt, "
               f"{paths.rel(paths.FITS_CSV)}, {paths.rel(paths.FIGS)}/{base}_fit.png")
 
 
 def cmd_trend(a):
     """C2：联合拟合 → 趋势表（N、R、σ²、ΔE0 及 1σ 误差、边位置）；不加 --nosave 时写 CSV、PNG 与 params.json。"""
-    from . import paths, pipeline as pl, fit_exafs as fx, pubfig, trend as tr
-    model = _load_model(a.model)
+    from . import paths, pipeline as pl, fit_exafs as fx, pubfig, services as sv, trend as tr
+    model = sv.load_model(a.model)
     if not fx.is_multi(model) or len(model["datasets"]) < 2:
         sys.exit(f"模型 {model['name']} 不是 ≥2 个数据集的联合拟合模型，趋势表需要序列数据 / "
                  f"model {model['name']} is not a joint fit of ≥2 datasets; the trend table needs a series")
@@ -522,7 +469,7 @@ def cmd_trend(a):
     bad = [x for x in panels if x not in pubfig.TREND_PANELS]
     if bad or not panels:
         sys.exit(f"--panels 只能取 {','.join(pubfig.TREND_PANELS)}（逗号分隔） / --panels takes {','.join(pubfig.TREND_PANELS)}")
-    _model, groups, _res, _dsets, summ = _run_model(a.model)
+    summ = sv.run_model(model, sv.resolve_groups(model))["summ"]
     meta, proc = tr.load_project_tables()
     table = tr.trend_table(summ, model, meta, proc)
     for n in table.attrs["seq_notes"]:
@@ -549,19 +496,20 @@ def cmd_trend(a):
 
 
 def cmd_ftest(a):
-    from . import fit_exafs as fx
-    for msg in fx.ftest_blockers(_load_model(a.small), _load_model(a.large)):
+    from . import fit_exafs as fx, services as sv
+    m1, m2 = sv.load_model(a.small), sv.load_model(a.large)
+    for msg in fx.ftest_blockers(m1, m2):
         print(msg)
-    r1 = _run_model(a.small)[2]
-    r2 = _run_model(a.large)[2]
+    r1 = sv.run_model(m1, sv.resolve_groups(m1))["result"]
+    r2 = sv.run_model(m2, sv.resolve_groups(m2))["result"]
     print(json.dumps(fx.hamilton_test(r1, r2), ensure_ascii=False, indent=2))
 
 
 def cmd_msbind(a):
     """B5：多重散射路径的 ΔR / σ² 绑定建议；只打印，加 --out 才另存新模型（不覆盖已有模型）。"""
-    from . import paths, msbind as mb
+    from . import paths, msbind as mb, services as sv
     from .common import write_params, write_text_atomic
-    model = _load_model(a.model)
+    model = sv.load_model(a.model)
     blocks = [(d.get("id") or d.get("sample"), d) for d in model["datasets"]] if "datasets" in model         else [(model.get("sample", ""), model)]
     if a.dataset:
         blocks = [(i, d) for i, d in blocks if i == a.dataset or d.get("sample") == a.dataset]
@@ -612,14 +560,15 @@ def cmd_msbind(a):
 
 
 def cmd_compare(a):
-    from . import paths, fit_exafs as fx
+    from . import paths, fit_exafs as fx, services as sv
     from .common import write_params
     if len(a.models) < 2:
         sys.exit("compare 至少需要 2 个模型 / compare needs at least 2 models")
     entries = []
     for name in a.models:
-        model, _g, res, _d, summ = _run_model(name)
-        entries.append(dict(name=model["name"], model=model, result=res, summ=summ))
+        model = sv.load_model(name)
+        fit = sv.run_model(model, sv.resolve_groups(model))
+        entries.append(dict(name=model["name"], model=model, result=fit["result"], summ=fit["summ"]))
     df = fx.compare_models(entries)
     print(df.to_string(index=False))
     print("\n" + fx.COMPARE_NOTE)
@@ -664,11 +613,13 @@ def cmd_plan(a):
 
 
 def cmd_robust(a):
-    from . import paths, fit_exafs as fx
-    if fx.is_multi(_load_model(a.model)):
+    from . import paths, fit_exafs as fx, services as sv
+    model = sv.load_model(a.model)
+    if fx.is_multi(model):
         sys.exit("多数据集模型暂不支持稳健性检查 / "
                  "robustness checks are not yet supported for multi-dataset models")
-    model, g, res, dset, summ = _run_model(a.model)
+    g = sv.resolve_groups(model)
+    summ = sv.run_model(model, g)["summ"]
     tab, ver = fx.robustness(g, model, progress=lambda f, n: print(f"  {n}"))
     base = summ["model"].replace("/", "_")
     tab.to_csv(paths.FITS / f"{base}_robustness.csv", index=False, encoding="utf-8-sig")
@@ -724,16 +675,19 @@ def cmd_update(a):
 
 
 def cmd_diagnose(a):
-    from . import fit_exafs as fx
-    model, g, res, dset, summ = _run_model(a.model)
+    from . import fit_exafs as fx, services as sv
+    model = sv.load_model(a.model)
+    g = sv.resolve_groups(model)
+    fit = sv.run_model(model, g)
+    summ = fit["summ"]
     print(f"R 因子 {summ['rfactor']:.4f}  χ²_ν {summ['chi2_reduced']:.2f}  变量 {summ['nvarys']} / N_idp {summ['n_idp']:.1f}")
     if summ.get("multi"):
-        for d, ds in zip(fx.normalize_model(model)["datasets"], dset):
+        for d in fx.normalize_model(model)["datasets"]:
             print(f"\n===== 数据集 {d['id']}（样品 {d['sample']}） =====")
-            _print_diag(fx.diagnose(fx.model_curves(ds), d, e0=getattr(g[d["id"]], "e0", None),
+            _print_diag(fx.diagnose(fit["curves"][d["id"]], d, e0=getattr(g[d["id"]], "e0", None),
                                     kweight=_last_kw(d["kweight"])))
         return
-    _print_diag(fx.diagnose(fx.model_curves(dset), model, e0=getattr(g, "e0", None),
+    _print_diag(fx.diagnose(fit["curves"], model, e0=getattr(g, "e0", None),
                             kweight=_last_kw(model["kweight"])))
 
 
@@ -758,25 +712,26 @@ SIZE_ALIAS = {"single": "单栏 85 mm", "1.5": "1.5 栏 120 mm", "double": "双�
 def cmd_figure(a):
     import datetime
     import re as _re
-    from . import paths, pipeline as pl, pubfig as pf, fit_exafs as fx
+    from . import paths, pipeline as pl, pubfig as pf, fit_exafs as fx, services as sv
     size = SIZE_ALIAS.get(a.size, a.size)
     if a.kind == "fit":
         if not a.model:
             sys.exit("--kind fit 需要 --model <模型名>")
-        m0 = _load_model(a.model)
+        m0 = sv.load_model(a.model)
         if fx.is_multi(m0):
             dl = fx.normalize_model(m0)["datasets"]
             ids = [d["id"] for d in dl]
             if a.dataset not in ids:
                 sys.exit(f"多数据集模型需要 --dataset ID，可选：{', '.join(ids)} / "
                          f"a multi-dataset model needs --dataset ID, one of: {', '.join(ids)}")
-            model, g, res, dset, summ = _run_model(a.model)
+            fit = sv.run_model(m0, sv.resolve_groups(m0))
+            summ = fit["summ"]
             i = ids.index(a.dataset)
-            fig, cap = pf.fit(fx.model_curves(dset[i]), fx.dataset_view(summ, a.dataset), size,
+            fig, cap = pf.fit(fit["curves"][a.dataset], fx.dataset_view(summ, a.dataset), size,
                               kweight=a.kweight, rmax=a.rmax, model=dl[i])
         else:
-            model, g, res, dset, summ = _run_model(a.model)
-            fig, cap = pf.fit(fx.model_curves(dset), summ, size, kweight=a.kweight, rmax=a.rmax, model=model)
+            fit = sv.run_model(m0, sv.resolve_groups(m0))
+            fig, cap = pf.fit(fit["curves"], fit["summ"], size, kweight=a.kweight, rmax=a.rmax, model=m0)
     else:
         if not a.samples:
             sys.exit("需要 --samples 样品1 样品2 …")

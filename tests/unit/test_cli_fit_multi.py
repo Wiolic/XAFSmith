@@ -3,7 +3,7 @@
 演示项目复制到 tmp_path，写一个 2 数据集模型（同一 cu_metal_rt，路径用 feffcu01.dat 绝对路径）：
   xafsmith fit 退出码 0、每个数据集一张图、CSV 有 dataset 列且两个数据集各一行；
   xafsmith robust 给出“暂不支持”且退出码非 0；
-  界面 state.run_model 抛出双语提示（界面在 B2 提供）。
+  界面 services.run_model 抛出双语提示（界面在 B2 提供）。
 CLI 在子进程里运行（项目目录须在导入 xafsmith.paths 之前设定）。
 """
 import json
@@ -84,13 +84,14 @@ def test_robust_refuses_multi(proj):
 def test_gui_run_model_runs_multi(proj):
     """B2：GUI 的 run_model 能直接运行多数据集模型（组按项目配置建，与命令行一致）"""
     from xafsmith import paths
+    from xafsmith import services
     from xafsmith.qt import state
     old = paths.ROOT
     paths.set_root(proj)
     try:
-        m = state.load_model("cu_twin.json", sample="cu_metal_rt")     # 不替换样品、不报缺 sample
+        m = services.load_model("cu_twin.json", sample="cu_metal_rt")     # 不替换样品、不报缺 sample
         assert "datasets" in m and "sample" not in m
-        fit = state.run_model(None, m)
+        fit = services.run_model(m)
         assert fit["multi"] and fit["summ"]["n_datasets"] == 2 and len(fit["curves"]) == 2
         assert state.fit_ds_ids(fit) == [d["id"] for d in fit["summ"]["datasets"]]
         sub = state.fit_dataset(fit, state.fit_ds_ids(fit)[1])

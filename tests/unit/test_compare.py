@@ -35,14 +35,15 @@ def proj(tmp_path_factory):
 @pytest.fixture(scope="module")
 def entries(proj):
     from xafsmith import paths
-    from xafsmith.cli import _run_model
+    from xafsmith import services
     old = paths.ROOT
     paths.set_root(proj)
     try:
         out = {}
         for m in ALL:
-            model, _g, res, _d, summ = _run_model(m["name"])
-            out[m["name"]] = dict(name=m["name"], model=model, result=res, summ=summ)
+            model = services.load_model(m["name"])
+            fit = services.run_model(model)
+            out[m["name"]] = dict(name=m["name"], model=model, result=fit["result"], summ=fit["summ"])
         yield out
     finally:
         paths.set_root(old)

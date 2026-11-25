@@ -175,7 +175,7 @@ def test_single_models_carry_the_quickfit_key(proj):
 def test_joint_run_shapes(joint):
     m, r = joint
     assert isinstance(r, qf.JointResult) and [x.sample for x in r.samples] == ["cu_a", "cu_b"]
-    f = r.fit                                                                       # 与 qt.state.run_model 同形
+    f = r.fit                                                                       # 与 services.run_model 同形
     assert {"model", "summ", "result", "curves", "report", "time", "multi"} <= set(f) and f["multi"] is True
     assert set(f["curves"]) == {"cu_a", "cu_b"} and f["summ"]["multi"] and f["summ"]["n_datasets"] == 2
     assert r.e0 == f["summ"]["params"]["e0"]["value"] and r.nvarys == 7 and r.s02 == 0.9

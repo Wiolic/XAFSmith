@@ -980,7 +980,7 @@ def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
     from xafsmith import pipeline as pl
     from xafsmith.qt import session
     from xafsmith.qt.pages.fitting.fit_view import FitView
-    from xafsmith.qt.state import safe
+    from xafsmith.services import safe
     from xafsmith.paths import FITS_CSV
     csv0 = FITS_CSV.read_bytes() if FITS_CSV.exists() else None
     made = []
@@ -1178,8 +1178,8 @@ def multi_fit_checks(app, w, S, P, k1, k2, fdir, rng=None, alias=False):
             say(len(S.fits) == n0 + 1 and S.fits[-1]["summ"].get("n_datasets") == 2, "已保存多数据集模型能运行")
             # 与命令行重跑对照
             if not alias:
-                from xafsmith import cli
-                sc = cli._run_model(base)[4]
+                from xafsmith import services
+                sc = services.run_model(services.load_model(base))["summ"]
                 gp = f2["summ"]["params"]
                 dif = max(abs(sc["params"][k]["value"] - v["value"]) / max(abs(v["value"]), 1e-12) for k, v in gp.items())
                 say(dif < 1e-10, f"GUI 联合拟合与 xafsmith fit 重跑：参数最大相对差 {dif:.2e}")
@@ -1476,7 +1476,7 @@ def irtaox_suite(app, w, S, P):
     import tempfile
     with tempfile.TemporaryDirectory() as td:
         import matplotlib.pyplot as plt
-        from xafsmith.qt.state import plain_rc
+        from xafsmith.services import plain_rc
         with plain_rc():
             fig, _ = pf.xanes([S.groups["IrO2"], S.groups["Ir foil"]], offset=0.5, colors=cols)
         spec = oe.figure_spec(fig, td, "t", kind="xanes")
