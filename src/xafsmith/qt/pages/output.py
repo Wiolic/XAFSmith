@@ -321,11 +321,13 @@ class PubFigPage(Page):
                 self.state[k] = v
             self.state["order"] = order.value()
         render = self._finish(ctl, size, fmts, name, k_, make,
-                              [w_ for w_ in list(opt.values()) + [size, pal] if w_ is not opt["sel"]], pre)
+                              [w_ for w_ in list(opt.values()) + [size, pal] if w_ is not opt["sel"]], pre,
+                              tags=lambda: [k for k in order.value() if k in opt["sel"].value()])
         order.changed.connect(lambda *_: W.wait_cursor(render))
 
-    def _finish(self, ctl, size, fmts, name, k_, make, widgets, pre=None):
-        """预览、图注、保存与 Origin 导出（各种图共用）：make() → (fig, 英文图注) 或 None；widgets 变化时重画。返回 render。"""
+    def _finish(self, ctl, size, fmts, name, k_, make, widgets, pre=None, tags=None):
+        """预览、图注、保存与 Origin 导出（各种图共用）：make() → (fig, 英文图注) 或 None；widgets 变化时重画。返回 render。
+        tags() → 图中的样品（或模型）名，用于 Origin 工程的文件夹名与文件名（文件名 + 图的种类 + 样品；已有同名的加 _2、_3 …）。"""
         from xafsmith import pubfig as pf
         self.add(ctl)
         view = Card(T("预览", "Preview"))
@@ -387,9 +389,11 @@ class PubFigPage(Page):
 
         obtn = W.button(T("导出 Origin 工程 (.opju)", "Export Origin project (.opju)"), icon_name="download",
                         tip=T("每条曲线写成工作表中的一对 X/Y 列，并按统一格式作图（图层 25×19 cm、Arial 32 pt、四边框、刻度朝外）。"
-                              "本机有 Origin 时直接生成 .opju；否则写出数据与 build_origin.py，在 Origin 脚本窗口运行即可。",
+                              "每次导出新建一个文件夹（文件名 + 图的种类 + 样品，不覆盖以前的导出）；本机有 Origin 时文件夹里只有 .opju，"
+                              "否则写出数据与 build_origin.py，在 Origin 脚本窗口运行即可。",
                               "Each curve becomes an X/Y column pair; graphs use one format (25×19 cm layer, Arial 32 pt, boxed axes, "
-                              "outward ticks). With Origin installed the .opju is built directly; otherwise data and build_origin.py "
+                              "outward ticks). Each export gets a new folder (file name + figure type + samples; earlier exports are never "
+                              "overwritten); with Origin installed it holds only the .opju, otherwise data and build_origin.py "
                               "are written for Origin's script window."))
 
         def origin():
@@ -397,7 +401,9 @@ class PubFigPage(Page):
                 return
             from xafsmith import origin_export as oe
             fig = cur["fig"]
-            od = paths.PUBFIGS / "origin" / base_name()
+            stem = oe.export_stem(name.text(), k_, tags() if tags else ())
+            od = oe.unique_dir(paths.PUBFIGS / "origin", stem)
+            stem = od.name
 
             def done(r):
                 if r["mode"] == "originpro":
@@ -413,7 +419,7 @@ class PubFigPage(Page):
             from PySide6.QtWidgets import QApplication
             QApplication.processEvents()
             try:
-                r = W.wait_cursor(lambda: oe.export(fig, od, base_name(), kind=k_))
+                r = W.wait_cursor(lambda: oe.export(fig, od, stem, kind=k_))
             except Exception as ex:      # noqa: BLE001
                 logs.log.warning("qt.pages.output.done 出错（已忽略或已提示）：%s", k_, exc_info=True)
                 W.ERRORS.append(f"origin: {ex}")
@@ -489,7 +495,8 @@ class PubFigPage(Page):
 
         def pre():
             st.update(tr_panels=pm.value(), tr_paths=pp.value(), tr_xlabel=xl.text().strip(), pal=pal.value())
-        render = render_ = self._finish(ctl, size, fmts, name, "trend", make, [pm, pp, size, pal], pre)
+        render = render_ = self._finish(ctl, size, fmts, name, "trend", make, [pm, pp, size, pal], pre,
+                                        tags=lambda: [f["summ"].get("model", "")])
         xl.editingFinished.connect(lambda: W.wait_cursor(render))
 
 

@@ -1,7 +1,7 @@
 """把“图片导出”中的图写成 Origin 工程（.opju）。
 
-做法同 PeakForge：先写数据（CSV，每条曲线一对 X/Y 列）与说明（spec.json），再用 originpro 生成 .opju；
-本机没有 originpro（或没装 Origin）时，只写出数据与 build_origin.py，在 Origin 的脚本窗口运行
+做法同 PeakForge：先写数据（CSV，每条曲线一对 X/Y 列）与说明（spec.json），再用 originpro 生成 .opju
+（这些中间文件写在临时文件夹，完成后删除，导出文件夹里只留 .opju）；本机没有 originpro（或没装 Origin）时，只写出数据与 build_origin.py，在 Origin 的脚本窗口运行
     run -pyf "<导出目录>/build_origin.py"
 即可得到同样的工程。曲线、颜色、线型、坐标轴范围与标题都取自当前预览的图；字号、线宽、图层尺寸按参照工程统一设置
 （见 origin_builder.py 开头）。
@@ -197,15 +197,53 @@ def write_script(spec, out_dir):
     return dst
 
 
+KIND_TAG = {"xanes": "XANES", "deriv": "dXANES", "chik": "chik", "chir": "chiR", "trend": "trend"}
+
+
+def export_stem(name, kind="", samples=()):
+    """Origin 工程（与所在文件夹）的名字：文件名 + 图的种类 + 样品（最多 3 个，其余记为 +n），经 services.safe 清洗。
+    换一种图或另一组样品再导出时名字不同，不会覆盖前一次的导出。"""
+    from xafsmith.services import safe
+    samples = [safe(s_) for s_ in samples]
+    samples = [s_ for s_ in samples if s_]
+    part = "-".join(samples[:3]) + (f"+{len(samples) - 3}" if len(samples) > 3 else "")
+    bits = [safe(name) or "figure", KIND_TAG.get(kind, safe(kind)), part]
+    return "_".join(b for b in bits if b)[:80].rstrip("_.-")
+
+
+def unique_dir(root, stem):
+    """root/stem；已存在时依次试 stem_2、stem_3 …（不覆盖已有的导出）"""
+    root = Path(root)
+    d, n = root / stem, 2
+    while d.exists():
+        d, n = root / f"{stem}_{n}", n + 1
+    return d
+
+
 def export(fig, out_dir, name, kind="", use_originpro=None, png=False):
-    """返回 dict(mode="originpro"|"script", opju, script, folder)"""
-    spec = figure_spec(fig, out_dir, name, kind, png)
-    if not spec["graphs"]:
-        raise ValueError("图中没有可导出的曲线")
-    script = write_script(spec, out_dir)
+    """返回 dict(mode="originpro"|"script", opju, script, folder)。
+    originpro 模式：数据 CSV、spec.json 与 build_origin.py 写在临时文件夹，工程建好后删除，out_dir 里只留 <name>.opju
+    （png=True 时另有 <book>_origin.png）。script 模式（没有 originpro）：数据与脚本写在 out_dir，在 Origin 里运行后生成工程。"""
+    out_dir = Path(out_dir)
     if use_originpro is None:
         use_originpro = originpro_available()
-    if use_originpro:
+    if not use_originpro:
+        spec = figure_spec(fig, out_dir, name, kind, png)
+        if not spec["graphs"]:
+            raise ValueError("图中没有可导出的曲线")
+        script = write_script(spec, out_dir)
+        return dict(mode="script", opju=None, script=str(script), folder=str(out_dir.resolve()))
+    import tempfile
+    work = Path(tempfile.mkdtemp(prefix="xafsmith_origin_"))
+    try:
+        spec = figure_spec(fig, work, name, kind, False)
+        if not spec["graphs"]:
+            raise ValueError("图中没有可导出的曲线")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        spec["out"] = str((out_dir / f"{name}.opju").resolve())
+        if png:
+            for g in spec["graphs"]:
+                g["png"] = str((out_dir / f"{g['book']}_origin.png").resolve())
         import originpro as op
         from . import origin_builder
         try:
@@ -215,6 +253,10 @@ def export(fig, out_dir, name, kind="", use_originpro=None, png=False):
                 op.exit()
             except Exception:   # noqa: BLE001
                 logs.log.debug("origin_export.export 出错（已忽略或已提示）", exc_info=True)
-                pass
-        return dict(mode="originpro", opju=spec["out"], script=str(script), folder=str(Path(out_dir).resolve()))
-    return dict(mode="script", opju=None, script=str(script), folder=str(Path(out_dir).resolve()))
+    except BaseException:
+        if out_dir.is_dir() and not any(out_dir.iterdir()):
+            out_dir.rmdir()                      # 失败时不留空文件夹
+        raise
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return dict(mode="originpro", opju=spec["out"], script=None, folder=str(out_dir.resolve()))
