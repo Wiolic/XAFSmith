@@ -10,12 +10,8 @@
           Δμt 较大说明自吸收风险高
   * 噪声：χ(k) 在 R=15–25 Å 的平均幅度估计 ε_k（larch estimate_noise）
   * 谐波：单条谱无法评估，标为“不可评估”
-
-用法：
-  python -m xafsmith.qc <文件> [<文件> ...] --out output/qc/qc_report.csv
 """
 from xafsmith import logs
-import argparse
 
 import numpy as np
 import pandas as pd
@@ -123,17 +119,3 @@ def run(groups, out=None):
     if out:
         df.to_csv(out, index=False, encoding="utf-8-sig")
     return df
-
-
-def main():
-    from .io import read_any
-    ap = argparse.ArgumentParser()
-    ap.add_argument("files", nargs="+")
-    ap.add_argument("--out", default="results/qc_report.csv")
-    a = ap.parse_args()
-    df = run([read_any(f) for f in a.files], a.out)
-    print(df.to_string())
-
-
-if __name__ == "__main__":
-    main()
