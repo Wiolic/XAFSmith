@@ -32,12 +32,13 @@ The computational core is [Larch](https://xraypy.github.io/xraylarch/) (xraylarc
 
 ### ① Quick fit: EXAFS fitting without prior experience
 
-Choose the samples and a FEFF calculation, then click **Start fit**. Quick fit fits the first shell only: the fitting window is set automatically and the parameters start from sensible values and ranges. Afterwards every result is checked and the conclusion is stated in plain words: **trustworthy**, or what is wrong and what to try next.
+Choose the samples, pick one of 63 built-in structures (common metal foils, oxides, sulfides and more, mostly from the Crystallography Open Database) to compute FEFF without hunting for a CIF, then click **Start fit**. Quick fit fits the first shell only: the fitting window is set automatically and the parameters start from sensible values and ranges. Afterwards every result is checked and the conclusion is stated in plain words: **trustworthy**, or what is wrong and what to try next. Under each problem there is a button that takes you to the fix, such as “Set Rmax to 2.3 Å and refit” or “Change structure…”.
 
 - Fit a standard first to get S0²; when fitting a sample, **Pick standard value…** takes it over and records where it came from;
 - fit a whole series (time, potential, temperature) jointly in one go and get **trend plots of coordination number and bond length** straight away, with an adjustable sample order;
 - for a two-phase sample (e.g. metal + oxide), add a second phase and get the coordination number of each phase;
-- when you need more shells or multiple scattering, **Continue in Detailed fit** carries the paths and parameters over unchanged.
+- when you need more shells or multiple scattering, **Continue in Detailed fit** carries the paths and parameters over unchanged;
+- **Export report package** puts the fit plots, parameter table, verdict and methods paragraphs in one folder with a one-page HTML report, ready for your supervisor or a group meeting; any problem in the verdict is flagged at the top.
 
 ![Quick fit](docs/images/en/quick_fit_single.png)
 

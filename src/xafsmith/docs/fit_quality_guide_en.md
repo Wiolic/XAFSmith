@@ -2,7 +2,7 @@
 
 > For users who can already run a fit (see the *Beginner fitting tutorial*) but whose fit does **not** match the data closely.
 > Everything here is done in the GUI; page names refer to the sidebar.
-> Start with **EXAFS fitting › Quick fit** for the first shell and read its verdict; this guide is for what to do in **Detailed fit** when a check is ✗ or when you need more shells or multiple scattering (the **Continue in Detailed fit** button on the Quick-fit result loads the same model there).
+> Start with **EXAFS fitting › Quick fit** for the first shell and read its verdict; this guide is for what to do in **Detailed fit** when a check is ✗ or when you need more shells or multiple scattering (the **Continue in Detailed fit** button on the Quick-fit result loads the same model there). Every ✗ in the quick-fit verdict has buttons under it: for a too-large Rmax click **Set Rmax to X Å and refit**, for a structure that does not match click **Change structure…** and pick another built-in structure; settle those two in Quick fit first. The problems whose button is **Continue in Detailed fit** (too many variables, no error estimate, a parameter at a bound, strong correlation, odd σ², a systematic residual) are what this guide is about.
 
 ---
 

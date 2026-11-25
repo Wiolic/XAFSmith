@@ -97,12 +97,13 @@ The **EXAFS fitting** page has a switch **Quick fit | Detailed fit** at the top 
 
 **Quick fit (recommended)**
 
-1. **1  Samples and FEFF**: choose the standard as the sample and the structure from step 6 as **FEFF folder**. The page shows the first shell it found (e.g. Ir–O ×6 at 1.98 Å);
+1. **1  Samples and FEFF**: choose the standard as the sample and the structure from step 6 as **FEFF folder**; if you skipped step 6, click **Compute from a built-in structure…** next to it and pick a structure, which is selected when done. The page shows the first shell it found (e.g. Ir–O ×6 at 1.98 Å);
 2. **2  Purpose, S0² and window**: **Purpose** = **Standard**: N is fixed to the coordination number of the structure and S0² is fitted. Keep **Rmax (Å)** at the default 2.5 (first shell only); Rmin is set automatically from the first peak of the data;
 3. click **Start fit**;
 4. **4  Result**: the table gives N, R, σ², ΔE0, S0² and the R-factor; below are the |χ(R)| data and fit and the checks one by one: ✓ passed, ✗ to look at (with one line of advice), ℹ note;
 5. when the verdict is **Trustworthy**, click **Save**. In step 8 you pick this standard's S0² directly, with no copying by hand;
-6. if something is ✗, follow the advice (usually Rmax or the structure used for FEFF), or click **Continue in Detailed fit** to refine the same model there.
+6. if something is ✗, click the button under it (usually **Set Rmax to X Å and refit** or **Change structure…**), or click **Continue in Detailed fit** to refine the same model there;
+7. to show your supervisor, click **Export report package**: figures, parameter table, verdict, methods paragraphs and a one-page report land in one folder under `output/reports/`.
 
 ![Quick fit: standard](docs/images/en/quick_fit_single.png)
 
