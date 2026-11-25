@@ -198,3 +198,28 @@ def save_lcf(r, *, sample, standards, kwargs, note, tool, figure=True) -> list[P
     files.append(write_params(paths.LCF / f"lcf_{base}.params.json",
                               dict(sample=sample, standards=list(standards), **eff, note=note), tool))
     return files
+
+
+# ----------------------------------------------------------------------------- XANES 特征表
+def save_xanes(tab, *, wl_window, tool) -> Path:
+    """XANES 特征表 → xanes/xanes_features.csv，按样品合并：新表里出现的样品替换旧行，其余旧行保留（旧行在前、新行在后）。
+    xanes_features.params.json 的 params = {"samples": {样品: {wl_window, tool, time}}}，读旧的再按样品更新。"""
+    import pandas as pd
+    out = paths.XANES_CSV
+    out.parent.mkdir(parents=True, exist_ok=True)
+    old = pd.read_csv(out, encoding="utf-8-sig") if out.exists() else None
+    new = tab if old is None else pd.concat([old[~old["sample"].isin(tab["sample"])], tab])
+    new.to_csv(out, index=False, encoding="utf-8-sig")
+    pf = out.with_suffix(".params.json")
+    samples = {}
+    if pf.exists():
+        try:
+            samples = dict(json.loads(pf.read_text(encoding="utf-8-sig"))["params"]["samples"])
+        except Exception:      # noqa: BLE001
+            logs.log.warning("services.save_xanes：旧 params.json 无法读取，从空开始：%s", pf, exc_info=True)
+            samples = {}
+    stamp = datetime.datetime.now().isoformat(timespec="seconds")
+    for s in tab["sample"]:
+        samples[str(s)] = dict(wl_window=wl_window, tool=tool, time=stamp)
+    write_params(pf, {"samples": samples}, tool)
+    return out

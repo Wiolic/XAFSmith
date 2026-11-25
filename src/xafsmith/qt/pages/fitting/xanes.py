@@ -38,7 +38,7 @@ class XanesPage(Page):
                         state=self.state, key="tab"))
 
     def _features(self, cands):
-        from xafsmith import xanes as xx
+        from xafsmith import services, xanes as xx
         S = self.S
         w = QWidget()
         lay = W.QVBoxLayout(w)
@@ -61,7 +61,7 @@ class XanesPage(Page):
             if not v:
                 return
             tab = xx.features_table([S.groups[k] for k in v], wl.value())
-            cur["tab"] = tab
+            cur["tab"], cur["wl"] = tab, wl.value()
             tabw.layout().addWidget(W.Table(tab.round(4)))
             plot.clear()
             for k in v:
@@ -78,10 +78,7 @@ class XanesPage(Page):
             tab = cur.get("tab")
             if tab is None:
                 return
-            paths.XANES.mkdir(parents=True, exist_ok=True)
-            old = pd.read_csv(paths.XANES_CSV, encoding="utf-8-sig") if paths.XANES_CSV.exists() else None
-            new = tab if old is None else pd.concat([old[~old["sample"].isin(tab["sample"])], tab])
-            new.to_csv(paths.XANES_CSV, index=False, encoding="utf-8-sig")
+            services.save_xanes(tab, wl_window=cur["wl"], tool="GUI XANES")
             W.toast(self, T(f"已保存 {len(tab)} 条（同名样品覆盖）", f"Saved {len(tab)} rows (same samples replaced)"))
         sel.changed.connect(lambda *_: upd())
         wl.valueChanged.connect(lambda *_: upd())

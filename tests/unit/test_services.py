@@ -206,3 +206,28 @@ def test_save_lcf_writes_row_figure_params(proj):
     services.save_lcf(r, sample="s 1", standards=["A", "B"], kwargs={}, note="n2", tool="GUI LCF", figure=False)
     df = pd.read_csv(files[0], encoding="utf-8-sig")
     assert list(df["note"].dropna())[-2:] == ["n1", "n2"]
+
+
+def test_save_xanes_merges_by_sample(proj):
+    import pandas as pd
+    from xafsmith import paths, services
+    paths.XANES_CSV.unlink(missing_ok=True)
+    paths.XANES_CSV.with_suffix(".params.json").unlink(missing_ok=True)
+
+    def tab(rows):
+        return pd.DataFrame([dict(sample=s, E0_deriv=v) for s, v in rows])
+    services.save_xanes(tab([("A", 1.0), ("B", 2.0)]), wl_window=30.0, tool="xafsmith xanes")
+    services.save_xanes(tab([("B", 2.5), ("C", 3.0)]), wl_window=20.0, tool="GUI XANES")
+    df = pd.read_csv(paths.XANES_CSV, encoding="utf-8-sig")
+    assert list(df["sample"]) == ["A", "B", "C"] and list(df["E0_deriv"]) == [1.0, 2.5, 3.0]
+    p = json.loads(paths.XANES_CSV.with_suffix(".params.json").read_text(encoding="utf-8"))
+    assert p["tool"] == "GUI XANES"
+    s = p["params"]["samples"]
+    assert list(s) == ["A", "B", "C"]
+    assert [s[k]["wl_window"] for k in "ABC"] == [30.0, 20.0, 20.0]
+    assert [s[k]["tool"] for k in "ABC"] == ["xafsmith xanes", "GUI XANES", "GUI XANES"]
+    assert all(s[k]["time"] for k in "ABC")
+    paths.XANES_CSV.with_suffix(".params.json").write_text("{not json", encoding="utf-8")      # 损坏的旧文件：从空开始
+    services.save_xanes(tab([("D", 4.0)]), wl_window=10.0, tool="GUI XANES")
+    s = json.loads(paths.XANES_CSV.with_suffix(".params.json").read_text(encoding="utf-8"))["params"]["samples"]
+    assert list(s) == ["D"]

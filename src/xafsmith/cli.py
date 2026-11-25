@@ -620,11 +620,10 @@ def cmd_robust(a):
 
 
 def cmd_xanes(a):
-    from . import paths, pipeline as pl, xanes as xx
+    from . import paths, pipeline as pl, services as sv, xanes as xx
     gs = [pl.build_sample(s)[0] for s in a.samples]
     tab = xx.features_table(gs, a.wl_window)
-    paths.XANES.mkdir(parents=True, exist_ok=True)
-    tab.to_csv(paths.XANES_CSV, index=False, encoding="utf-8-sig")
+    sv.save_xanes(tab, wl_window=a.wl_window, tool="xafsmith xanes")
     print(tab.round(4).to_string(index=False))
     if a.valence:
         std = dict(x.split("=", 1) for x in a.valence)
@@ -635,7 +634,7 @@ def cmd_xanes(a):
             if s not in std:
                 v, err = xx.predict_valence(cal, float(t.loc[s, a.position]))
                 print(f"  {s}: 价态 {v:.2f} ± {err:.2f}")
-    print(f"→ {paths.rel(paths.XANES_CSV)}")
+    print(f"→ {paths.rel(paths.XANES_CSV)}（已写入 {len(tab)} 条（同名样品覆盖））")
 
 
 def cmd_export_prj(a):
