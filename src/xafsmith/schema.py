@@ -12,7 +12,7 @@ import math
 
 import pandas as pd
 
-from . import defaults, paths
+from . import defaults, modelcheck, paths
 
 # ---------------------------------------------------------------- meta.csv
 META_COLS = defaults.META_COLS      # format、group 为可选列（schema 1.1）；seq（序列变量，C2）为可选列
@@ -26,7 +26,7 @@ NORM_KEYS = ["pre1", "pre2", "norm1", "norm2", "nnorm"]
 BKG_KEYS = ["rbkg", "kweight"]
 FT_KEYS = ["kmin", "kmax", "dk", "window", "kweight"]
 # ---------------------------------------------------------------- 模型 JSON
-MODEL_REQUIRED = ["name", "sample", "kmin", "kmax", "rmin", "rmax", "kweight", "params", "paths"]
+MODEL_REQUIRED = modelcheck.MODEL_REQUIRED      # 结构检查在 modelcheck（与 normalize_model 共用，E11）
 class Report:
     def __init__(self):
         self.items = []
@@ -307,7 +307,7 @@ def check_preedge(rep, cfg, meta):
                  "缩小边前范围使其避开，或在 overrides 为这些样品单独设置；样品不含该元素时改 elements_in_sample")
 
 
-MODEL_REQUIRED_MULTI = ["name", "params", "datasets"]
+MODEL_REQUIRED_MULTI = modelcheck.MODEL_REQUIRED_MULTI
 _DS_INHERIT = ("kmin", "kmax", "dk", "window", "kweight", "rmin", "rmax", "fitspace")
 
 
@@ -354,44 +354,31 @@ def _check_paths(rep, where, m, klim, samples):
         rep.warn(where, f"{len(missing)} 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 {missing[0]}")
 
 
+def _emit(rep, at, issues):
+    """modelcheck 的 (级别, 位置, 中文, English) → 报告条目（位置接在文件名之后；中文消息逐字不变）。"""
+    for level, where, zh, _en in issues:
+        (rep.err if level == "error" else rep.warn)(f"{at} {where}" if where else at, zh)
+
+
 def _check_multi(rep, at, m, klim, samples):
-    """多数据集模型（有 datasets 键）。数据标准 4.1。"""
-    for k in MODEL_REQUIRED_MULTI:
-        if k not in m:
-            rep.err(at, f"缺少字段 {k}")
-    for k in ("sample", "paths"):
-        if k in m:
-            rep.err(f"{at} {k}", f"多数据集模型不得有顶层 {k}（写进 datasets[i]），否则旧代码会误读")
-    if "params" in m and not isinstance(m["params"], dict):
-        rep.err(f"{at} params", "应是对象 {名称: 初值或 {value, vary, min, max, expr}}")
-    dl = m.get("datasets")
-    if not isinstance(dl, list) or not dl:
-        rep.err(f"{at} datasets", "应是非空数组")
+    """多数据集模型（有 datasets 键）。数据标准 4.1。结构检查（必填、顶层 sample/paths、params、数据集对象、id、范围键）在 modelcheck。"""
+    _emit(rep, at, modelcheck.top_issues(m, True))
+    if not modelcheck.has_datasets(m):
         return
+    dl = m["datasets"]
     ids, ni_tot, all_ok, fsp, by_sample = set(), 0.0, True, set(), {}
     for i, d in enumerate(dl):
+        _emit(rep, at, modelcheck.dataset_head_issues(m, i, d, ids, True))
         if not isinstance(d, dict):
-            rep.err(f"{at} datasets[{i}]", "应是对象 { sample, paths, … }")
             all_ok = False
             continue
         did = d.get("id", d.get("sample"))
         where = f"{at} datasets[{i}]({did})"
-        for k in ("sample", "paths"):
-            if k not in d:
-                rep.err(where, f"缺少字段 {k}")
-        if "id" in d and (not isinstance(d["id"], str) or not d["id"].strip()):
-            rep.err(f"{where} id", "不能为空")
-        elif did is not None:
-            if did in ids:
-                rep.err(f"{where} id", f"id {did} 重复（缺省 id = sample）")
-            ids.add(did)
         if "epsilon_k" in d and not (_isnum(d["epsilon_k"]) and d["epsilon_k"] > 0):
             rep.err(f"{where} epsilon_k", f"应为正数，实际是 {d['epsilon_k']!r}")
         blk = {k: d[k] if k in d else m[k] for k in _DS_INHERIT if k in d or k in m}
         blk.update(sample=d.get("sample"), paths=d.get("paths", []))
-        miss = [k for k in ("kmin", "kmax", "rmin", "rmax", "kweight") if k not in blk]
-        if miss:
-            rep.err(where, f"缺少 {', '.join(miss)}（数据集与顶层都没有）")
+        _emit(rep, at, modelcheck.dataset_range_issues(m, i, d, True))
         _check_ranges(rep, where, blk)
         rng = _valid_range(blk)
         if rng:
@@ -606,13 +593,12 @@ def check_models(rep, meta, klim=None):
             _check_restraints(rep, at, m)
             _check_sigma2(rep, at, m)
             continue
-        for k in MODEL_REQUIRED:
-            if k not in m:
-                rep.err(at, f"缺少字段 {k}")
+        _emit(rep, at, modelcheck.legacy_issues(m, True))
         _check_ranges(rep, at, m)
         rng = [m.get(k) for k in ("kmin", "kmax", "rmin", "rmax")]
-        if "params" in m and not isinstance(m["params"], dict):
-            rep.err(f"{at} params", "应是对象 {名称: 初值或 {value, vary, min, max, expr}}")
+        params_bad = list(modelcheck.legacy_params_issues(m))
+        if params_bad:
+            _emit(rep, at, params_bad)
         elif all(_isnum(v) for v in rng) and rng[0] < rng[1] and rng[2] < rng[3]:
             ni, nv = n_idp(*rng), count_varied(m.get("params"))
             if nv >= ni:
