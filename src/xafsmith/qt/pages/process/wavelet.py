@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 from xafsmith import paths
 from ... import widgets as W
-from ...state import has_chi, safe
+from xafsmith.services import safe
+from ...state import has_chi
 from ...widgets import T, Banner, Card, Page
 
 from .._common import rlabel
@@ -255,7 +256,7 @@ class WaveletPage(Page):
         def export():
             from xafsmith import pubfig as pf
             from xafsmith.common import write_params
-            from ...state import plain_rc
+            from xafsmith.services import plain_rc
             od = paths.GUI / "wavelet"
             od.mkdir(parents=True, exist_ok=True)
             kind = w["kind"].value()

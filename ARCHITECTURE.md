@@ -160,5 +160,6 @@ Test data are public only (`tests/data/demo_project/SOURCES.md` records source a
 | fitting (Detailed fit) | `fit_exafs.py`, `qt/pages/fitting/fit_page.py`, `docs/XAFS处理规范.md` |
 | Quick fit (first shell, joint, mixed phase, verdict) | `quickfit.py` (no Qt: first shell, automatic Rmin, model building, verdict thresholds as module constants), `fitcheck.py` (quality checks shared with Detailed fit), `s02_source.py` (standard-fit S0² candidates), `qt/pages/fitting/quick_fit.py`, `GLOSSARY.md`, `docs/adr/0001-*` |
 | joint-fit series (trend table, trend figure, user trend order, σ² independence, tick sync) | `trend.py` (no Qt: seq variable, N_err rule, shared flags, quick-fit first-shell rows, user order), `seqtools.py`, `pubfig.trend`, `origin_export._errorbar_parts`, `qt/pages/fitting/trend_view.py`, `docs/数据标准.md` |
+| run a model / save a result (fit, robustness, comparison, LCF, XANES, QC, calibration) | `services.py` (no Qt, no print: the single implementation both the CLI and the GUI call; every save also writes `*.params.json`; file names use `pipeline.safe`; `tests/unit/test_services.py`) |
 | a GUI page | `qt/app.py` (navigation), the page module, `qt/widgets/` |
 | release | `packaging/`, `.github/workflows/release.yml`, `docs/dev/RELEASING.md` |

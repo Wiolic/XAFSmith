@@ -6,7 +6,7 @@ from __future__ import annotations
 from xafsmith import logs
 from xafsmith import trend as tr
 from ... import widgets as W
-from ...state import safe
+from xafsmith.services import safe
 from ...theme import C
 from ...widgets import T, Banner
 

@@ -7,7 +7,8 @@ import numpy as np
 from PySide6.QtWidgets import QWidget
 from xafsmith import paths
 from ... import widgets as W
-from ...state import has_chi, safe
+from xafsmith.services import safe
+from ...state import has_chi
 from ...theme import C
 from ...widgets import T, Banner, Card, Page
 

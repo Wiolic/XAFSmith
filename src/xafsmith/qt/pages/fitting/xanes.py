@@ -8,7 +8,7 @@ import pandas as pd
 from PySide6.QtWidgets import QWidget
 from xafsmith import paths
 from ... import widgets as W
-from ...state import safe
+from xafsmith.services import safe
 from ...theme import C
 from ...widgets import T, Banner, Page
 

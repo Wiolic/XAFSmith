@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from xafsmith import logs
-import datetime
 import json
 import re
 from pathlib import Path
@@ -11,15 +10,10 @@ import numpy as np
 from PySide6.QtCore import QObject, Signal
 
 from xafsmith import paths
-from xafsmith.common import write_text_atomic
 
 FUNCS = {"sqrt", "exp", "log", "abs", "min", "max", "pi", "sin", "cos", "tan", "reff", "degen", "e", "log10",
          "sigma2_debye", "sigma2_eins", "tempK"}      # B6：σ² 温度模型的函数与保留符号不是参数名
 RECENT = Path.home() / ".xafsmith" / "recent.json"
-
-
-def safe(name):
-    return re.sub(r"[^A-Za-z0-9_.-]", "_", str(name))
 
 
 VER = {"data": 0}          # 数据版本号：save_cfg 等不带 S 的函数也能 bump
@@ -272,52 +266,12 @@ def saved_models():
 
 
 # ----------------------------------------------------------------------------- 拟合
-def now():
-    return datetime.datetime.now().strftime("%H:%M:%S")
-
-
-def _multi_groups(S, model, groups=None):
-    """多数据集模型的 {数据集 id: Group}。给定 groups 就直接用；否则与命令行一致先按项目配置建（build_model_groups），
-    建不出来（谱没有登记）再取会话里已载入的同名谱。"""
-    from xafsmith import fit_exafs as xfit, pipeline as pl
-    if groups is not None:
-        return groups
-    nm = xfit.normalize_model(model)
-    try:
-        return pl.build_model_groups(model)
-    except KeyError:
-        miss = [d["sample"] for d in nm["datasets"] if d["sample"] not in S.groups]
-        if miss:
-            raise
-        return {d["id"]: S.groups[d["sample"]] for d in nm["datasets"]}
-
-
 def group_snapshot(S, names):
     """后台线程用的会话快照：只含 S.groups 中 names 里已有的谱，且是深拷贝（须在界面线程调用）。
-    返回只有 .groups 的对象，可直接当 run_model 的 S 传入（run_model 只读 S.groups）。"""
+    返回只有 .groups 的对象；其 .groups 作 services.run_model 的 fallback。"""
     import copy
     from types import SimpleNamespace
     return SimpleNamespace(groups={k: copy.deepcopy(S.groups[k]) for k in dict.fromkeys(names) if k in S.groups})
-
-
-def run_model(S, model, group=None):
-    """运行一个模型（dict），返回会话中的拟合记录（不保存文件）。
-    多数据集模型：group 可给 {数据集 id: Group}；不给则同命令行（按项目配置建，缺则取会话中的谱）。"""
-    from xafsmith import fit_exafs as xfit, pipeline as pl
-    if xfit.is_multi(model):
-        nm = xfit.normalize_model(model)
-        res, dsets, summ = xfit.fit_multi(_multi_groups(S, model, group), model)
-        return dict(model=model, summ=summ, result=res, curves=xfit.model_curves_all(dsets, nm),
-                    report=xfit.report_text(res), time=now(), multi=True)
-    g = group
-    if g is None:
-        try:
-            g, _ = pl.build_sample(model["sample"])
-        except KeyError:
-            g = S.groups[model["sample"]]
-    res, dset, summ = xfit.run_fit(g, model)
-    return dict(model=model, summ=summ, result=res, curves=xfit.model_curves(dset),
-                report=xfit.report_text(res), time=now())
 
 
 def fit_ds_ids(fit):
@@ -336,63 +290,6 @@ def fit_dataset(fit, ds_id):
     mdl.update(name=fit["summ"]["model"], params=fit["model"].get("params", {}))
     return dict(model=mdl, summ=xfit.dataset_view(fit["summ"], ds_id), curves=fit["curves"][ds_id],
                 result=fit["result"], report=fit["report"], time=fit["time"], robust=None, dataset=ds_id)
-
-
-def load_model(mf, sample=None):
-    m = json.loads((paths.MODELS / mf).read_text(encoding="utf-8-sig"))
-    m.setdefault("name", Path(mf).stem)
-    if "datasets" in m:            # 多数据集：样品由模型内 datasets 决定，不替换
-        return m
-    old = m.get("sample")
-    if sample and sample != old:
-        m["sample"] = sample
-        m["name"] = m["name"].replace(old, sample) if old and old in m["name"] else f"{m['name']}@{sample}"
-    if not m.get("sample"):
-        raise KeyError("模型文件中没有 sample，请选择样品 / the model file has no sample; choose one")
-    return m
-
-
-class plain_rc:
-    """导出文件用 matplotlib 默认样式（不带界面主题色），结束后恢复界面样式"""
-    def __enter__(self):
-        import matplotlib
-        self._ctx = matplotlib.rc_context()
-        self._ctx.__enter__()
-        matplotlib.rcdefaults()
-        return self
-
-    def __exit__(self, *a):
-        self._ctx.__exit__(*a)
-
-
-def save_fit(fit):
-    """保存一个拟合：结果表（单数据集一行 / 多数据集每条路径一行）、模型 json、报告、拟合图（多数据集：每个数据集一张）"""
-    from xafsmith import fit_exafs as xfit, pipeline as pl, report as xrep
-    s_, md = fit["summ"], fit["model"]
-    xfit.write_result_row(s_, paths.FITS_CSV)
-    base = safe(s_["model"])
-    paths.MODELS.mkdir(parents=True, exist_ok=True)
-    paths.FITS.mkdir(parents=True, exist_ok=True)
-    write_text_atomic(paths.MODELS / f"{base}.json", json.dumps(md, ensure_ascii=False, indent=2))
-    (paths.FITS / f"{base}.fit_report.txt").write_text(fit["report"], encoding="utf-8")
-    if s_.get("multi"):
-        with plain_rc():
-            for d in xfit.normalize_model(md)["datasets"]:
-                kw = d["kweight"][-1] if isinstance(d["kweight"], list) else d["kweight"]
-                xrep.plot_fit(fit["curves"][d["id"]], xfit.dataset_view(s_, d["id"]), kweight=kw,
-                              out=paths.FIGS / f"{base}_{pl.safe(d['id'])}_fit.png")
-        if len(s_["datasets"]) >= 2:           # C2：联合拟合顺带写趋势表（趋势表失败不影响已保存的结果）
-            try:
-                from xafsmith import trend as xtr
-                meta, proc = xtr.load_project_tables()
-                xtr.save_trend(xtr.ordered(xtr.trend_table(s_, md, meta, proc), fit.get("trend_order")), base, s_["model"], "GUI save")
-            except Exception:      # noqa: BLE001
-                logs.log.warning("state.save_fit：趋势表未保存（已忽略）", exc_info=True)
-        return base
-    kw = md["kweight"][-1] if isinstance(md["kweight"], list) else md["kweight"]
-    with plain_rc():
-        xrep.plot_fit(fit["curves"], s_, kweight=kw, out=paths.FIGS / f"{base}_fit.png")
-    return base
 
 
 def fit_label(f):
