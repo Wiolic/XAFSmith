@@ -6,8 +6,18 @@ All notable changes are recorded here (format: Keep a Changelog; versioning: Sem
 
 ## [未发布] / Unreleased
 
-工程改进，不加分析功能，数值与界面文字都不变。
-Engineering work with no new analysis features; numbers and interface text are unchanged.
+工程改进，另修复 Origin 导出覆盖的问题，XANES 价态标定可用白线峰高与峰面积。拟合、LCF、QC、校准的数值不变。
+Engineering work, plus a fix for Origin exports overwriting each other and white-line height and area as valence-calibration quantities. Numbers of fits, LCF, QC and calibration are unchanged.
+
+### 新增 / Added
+- **XANES 价态标定可选白线峰高、峰面积**：“XANES 定量 → 价态标定”的标定量（原“边位置定义”）除 E_half / E0_deriv / WL_E 外，新增 WL_height（白线峰高）与 WL_area（白线峰面积），公式、坐标轴与结果表按所选量显示单位；命令行 `xafsmith xanes --position` 同样可选。
+  **White-line height and area for XANES valence calibration**: the quantity in “XANES quantification → Valence calibration” (formerly “Edge definition”) offers WL_height and WL_area besides E_half / E0_deriv / WL_E; the formula, axis and table show the unit of the chosen quantity. `xafsmith xanes --position` accepts them too.
+
+### 修复 / Fixed
+- **Origin 导出不再覆盖**：以前文件夹与工程只按“文件名”命名，换一张图再导出会覆盖前一次的。现在每次导出新建文件夹，名字是“文件名_图的种类_样品”（样品最多列 3 个，其余记为 +n），已有同名的加 _2、_3 …；本机有 Origin 时数据 CSV、spec.json 与脚本写在临时文件夹，完成后删除，导出文件夹里只有 .opju。
+  **Origin exports no longer overwrite each other**: the folder and project used to be named after the file name only, so exporting another figure replaced the previous export. Each export now gets a new folder named “file name_figure type_samples” (up to 3 samples, the rest as +n), with _2, _3 … if it exists; with Origin installed the data CSV, spec.json and script go to a temporary folder that is removed afterwards, so the export folder holds only the .opju.
+- **归一化 XANES 的 Origin 图不画纵轴刻度与刻度数字**（以前只在错开时隐藏）；导数图仍只在错开时隐藏。
+  **Origin graphs of normalized XANES have no y-axis ticks or tick labels** (previously only when offset); derivative graphs still hide them only when offset.
 
 ### 开发者 / For developers
 - **异常分类**：`errors.py` 新增 `XafsmithError` 及子类 `ConfigError`（xafsmith.json / meta.csv）、`DataError`（数据文件，`ReadError` 现在属于它）、`ModelError`（模型 JSON，`QuickFitError` 现在属于它）、`FeffError`（FEFF 运行失败）。前三个仍是 `ValueError`、`FeffError` 仍是 `RuntimeError`，已有的 `except` 照旧捕获；配置、meta.csv、模型检查与 FEFF 的报错改抛这些类，消息不变。错误提示里显示的类名仍是原来的内置类名（`errors.shown_name`），用户看到的文字逐字不变。
