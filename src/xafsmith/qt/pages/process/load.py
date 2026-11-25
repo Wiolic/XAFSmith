@@ -23,10 +23,15 @@ def guessed_groups(groups):
 def guess_for(g, element):
     """把元素设为 element 时该谱的吸收边：guess_edge(元素, 谱的中位能量)；元素符号无效 → 抛 ValueError"""
     from xafsmith.common import guess_edge
+    import xraydb
     el = str(element).strip()
-    ed = guess_edge(el, float(np.median(g.energy))) if el else None
+    e_mid = float(np.median(g.energy))
+    ed = guess_edge(el, e_mid) if el else None
     if not el or ed is None:
         raise ValueError(el)
+    e_edge = xraydb.xray_edge(el, ed).energy
+    if not (float(np.min(g.energy)) - 200 <= e_edge <= float(np.max(g.energy)) + 200):     # 该元素没有落在谱能量范围内的吸收边 → 元素填错了
+        raise ValueError(f"{el} {ed} ({e_edge:.0f} eV) is outside the spectrum")
     return el, ed
 
 
