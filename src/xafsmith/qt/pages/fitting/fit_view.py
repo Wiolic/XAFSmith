@@ -5,7 +5,7 @@ from __future__ import annotations
 from xafsmith import logs
 import pandas as pd
 from PySide6.QtWidgets import QWidget
-from xafsmith import paths, services
+from xafsmith import services
 from ... import widgets as W
 from ...state import fit_dataset, fit_ds_ids
 from ...theme import C
@@ -301,8 +301,7 @@ class FitView(QWidget):
 
             def save():
                 base = services.safe(fit["summ"]["model"])
-                tab.to_csv(paths.FITS / f"{base}_robustness.csv", index=False, encoding="utf-8-sig")
-                ver.to_csv(paths.FITS / f"{base}_robustness_summary.csv", index=False, encoding="utf-8-sig")
+                services.save_robustness(fit, tab, ver, "GUI robustness")
                 W.toast(page, T(f"已保存 output/fits/{base}_robustness*.csv", f"Saved output/fits/{base}_robustness*.csv"))
             out.layout().addWidget(W.hbox(None, W.button(T("保存到 output/fits/", "Save to output/fits/"), icon_name="save", slot=save)))
         btn = W.button(T("运行稳健性检查", "Run robustness check"), icon_name="play")

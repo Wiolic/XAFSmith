@@ -160,3 +160,22 @@ def test_save_fit_writes_model_and_tool(proj):
     mf = proj / "models" / "cu_one.json"
     assert mf in res.files and json.loads(mf.read_text(encoding="utf-8"))["name"] == "cu_one"
     assert json.loads((proj / "output" / "fits" / "cu_one.params.json").read_text(encoding="utf-8"))["tool"] == "GUI quickfit"
+
+
+# ------------------------------------------------------------------ 其余保存都写 params.json
+def test_save_robustness_and_compare_write_params(proj):
+    import pandas as pd
+    from xafsmith import services
+    fit = services.run_model(services.load_model("cu_one"))
+    tab, ver = pd.DataFrame({"a": [1.0]}), pd.DataFrame({"b": [2.0]})
+    files = services.save_robustness(fit, tab, ver, "GUI robustness")
+    assert [f.name for f in files] == ["cu_one_robustness.csv", "cu_one_robustness_summary.csv",
+                                       "cu_one_robustness.params.json"]
+    p = json.loads(files[2].read_text(encoding="utf-8"))
+    assert p["tool"] == "GUI robustness" and p["params"]["name"] == "cu_one"
+    out = services.save_compare(pd.DataFrame({"model": ["a", "b"]}), ["a", "b"], "xafsmith compare")
+    assert out == proj / "output" / "fits" / "model_compare.csv" and out.is_file()
+    p = json.loads(out.with_suffix(".params.json").read_text(encoding="utf-8"))
+    assert p["tool"] == "xafsmith compare" and p["params"] == {"models": ["a", "b"]}
+    out2 = services.save_compare(pd.DataFrame({"model": ["a"]}), ["a"], "t", proj / "x" / "cmp.csv")
+    assert out2.is_file() and out2.with_suffix(".params.json").is_file()

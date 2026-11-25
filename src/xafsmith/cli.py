@@ -560,8 +560,7 @@ def cmd_msbind(a):
 
 
 def cmd_compare(a):
-    from . import paths, fit_exafs as fx, services as sv
-    from .common import write_params
+    from . import fit_exafs as fx, services as sv
     if len(a.models) < 2:
         sys.exit("compare 至少需要 2 个模型 / compare needs at least 2 models")
     entries = []
@@ -572,10 +571,7 @@ def cmd_compare(a):
     df = fx.compare_models(entries)
     print(df.to_string(index=False))
     print("\n" + fx.COMPARE_NOTE)
-    out = Path(a.out) if a.out else paths.FITS / "model_compare.csv"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(out, index=False, encoding="utf-8-sig")
-    write_params(out.with_suffix(".params.json"), {"models": list(a.models)}, "xafsmith compare")
+    out = sv.save_compare(df, a.models, "xafsmith compare", a.out)
     print(f"→ {out}")
 
 
@@ -613,17 +609,16 @@ def cmd_plan(a):
 
 
 def cmd_robust(a):
-    from . import paths, fit_exafs as fx, services as sv
+    from . import fit_exafs as fx, services as sv
     model = sv.load_model(a.model)
     if fx.is_multi(model):
         sys.exit("多数据集模型暂不支持稳健性检查 / "
                  "robustness checks are not yet supported for multi-dataset models")
     g = sv.resolve_groups(model)
-    summ = sv.run_model(model, g)["summ"]
+    fit = sv.run_model(model, g)
     tab, ver = fx.robustness(g, model, progress=lambda f, n: print(f"  {n}"))
-    base = summ["model"].replace("/", "_")
-    tab.to_csv(paths.FITS / f"{base}_robustness.csv", index=False, encoding="utf-8-sig")
-    ver.to_csv(paths.FITS / f"{base}_robustness_summary.csv", index=False, encoding="utf-8-sig")
+    sv.save_robustness(fit, tab, ver, "xafsmith robust")
+    base = sv.safe(fit["summ"]["model"])
     print(ver.to_string(index=False))
     print(f"→ output/fits/{base}_robustness*.csv")
 

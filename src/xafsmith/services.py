@@ -148,3 +148,25 @@ def save_fit(fit, tool, *, write_model=True, trend=True) -> SaveResult:
         except Exception:      # noqa: BLE001
             logs.log.warning("services.save_fit：趋势表未保存（已忽略）", exc_info=True)
     return out
+
+
+# ----------------------------------------------------------------------------- 稳健性 / 模型比较
+def save_robustness(fit, tab, ver, tool) -> list[Path]:
+    """稳健性检查结果 → fits/<base>_robustness.csv、<base>_robustness_summary.csv 与 <base>_robustness.params.json
+    （params = 模型 dict）。fit 是拟合记录（取 fit["summ"]["model"] 与 fit["model"]）；返回写出的三个文件。"""
+    base = safe(fit["summ"]["model"])
+    paths.FITS.mkdir(parents=True, exist_ok=True)
+    f1, f2 = paths.FITS / f"{base}_robustness.csv", paths.FITS / f"{base}_robustness_summary.csv"
+    tab.to_csv(f1, index=False, encoding="utf-8-sig")
+    ver.to_csv(f2, index=False, encoding="utf-8-sig")
+    f3 = write_params(paths.FITS / f"{base}_robustness.params.json", fit["model"], tool)
+    return [f1, f2, f3]
+
+
+def save_compare(df, models, tool, out=None) -> Path:
+    """模型比较表 → CSV（缺省 fits/model_compare.csv）与同名 .params.json（params = {"models": 模型名列表}）。"""
+    out = Path(out) if out else paths.FITS / "model_compare.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(out, index=False, encoding="utf-8-sig")
+    write_params(out.with_suffix(".params.json"), {"models": list(models)}, tool)
+    return out
