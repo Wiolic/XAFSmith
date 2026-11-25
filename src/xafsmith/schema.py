@@ -12,7 +12,7 @@ import math
 
 import pandas as pd
 
-from . import defaults, modelcheck, paths
+from . import defaults, migrate, modelcheck, paths
 
 # ---------------------------------------------------------------- meta.csv
 META_COLS = defaults.META_COLS      # format、group 为可选列（schema 1.1）；seq（序列变量，C2）为可选列
@@ -90,8 +90,12 @@ def check_layout(rep):
 
 
 def check_config(rep, cfg):
-    if cfg.get("xafsmith", {}).get("schema") is None:
+    ver = cfg.get("xafsmith", {}).get("schema")
+    if ver is None:
         rep.warn(paths.MARKER, '缺少 "xafsmith": {"schema": ...}')
+    elif migrate.is_newer(ver):                # 旧版本不是问题（读入时在内存里自动升级）；新于软件的读不了
+        rep.err(paths.MARKER, f"配置版本 {ver} 比本软件支持的 {paths.SCHEMA_VERSION} 新："
+                              "项目由更新版本的 XAFSmith 创建，请升级软件")
     edges = cfg.get("edges", {})
     if not edges:
         rep.warn(paths.MARKER, "edges 为空（xafsmith init 会按 meta.csv 生成）")
@@ -570,6 +574,14 @@ def _check_sigma2(rep, at, m):
         (rep.err if level == "error" else rep.warn)(f"{at} {where}", zh)
 
 
+def _check_model_schema(rep, at, m):
+    """模型 JSON 可选的 schema 字段（数据标准版本）：新于软件只警告（模型的新键多为可选），不报错。"""
+    v = m.get("schema")
+    if v is not None and migrate.is_newer(v):
+        rep.warn(f"{at} schema", f"模型版本 {v} 比本软件支持的 {paths.SCHEMA_VERSION} 新："
+                                 "可能含本版本不认识的字段，请升级软件")
+
+
 def check_models(rep, meta, klim=None):
     samples = set(meta["sample"]) if meta is not None else set()
     klim = klim or {}
@@ -586,6 +598,7 @@ def check_models(rep, meta, klim=None):
         if not isinstance(m, dict):
             rep.err(at, "顶层应是对象 { … }")
             continue
+        _check_model_schema(rep, at, m)
         if "datasets" in m:
             _check_multi(rep, at, m, klim, samples)
             _check_s02_source(rep, at, m)

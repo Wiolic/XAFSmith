@@ -69,3 +69,24 @@ def test_load_config_newer_raises(tmp_path):
     f.write_text(json.dumps(_cfg("9.0")), encoding="utf-8")
     with pytest.raises(ValueError):
         pl.load_config(f)
+
+
+def test_check_config_newer_is_error():
+    from xafsmith import schema
+    rep = schema.Report()
+    schema.check_config(rep, _cfg("1.2"))
+    assert any(lv == "错误" and "1.2" in m for lv, _w, m in rep.items)
+    rep = schema.Report()
+    schema.check_config(rep, _cfg("1.0"))
+    assert not [i for i in rep.items if i[0] == "错误" and "schema" in i[2]]
+
+
+def test_model_schema_field_newer_warns():
+    from xafsmith import schema
+    rep = schema.Report()
+    schema._check_model_schema(rep, "models/a.json", {"schema": "9.0"})
+    assert [lv for lv, *_ in rep.items] == ["警告"]
+    rep = schema.Report()
+    schema._check_model_schema(rep, "models/a.json", {"schema": "1.1"})
+    schema._check_model_schema(rep, "models/a.json", {})
+    assert rep.items == []

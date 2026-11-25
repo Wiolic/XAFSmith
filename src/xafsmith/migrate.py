@@ -61,6 +61,14 @@ def check_not_newer(v) -> None:
                          "this XAFSmith supports: the project was created by a newer XAFSmith, please upgrade")
 
 
+def is_newer(v) -> bool:
+    """版本 v 是否新于软件的 paths.SCHEMA_VERSION；无法解析的版本串返回 False（由 upgrade 报错）。"""
+    try:
+        return parse_version(v) > parse_version(paths.SCHEMA_VERSION)
+    except ValueError:
+        return False
+
+
 def upgrade(cfg: dict) -> tuple[dict, list[tuple[str, str]]]:
     """配置深拷贝后逐级升到 paths.SCHEMA_VERSION；返回 (新配置, 改动说明 [(中文, English), …])。
     已是当前版本：返回内容相同的拷贝与空说明。"""
