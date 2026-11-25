@@ -653,7 +653,8 @@ class MainWindow(QMainWindow):
                     self.toast(T("；".join(zh for zh, _ in notes), "; ".join(en for _, en in notes)), "info")
         except ValueError as ex:
             logs.log.warning("项目配置版本问题：%s", ex)
-            self.toast(str(ex), "warn")
+            zh, _, en = str(ex).partition(" / ")       # migrate 的消息是 “中文 / English”
+            self.toast(T(zh, en or zh), "warn")
         except Exception:                      # noqa: BLE001
             logs.log.debug("qt.app._config_upgrade_notice 出错（已忽略）", exc_info=True)
 
