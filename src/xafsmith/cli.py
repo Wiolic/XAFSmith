@@ -45,6 +45,7 @@ AI 助手：
 所有命令都可加 --project <目录>；不加时从当前目录向上查找 xafsmith.json。原始数据只读。
 """
 from xafsmith import logs
+from xafsmith.errors import shown_name
 import argparse
 import json
 import os
@@ -974,7 +975,7 @@ def main(argv=None):
         if getattr(a, "debug", False):
             raise
         logs.log.error("命令 %s 出错：%s", a.cmd, e, exc_info=True)
-        print(f"错误 / Error: {type(e).__name__}: {e}", file=sys.stderr)
+        print(f"错误 / Error: {shown_name(e)}: {e}", file=sys.stderr)
         if any(getattr(h, "baseFilename", None) for h in logs.log.handlers):   # 未配置日志文件则省略
             print(f"日志 / Log: {logs.LOG_FILE}", file=sys.stderr)
         sys.exit(1)

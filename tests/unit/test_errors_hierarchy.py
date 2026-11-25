@@ -59,3 +59,33 @@ def test_read_error_is_data_error_and_keeps_signature():
     e = ReadError("只有中文")
     assert (e.zh, e.en, str(e)) == ("只有中文", "只有中文", "只有中文")
     assert explain(ReadError("中文", "English"), "en")[0] == "English"
+
+
+# ---- shown_name：直接显示类名的地方（CLI 顶层、界面横幅 / 对话框）与换类前相同
+@pytest.mark.parametrize("new,old", _PAIRS)
+def test_shown_name_is_builtin_name(new, old):
+    from xafsmith.errors import shown_name
+    assert shown_name(new("m")) == old.__name__ == shown_name(old("m"))
+    assert shown_name(new) == old.__name__ and shown_name(new.__name__) == old.__name__
+
+
+def test_shown_name_keeps_other_names():
+    from xafsmith.errors import shown_name
+    from xafsmith.quickfit import QuickFitError
+    from xafsmith.readers import ReadError
+    assert shown_name(ReadError("x")) == "ReadError" and shown_name(QuickFitError("x")) == "QuickFitError"
+    assert shown_name(KeyError("x")) == "KeyError"
+
+
+@pytest.mark.parametrize("new,old", _PAIRS)
+def test_cli_top_level_line_same_as_builtin(monkeypatch, capsys, tmp_path, new, old):
+    from xafsmith import cli
+
+    def run(exc):
+        def f(a):
+            raise exc
+        monkeypatch.setattr(cli, "cmd_qc", f)
+        with pytest.raises(SystemExit):
+            cli.main(["--project", str(tmp_path), "qc"])
+        return capsys.readouterr().err.splitlines()[0]
+    assert run(new("boom")) == run(old("boom")) == f"错误 / Error: {old.__name__}: boom"

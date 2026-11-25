@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from xafsmith import logs
+from xafsmith.errors import shown_name
 import traceback
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QMessageBox, QScrollArea, QTabWidget, QToolButton,
@@ -210,7 +211,7 @@ class Page(QScrollArea):
         except Exception as ex:          # 页面出错时显示错误，不让整个程序退出
             logs.log.warning("qt.widgets.refresh 出错（已忽略或已提示）：%s", type(self).__name__, exc_info=True)
             ERRORS.append(f"{type(self).__name__}: {ex}\n{traceback.format_exc()}")
-            self.add(Banner("err", f"{type(ex).__name__}: {ex}"))
+            self.add(Banner("err", f"{shown_name(ex)}: {ex}"))
             self.add(code_block(traceback.format_exc()))
         if not self.fill:
             self.body.addStretch(1)
