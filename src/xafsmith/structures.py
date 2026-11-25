@@ -2,12 +2,7 @@
 
 内置结构的晶胞参数来源均写在 SOURCES 中，均为常见文献/ICSD 室温值；
 需要更高精度时把 CIF / POSCAR 放进项目的 structures/ 文件夹（read_structure）。
-
-用法：
-  python -m xafsmith.structures            # 列出内置结构
-  python -m xafsmith.structures IrO2       # 打印结构
 """
-import sys
 from pathlib import Path
 
 from pymatgen.core import Lattice, Structure
@@ -132,11 +127,3 @@ def export_builtin(dest=None):
         CifWriter(builtin(n)).write_file(str(f))
         out.append(f)
     return out
-
-
-if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        for k, v in SOURCES.items():
-            print(f"{k:14s} {v}")
-    else:
-        print(builtin(sys.argv[1]))
