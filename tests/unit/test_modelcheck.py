@@ -209,6 +209,37 @@ def test_cases_match_baseline(models_dir):
         assert now[k]["normalize"] == base[k]["normalize"], f"normalize: {k}"
 
 
+def test_structure_issues_api():
+    from xafsmith import modelcheck
+    m = multi(sample="s", datasets=[dict(sample="s1", paths=P)])
+    iss = modelcheck.structure_issues(m, strict=False)
+    assert iss and all(len(i) == 4 and i[0] in ("error", "warn") for i in iss)
+    assert modelcheck.structure_issues(multi(), strict=False) == []
+    assert modelcheck.structure_issues(multi(), strict=True) == []
+    with pytest.raises(ValueError, match="顶层 sample"):
+        modelcheck.raise_on_errors(m)
+    modelcheck.raise_on_errors(multi())
+
+
+def test_strict_and_lenient_differ_where_the_old_rules_differed():
+    from xafsmith import modelcheck as mc
+    # 缺 kweight：validate 报错（数据标准要求写出），normalize_model 用缺省 2
+    m = legacy()
+    del m["kweight"]
+    assert [i[2] for i in mc.structure_issues(m, True)] == ["缺少字段 kweight"]
+    assert mc.structure_issues(m, False) == []
+    # id 只有空白：validate 报错（.strip()），normalize_model 接受
+    m = _ds(multi(), 0, id=" ")
+    assert [i[1] for i in mc.structure_issues(m, True)] == ["datasets[0]( ) id"]
+    assert mc.structure_issues(m, False) == []
+    # 空 paths：validate 的结构检查不报（由 _check_paths 报），normalize_model 报缺失或为空
+    m = _ds(multi(), 0, paths=[])
+    assert mc.structure_issues(m, True) == []
+    assert [i[1] for i in mc.structure_issues(m, False)] == ["datasets[0].paths"]
+    # params 不是对象：只有 validate 查
+    assert mc.structure_issues(legacy(params=[1]), True) and not mc.structure_issues(legacy(params=[1]), False)
+
+
 if __name__ == "__main__":
     import tempfile
     if "--write" not in sys.argv:
