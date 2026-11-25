@@ -481,7 +481,7 @@ Drag the divider between the columns to resize them. A fit updates only the righ
 2. Choose the space (normalized μ / derivative / χ(k)), range and constraints (Σw = 1, 0 ≤ w ≤ 1, fit an energy shift).
 3. Click **LCF**.
 
-**Results**: weights with errors and the fit plot; single-standard fits for comparison and, with three or more standards, all combinations. Results are appended to `output/lcf/lcf_results.csv`. State any non-measured end-member as an assumption under “Note”.
+**Results**: weights with errors and the fit plot; single-standard fits for comparison and, with three or more standards, all combinations. Results are appended to `output/lcf/lcf_results.csv` and the plot is written to `output/figs/lcf_<sample>.png`. State any non-measured end-member as an assumption under “Note”.
 
 ### 14　XANES quantification
 
@@ -489,7 +489,7 @@ Load samples and standards first. Three tabs:
 
 | Tab | What it does |
 |---|---|
-| Edge & white line | E0 (derivative maximum), E_half (normalized μ = 0.5), white-line position, height and area; **Save** writes `output/xanes/xanes_features.csv` |
+| Edge & white line | E0 (derivative maximum), E_half (normalized μ = 0.5), white-line position, height and area; **Save** writes `output/xanes/xanes_features.csv` (rows of the same samples are replaced, the rest kept) |
 | Valence calibration | Fits “edge position = slope × valence + intercept” on **measured standards of known valence**, then estimates the valence of samples with errors; values outside the standards' range are flagged “extrapolated” |
 | Pre-edge fitting | Choose the range, number of peaks and edge baseline (erf / arctan) and click **Fit pre-edge**; peaks at a range limit or with area ≈ 0 are flagged |
 

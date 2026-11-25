@@ -6,6 +6,29 @@ All notable changes are recorded here (format: Keep a Changelog; versioning: Sem
 
 ## [未发布 / Unreleased]
 
+命令行与图形界面改用同一个业务层（新模块 `services`）：同一个结果无论从哪边保存，文件名与内容都相同，并且每种保存都留下参数记录。拟合、LCF、QC、校准的数值逐位不变（黄金基线 `tests/golden/demo.json` 与本机快照）。
+The command line and the graphical interface now share one service layer (new module `services`): a result saved from either side has the same file names and contents, and every kind of save leaves a parameter record. Numbers of fits, LCF, QC and calibration are unchanged bit for bit (golden baseline `tests/golden/demo.json` and the local snapshot).
+
+### 修复 / Fixed
+- **界面保存拟合补写 `<模型>.params.json`**：以前只有命令行写，界面保存（拟合结果、拟合历史“全部保存”、输出页、快速拟合）不写，报告与方法导出追溯不到模型。
+  **Saving a fit from the interface writes `<model>.params.json`**: only the command line wrote it before; saves from the fit result, “Save all” in the fit history, the Output page and Quick fit left it out.
+- **文件名清洗只剩一条规则**（字母、数字、`_ . -` 以外的连续字符换成一个 `_`，去掉首尾 `_`）：以前界面逐字符替换、命令行合并连续字符，`xafsmith robust` 只替换 `/`，同一个模型名可能在两边写出不同文件名。名字里只有字母、数字、`_ . -` 的（常见情形）文件名不变；含空格、括号等的名字，稳健性 CSV 与界面导出（归一化、χ、小波、边前峰）的文件名可能与旧版不同。
+  **One file-name rule**: runs of characters other than letters, digits and `_ . -` become one `_`, leading and trailing `_` are dropped. Before, the interface replaced character by character, the command line merged runs, and `xafsmith robust` replaced only `/`, so one model name could give two file names. Names made of letters, digits and `_ . -` (the usual case) are unaffected; with spaces, brackets and the like, robustness CSVs and interface exports (normalization, χ, wavelet, pre-edge) may be named differently from older versions.
+- **XANES 特征表统一按样品合并**：`xafsmith xanes` 以前整表覆盖、界面按样品合并；现在两边都是新算的样品替换同名旧行，其余保留。
+  **The XANES feature table is merged by sample everywhere**: `xafsmith xanes` used to overwrite the whole table while the interface merged; now both replace rows of the recomputed samples and keep the rest.
+- 只给模型名时先在 `models/` 中找，项目根目录里的同名 json（如 `xafsmith.json`）不会被当作模型读入。
+  A bare model name is looked up in `models/` first, so a same-named json in the project root (such as `xafsmith.json`) is never read as a model.
+
+### 可追溯性 / Traceability
+- 新增参数记录：稳健性 `<模型>_robustness.params.json`、LCF `output/lcf/lcf_<样品>.params.json`（样品、标样、全部拟合选项、备注）、XANES `xanes_features.params.json`（按样品记录白线窗口）、QC `qc_report.params.json`（所用归一化参数）、校准 `calib.params.json`（参比与所用配置）。命令行与界面写的同一结果只有 `tool` 与 `time` 两项不同。
+  New parameter records: robustness `<model>_robustness.params.json`, LCF `output/lcf/lcf_<sample>.params.json` (sample, standards, every fit option, note), XANES `xanes_features.params.json` (white-line window per sample), QC `qc_report.params.json` (normalization used), calibration `calib.params.json` (references and the configuration used). The same result written from the command line or the interface differs only in `tool` and `time`.
+- 界面 LCF 也写拟合图 `output/figs/lcf_<样品>.png`（以前只有命令行写）；`xafsmith fit` 遇到 ≥ 2 个数据集的联合模型也写趋势表 `<模型>_trend.csv`（以前只有界面保存与快速拟合写）。
+  The interface LCF also writes the plot `output/figs/lcf_<sample>.png` (command line only before); `xafsmith fit` on a joint model of ≥ 2 datasets also writes the trend table `<model>_trend.csv` (interface saves and Quick fit only before).
+
+### 内部 / Internal
+- 新模块 `services`：读模型、运行模型、保存拟合、稳健性、模型比较、LCF、XANES、QC、校准的落盘只此一份；`cli` 与界面各页面都调用它，`qt/state.py` 只留会话状态。新增测试 `tests/unit/test_services.py`：同一模型分别走命令行与界面的保存路径，产物（含 PNG）逐字节相同，参数记录除 `tool`、`time` 外相同。
+  New module `services`: loading and running models and saving fits, robustness, comparisons, LCF, XANES, QC and calibration exist once; `cli` and every interface page call it and `qt/state.py` keeps only session state. New test `tests/unit/test_services.py`: one model saved through the command-line and the interface paths gives byte-identical outputs (PNG included) and parameter records equal apart from `tool` and `time`.
+
 ## [1.4.1] — 2026-11-25
 
 降低第一次拟合的门槛：快速拟合里直接用内置结构算 FEFF（内置结构从 8 个增加到 63 个）、判定的每条问题后面直接给操作按钮、一键导出给导师看的汇报包；没有参比时可以显式跳过校准；按能量猜出的元素与吸收边要用户确认；报错改成人话。已有模型与拟合的数值逐位不变（黄金基线 `tests/golden/demo.json`）。
