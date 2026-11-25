@@ -16,7 +16,7 @@ Where each button is and how it works is in the **GUI guide**; this tutorial foc
 
 > **Just want to get through it once?** Follow this shortest path; a first-time user gets a result fit to show a supervisor within half an hour, and can come back for the principles later:
 >
-> 1. **Data registry**: create a project and import the data (with the metal foil measured in the same session) → chapter 1;
+> 1. **Register data**: create a project and import the data (with the metal foil measured in the same session) → chapter 1;
 > 2. **Calibrate & process**: calibrate against the reference, normalize, remove the background, look at χ(k) and |χ(R)| → chapters 3–6;
 > 3. **EXAFS fitting › Quick fit**: choose the samples, click **Compute from a built-in structure…** and pick a structure (no CIF hunting) → **Start fit** → chapters 9–10;
 > 4. For every ✗ in the verdict, click the button under it (e.g. “Set Rmax to 2.3 Å and refit”) until the verdict reads “✅ Trustworthy” → chapter 11;

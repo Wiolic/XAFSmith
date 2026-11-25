@@ -140,11 +140,13 @@ Opening a project takes you to **Register data**.
 | sample | Sample name. Rows with the same name are scans of one sample and are merged; rename to keep them apart |
 | role | `reference` for the foil, `standard` for standards of known structure, `sample` for samples |
 | use | `0` for scans you do not want, with the reason in note |
-| ref_file | Reference used for calibration (default: the reference of the same batch). Spectra without one cannot be processed |
+| ref_file | Reference used for calibration (default: the reference of the same batch). Spectra without one cannot be processed; if this batch really has no reference, choose `none` = skip the calibration on purpose (see below) |
 
 5. At the bottom, **Validate against the data standard → Run check**; fix every “error” until there are none.
 
 > Files copied into `data\raw\<batch>\` with Explorer are registered with **Scan data/raw and register new files**.
+
+> **No reference**: choose `none` in the `ref_file` drop-down (or type it, any case). These spectra are processed without an energy shift; absolute edge positions and ΔE0 are therefore unreliable, while N, R and σ² are not affected. The quick-fit verdict gets an extra ℹ “Not calibrated against a reference”, and the methods paragraph says “no energy calibration (no reference)”. All scans of one sample must either have a reference or all be `none`; mixing them is an error.
 
 ### 5　Calibrate & process
 
@@ -187,7 +189,7 @@ The table below lists the loaded spectra and their calibration status. You can a
 
 - view **Raw μ(E) and channels** (I0 / I1 / If);
 - **Remove from session (files kept)**;
-- **Read files directly** (auto-detects BSRF / XDI / .xmu / XDAC / Athena .prj; you can also choose the format by hand, or pick “Column text (by number)” and fill in the column numbers below) for files not in meta.csv — a reference from the same batch is required. If any field was guessed (element, edge, energy unit …) or the column mapping raised a warning, a notice is shown — please check it.
+- **Read files directly** (auto-detects BSRF / XDI / .xmu / XDAC / Athena .prj; you can also choose the format by hand, or pick “Column text (by number)” and fill in the column numbers below) for files not in meta.csv — a reference from the same batch is required. If any field was guessed (element, edge, energy unit …) or the column mapping raised a warning, a notice is shown — please check it. When element or edge was guessed from the energy, the cell is marked “(guessed)”, a yellow notice appears above the table and **Check the guessed element / edge** appears below it: choose spectra (several allowed), type the element symbol, read the resulting edge shown underneath and click **Apply**; if element and edge are right, click **Confirm as is** to remove the mark. An element with no edge inside the spectrum's energy range is refused (it is almost certainly a typo). This changes the session only; put it in meta.csv to make it permanent.
 - **Column mapping wizard** (button next to “Read”; choose one file first): use it when a file is not recognised or its column names are non-standard. It previews the columns and first rows; choose which column is energy, I0, It, If (several channels are summed) and μ (recognisable names are pre-selected); choose transmission or fluorescence, or let the software decide from the mapped columns; **Test read** shows the number of points, energy range, mode, edge and μ range — check them, then enter a template name and **Save as template**. The template is written to the project's `xafsmith.json` (`formats`), appears in the “Format” list and can be used in the `format` column of meta.csv. Columns are saved by name when the name is unique (still valid if the order changes), otherwise by number. The name must not equal a built-in format name.
 
 **Tab 2: Quality check**
@@ -262,7 +264,7 @@ The table below lists the loaded spectra and their calibration status. You can a
 
 1. Structure source:
    - **structures/ folder**: **Add structure files…** copies CIF / POSCAR files in;
-   - **Built-in**: choose directly; **Export built-ins as CIF** saves them to `structures/builtin/`.
+   - **Built-in**: choose directly; **Export built-ins as CIF** saves them to `structures/builtin/`. There are 63: common metal foils (21 fcc, bcc and hcp, two of them Co), about 30 oxides, sulfides, perovskites and more; the full list is in chapter 8 of the Beginner fitting tutorial or from the command `xafsmith structures`. 55 of them come from the Crystallography Open Database (COD; ambient conditions, ordered structures); the source (COD id and original paper) is in the software's `structures_builtin/index.csv` and is shown when you choose a structure; cite the original paper.
 2. Choose the **absorber** (default: the heaviest element, remembered per structure), **edge**, **inequivalent site**, **RMAX** and **NLEG**.
 3. Choose the **FEFF version**:
 
@@ -290,11 +292,12 @@ Suggested: quick-fit first; once the verdict is “Trustworthy”, click **Conti
 
 #### Quick fit
 
-The page needs **samples that are loaded with χ(k) computed** (as in Detailed fit: process them under “Load spectra” and “χ(k) & FT” first; the list shows only those in the current session, not samples of `data/meta.csv` that are not loaded) and a FEFF calculation; a banner at the top says what is missing. Four cards from top to bottom:
+The page needs **samples that are loaded with χ(k) computed** (as in Detailed fit: process them under “Load spectra” and “χ(k) & FT” first; the list shows only those in the current session, not samples of `data/meta.csv` that are not loaded). With no FEFF calculation yet the page shows a single card: click **Compute from a built-in structure…** right there, or **Go to FEFF page** to use your own CIF. Four cards from top to bottom:
 
 1. **1  Samples and FEFF**
    - **Samples (several)**: one or more; ≥ 2 in Sample mode = joint fit, which needs one absorption edge (a warning shows otherwise).
    - **FEFF folder**: a finished FEFF calculation (`feff0001.dat…`; with several sites each site is its own folder); the one matching the samples' edge is preselected.
+   - **Compute from a built-in structure…** (next to the FEFF folder): lists the built-in structures that contain the samples' absorber, with their sources; choose one and click **Compute / use**. FEFF6L runs in the background with the FEFF paths page's defaults into `output/feff/<structure>_<element><edge>/site<n>` and the result is selected. Structures already computed are marked “already computed” and reused, not recomputed, unless you tick **Recompute (overwrite an existing result)**. If the chosen samples are not on one edge, all structures are listed and the absorber is the structure's main absorber. Where the absorber has several inequivalent sites (e.g. Fe₃O₄) only the first site is computed, and a notice says so; to weight all sites, compute each one on the FEFF paths page. If no built-in structure contains the element, the dialog offers **Go to FEFF page**.
    - **Second-phase FEFF (optional)**: when the sample is a mixture of two phases (e.g. metal + oxide) choose a second FEFF folder (default “(none)”; not available in Standard mode). Each phase fits its first shell with its own N, R, σ² and a shared ΔE0; in a joint fit each sample has only its own N, while R and σ² of the two phases are shared by the whole batch. Both phases need the same absorber and different folders. With a second phase the default Rmax becomes 3.0 Å (not changed any more once you edit Rmax). The result table gains N₂, R₂, σ²₂ and the phase-2 fraction (N / N_ref, indicative only), the in-page trend plot shows two lines, and “Continue in Detailed fit” loads paths from the two FEFF folders. The automatic Rmin looks for the first peak of the shorter-distance phase (e.g. Ir–O), so a metal peak does not push it past the oxygen peak; the residual at Rmax is a note only.
    - A line below shows the **first shell**: absorber–scatterer × count, distance range, how many paths were merged, N_ref (the structure's coordination number) and R_ref (degeneracy-weighted mean distance). The first shell starts at the nearest single-scattering path and takes in paths of the same scatterer element whose distance to the previous one is < 0.3 Å; if paths of another element follow within 0.3 Å a note says they are not included.
 2. **2  Purpose, S0² and window**
@@ -307,7 +310,7 @@ The page needs **samples that are loaded with χ(k) computed** (as in Detailed f
    - The window: k, dk, window function, k-weight, R window.
    - A joint fit first shows the **batch verdict**: the joint R-factor, the shared ΔE0 and the batch-level checks.
    - **Result table**: Sample, N, R (Å), σ² (Å²), ΔE0 (eV), S0² (marked “fixed” in Sample mode), R-factor, Verdict, with 1σ errors. Click a row: below it you get that sample's |χ(R)| plot of data and fit (grey band = Rmin–Rmax, not phase-corrected) and its checks one by one.
-   - The **verdict** marks each check ✓ passed / ✗ to look at (with one line of advice) / ℹ note, and concludes “✅ Trustworthy” or “⚠ n issue(s) to look at” (joint: one batch layer plus one layer per sample):
+   - The **verdict** marks each check ✓ passed / ✗ to look at (with one line of advice and action buttons) / ℹ note, and concludes “✅ Trustworthy” or “⚠ n issue(s) to look at” (joint: one batch layer plus one layer per sample):
      - R-factor: < 0.02 very good; 0.02–0.05 acceptable for a first shell; > 0.05 to look at;
      - number of variables (Stern criterion): ≤ N_idp passes, > N_idp is flagged; > N_idp/2 only gives the note “little information”;
      - parameter errors estimable and not larger than the value, no parameter at its bound; |ΔE0| ≤ 10 eV; σ² positive and ≤ 0.03 Å²; |ΔR| ≤ 0.2 Å; no parameter pair with |r| > 0.9; a note if only one k-weight was used;
@@ -315,14 +318,26 @@ The page needs **samples that are loaded with χ(k) computed** (as in Detailed f
      - N of a sample ≤ 1.5 × N_ref;
      - |χ(R)| at Rmax ≤ 30% of the first peak (otherwise the window may cut into the second shell);
      - the data's first peak matches the structure's first shell: R_p − R_ref within −0.8 … +0.1 Å (a mismatch means the chosen structure does not fit the sample, e.g. an oxide FEFF for a metallic sample);
-     - notes: a typed S0², other elements in the first layer, differing dk / window function between the samples of a joint fit.
+     - notes: a typed S0², other elements in the first layer, differing dk / window function between the samples of a joint fit, spectra not calibrated against a reference (`ref_file = none`).
+   - **Action buttons under a ✗** (they only take you to the place to change; refit and read the verdict again afterwards):
+     - **Set Rmax to X Å and refit** (large residual at Rmax): X = current Rmax − 0.2 Å, then refits at once; not offered when X would fall below the first-shell distance (the shorter phase for mixed phases);
+     - **Change structure…** (first peak in the wrong place, R far from the structure, large |ΔR|, large ΔE0, large R-factor): scrolls to card 1 and opens “Compute FEFF from a built-in structure”;
+     - **Go to energy calibration** (large ΔE0): opens the calibration page;
+     - **Pick a standard's S0²…** (sample N above 1.5 × N_ref): same as **Pick standard value…**;
+     - **Continue in Detailed fit** (variables, errors, bounds, correlations, σ², systematic residual): same as the button under the results.
    - **Trend plot** (joint fit): a drop-down chooses **N / R (Å) / σ² (Å²)**, one point per sample with 1σ error bars; the x axis follows the sequence rules of the joint-fit guide (`seq` → measurement time → sample order), and the page says which `seq` values are missing.
    - After a Standard fit a line says that **Pick standard value…** in Sample mode can now use this S0².
    - Buttons:
      - **Save**: writes `models/<name>.json`, the fit records (`exafs_fits.csv`, report, figure) and the parameter file; a joint fit also writes the trend CSV (`output/fits/<name>_trend.csv`). Same as `xafsmith quickfit --save`; if the model exists you are asked before overwriting.
      - **Go to Figure export** (joint fits only): opens **Figure export › Trend** with this fit selected; there you can choose which quantities to export (N, R, σ², ΔE0, edge position).
      - **Continue in Detailed fit**: loads this model (paths, parameters, k / R window, model name; for a joint fit the datasets) into Detailed fit and switches to it; if Detailed fit already has path / parameter tables you confirm the overwrite first (you can save a draft there beforehand).
-   - Command line: `xafsmith quickfit <samples…> --feff <folder> (--standard | --s02 x | --s02-from <standard model>) [--rmax 2.5] [--save]`; see the Manual, section 3.
+     - **Export report package**: writes this fit as one folder `output/reports/<model>_<date-time>/` to send to your supervisor or drop into group-meeting slides; the fit does not have to be saved first:
+       - |χ(R)| and k²χ(k) data-and-fit plots for every sample (PNG, 300 dpi), plus N, R, σ² trend plots for a joint fit;
+       - `参数表.csv` (parameter table, same columns as the result table, with 1σ errors), `判定.txt` (full verdict), `方法.md` (methods paragraphs in English and Chinese);
+       - `报告.html`: a one-page report with the verdict (issues first), parameter table, window, figures and methods. If any check is ✗, a red box at the top says “This fit has n issue(s) to look at; do not use it directly for conclusions”.
+
+       Afterwards **Open folder** appears under the results.
+   - Command line: `xafsmith quickfit <samples…> --feff <folder> (--standard | --s02 x | --s02-from <standard model>) [--rmax 2.5] [--save] [--report]`; see the Manual, section 3.
 
 > Quick fit only answers “what are N, R, σ² of the first shell and can they be trusted”. A “Trustworthy” verdict is a necessary condition, not proof that the structure is right; R-space peak positions are not phase-corrected.
 
@@ -635,7 +650,7 @@ After an update (the command path may change), click **Write / update AI instruc
 | Wavelet data and figures | `output/gui/wavelet/` |
 | Normalized data, Athena projects | `output/gui/norm/`, `output/gui/athena/` |
 | Exported figures, Origin projects | `output/figs/journal/`, `output/figs/journal/origin/` |
-| Reports, methods paragraph | `output/reports/` |
+| Reports, methods paragraph, quick-fit report packages | `output/reports/` |
 
 ### B　Reminders
 
@@ -651,9 +666,10 @@ After an update (the command path may change), click **Write / update AI instruc
 |---|---|
 | Double-clicking the icon opens no window | Installer: run the installer again; source install: double-click installer.py again (projects and data unaffected) |
 | “Not installed yet” (source install) | Double-click installer.py again |
-| ref_file empty in the register | The batch has no reference: add the foil measured in that beamtime and scan again |
+| ref_file empty in the register | The batch has no reference: add the foil measured in that beamtime and scan again; if there really is none, enter `none` to skip the calibration for now (section 4) |
 | Register still empty after copying files | Click **Scan data/raw and register new files** |
 | A spectrum has glitches | Load & check → Quality check → Deglitch; or set use = 0 for that scan (with a reason) |
 | Origin export gives only data and a script | Origin (originpro) was not found; run build_origin.py in Origin as in section 16 |
+| A “Something went wrong” window | It has three parts: **What happened**, **What you can do**, **Contact**. Try the second part first; if that does not help, click **Export diagnostics…** (log, versions, environment, project configuration; no raw data) and post it with the text from **Copy details** on [GitHub Issues](https://github.com/Wiolic/XAFSmith/issues). The English stack trace is under the collapsed **Details** and usually not needed |
 | A red error box on a page | Other pages keep working. Help → About → **Export diagnostics** (log, versions, environment, project configuration; no raw data) and post it with the message on [GitHub Issues](https://github.com/Wiolic/XAFSmith/issues) |
 | Start over | Delete the project's `output` folder and run ① ② ③ under “Calibrate & process” again; raw data are never changed |
