@@ -32,6 +32,7 @@ from . import normalize as xnorm
 from . import autobk as xbkg
 from . import ft as xft
 from . import calib as xcal
+from .errors import ConfigError
 
 
 
@@ -191,7 +192,7 @@ def save_config(cfg, path=None):
     schema.check_config(rep, cfg)
     errs = [f"{w}：{m}" for lv, w, m in rep.items if lv == "错误"]
     if errs:
-        ex = ValueError("配置有错误，未保存 / configuration has errors, not saved:\n" + "\n".join(errs))
+        ex = ConfigError("配置有错误，未保存 / configuration has errors, not saved:\n" + "\n".join(errs))
         ex.config_errors = errs                  # 供图形界面按界面语言显示标题
         raise ex
     write_text_atomic(path or paths.CONFIG, json.dumps(cfg, ensure_ascii=False, indent=2))
@@ -239,7 +240,7 @@ def ref_row(ref_file):
     refs = hit[hit.role == "reference"]
     if len(refs) == 1:
         return refs.iloc[0].to_dict()
-    raise ValueError(f"{ref_file} 含 {len(hit)} 组谱，其中 role=reference 的有 {len(refs)} 组：无法确定用哪一组校准。"
+    raise ConfigError(f"{ref_file} 含 {len(hit)} 组谱，其中 role=reference 的有 {len(refs)} 组：无法确定用哪一组校准。"
                      "请在 meta.csv 中只把一组设为 reference")
 
 
@@ -310,7 +311,7 @@ def load_scan(row, cfg, calib):
     g.element, g.edge = c["element"], c["edge"]
     ref = row.get("ref_file", "")
     if not ref:
-        raise ValueError(f"{row.file}：没有参比：建议同时测参比箔；没有的话在 meta.csv 的 ref_file 填 none 先跳过校准（结果中会注明未校准） / "
+        raise ConfigError(f"{row.file}：没有参比：建议同时测参比箔；没有的话在 meta.csv 的 ref_file 填 none 先跳过校准（结果中会注明未校准） / "
                          f"{row.file}: no reference: measure a reference foil with the sample; if there is none, enter none in the ref_file "
                          "column of meta.csv to skip the calibration for now (the results are then marked uncalibrated)")
     if is_no_ref(ref):                         # 有意不校准：ΔE = 0，不平移能量轴
@@ -357,7 +358,7 @@ def build_sample(sample: str, cfg: dict | None = None, meta: pd.DataFrame | None
     refs_ = list(dict.fromkeys(rows.ref_file))
     real = [r for r in refs_ if not is_no_ref(r)]
     if real and len(real) != len(refs_):
-        raise ValueError(f"样品 {sample}：同一样品的扫描里有的有参比、有的 ref_file 填了 none，不能合并；请统一 / "
+        raise ConfigError(f"样品 {sample}：同一样品的扫描里有的有参比、有的 ref_file 填了 none，不能合并；请统一 / "
                          f"sample {sample}: some scans have a reference and others have ref_file = none; make them consistent")
     g.calib_ref = ";".join(real)
     g.e_shift = float(np.mean([calib[r]["delta_e"] for r in real])) if real else 0.0

@@ -10,6 +10,7 @@ import copy
 from collections.abc import Callable
 
 from . import logs, paths
+from .errors import ConfigError
 
 FIRST_VERSION = "1.0"             # 没有 xafsmith.schema 键的配置按它处理
 
@@ -22,7 +23,7 @@ def parse_version(v) -> tuple[int, ...]:
         if not parts or any(p < 0 for p in parts) or not all(p.isdigit() for p in s.split(".")):
             raise ValueError
     except ValueError:
-        raise ValueError(f"无法识别的配置版本 {v!r}（应形如 \"1.1\"） / "
+        raise ConfigError(f"无法识别的配置版本 {v!r}（应形如 \"1.1\"） / "
                          f"unrecognized config version {v!r} (expected like \"1.1\")") from None
     while len(parts) > 2 and parts[-1] == 0:      # "1.1.0" 与 "1.1" 是同一版本（至少留两段：迁移表按 "1.0" 登记）
         parts = parts[:-1]
@@ -58,7 +59,7 @@ def check_not_newer(v) -> None:
     """版本新于软件时抛 ValueError（双语）；无法解析的版本串同样抛。"""
     cur = parse_version(paths.SCHEMA_VERSION)
     if parse_version(v) > cur:
-        raise ValueError(f"项目配置版本 {v} 比本软件支持的 {paths.SCHEMA_VERSION} 新：项目由更新版本的 XAFSmith 创建，"
+        raise ConfigError(f"项目配置版本 {v} 比本软件支持的 {paths.SCHEMA_VERSION} 新：项目由更新版本的 XAFSmith 创建，"
                          f"请升级软件 / project config version {v} is newer than the {paths.SCHEMA_VERSION} "
                          "this XAFSmith supports: the project was created by a newer XAFSmith, please upgrade")
 
@@ -95,11 +96,11 @@ def upgrade(cfg: dict) -> tuple[dict, list[tuple[str, str]]]:
     while ver < cur:
         fn = MIGRATIONS.get(_key(ver))
         if fn is None:
-            raise ValueError(f"没有从配置版本 {_key(ver)} 升级的步骤 / no migration step from config version {_key(ver)}")
+            raise ConfigError(f"没有从配置版本 {_key(ver)} 升级的步骤 / no migration step from config version {_key(ver)}")
         out = fn(out)
         new = parse_version(_stored_version(out))
         if new <= ver:
-            raise ValueError(f"配置迁移 {_key(ver)} 没有提升版本号 / migration {_key(ver)} did not raise the version")
+            raise ConfigError(f"配置迁移 {_key(ver)} 没有提升版本号 / migration {_key(ver)} did not raise the version")
         notes.append((f"配置从 {_key(ver)} 升到 {_key(new)}（只在内存中；文件未改动，下次保存配置时才写成新版本）",
                       f"config upgraded from {_key(ver)} to {_key(new)} in memory only "
                       "(the file is unchanged until the config is next saved)"))
