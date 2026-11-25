@@ -22,12 +22,8 @@
 输出：参数±误差（larch 已乘 sqrt(χ²_ν)），R 因子、χ²_ν、N_idp、变量数；
       write_result_row() 追加到 output/fits/exafs_fits.csv（一行一个拟合）。
 F 检验：hamilton_test(fit_small, fit_large)。
-
-用法：
-  python -m xafsmith.fit_exafs <数据文件> <model.json> [--out output/fits/]
 """
 from xafsmith import logs
-import argparse
 import json
 import re
 from collections.abc import Callable
@@ -37,7 +33,7 @@ import numpy as np
 import pandas as pd
 from larch import Group
 
-from .common import ETOK, n_idp, write_params
+from .common import ETOK, n_idp
 from .sigma2 import einstein_ms_warning, expand_for_path, parse_temperature, raise_on_errors, sigma2_extra
 
 
@@ -876,28 +872,3 @@ def model_curves(dset):
     return dict(k=d.k, chi=d.chi, kfit=m.k, chifit=m.chi, r=d.r, chir_mag=d.chir_mag,
                 chir_re=d.chir_re, rfit=m.r, chir_mag_fit=m.chir_mag, chir_re_fit=m.chir_re,
                 kwin=d.kwin)
-
-
-def main():
-    from .io import read_any
-    from .normalize import normalize
-    from .autobk import autobk
-    ap = argparse.ArgumentParser()
-    ap.add_argument("data")
-    ap.add_argument("model")
-    ap.add_argument("--out", default=None)
-    a = ap.parse_args()
-    model = json.loads(Path(a.model).read_text(encoding="utf-8-sig"))
-    g = read_any(a.data)
-    normalize(g, **model.get("norm", {}))
-    autobk(g, **model.get("bkg", {}))
-    from .paths import FITS
-    out = Path(a.out or FITS)
-    res, dset, summ = run_fit(g, model)
-    print(report_text(res))
-    write_result_row(summ, out / "exafs_fits.csv")
-    write_params(out / f"{model.get('name', 'fit')}.params.json", model, "fit_exafs")
-
-
-if __name__ == "__main__":
-    main()
