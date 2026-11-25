@@ -98,3 +98,11 @@ def test_write_params_versions(tmp_path):
     d = json.loads(p.read_text(encoding="utf-8"))
     assert d["xafsmith_version"] == __version__ and d["schema_version"] == paths.SCHEMA_VERSION
     assert d["params"] == {"a": 1}
+
+
+def test_check_config_rejects_unparseable_version():
+    """validate 与读入一致：无法识别的版本串在 check_config 也是错误（读入时 upgrade 会拒绝）。"""
+    from xafsmith import schema
+    rep = schema.Report()
+    schema.check_config(rep, {"xafsmith": {"schema": "abc"}, "edges": {}})
+    assert any(lv == "错误" and "无法识别" in m for lv, _w, m in rep.items)

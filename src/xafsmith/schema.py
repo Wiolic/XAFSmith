@@ -93,6 +93,8 @@ def check_config(rep, cfg):
     ver = cfg.get("xafsmith", {}).get("schema")
     if ver is None:
         rep.warn(paths.MARKER, '缺少 "xafsmith": {"schema": ...}')
+    elif not migrate.is_valid(ver):           # 读入时 upgrade 会拒绝它，validate 不能放过
+        rep.err(paths.MARKER, f"配置版本 {ver!r} 无法识别（应形如 \"1.1\"）")
     elif migrate.is_newer(ver):                # 旧版本不是问题（读入时在内存里自动升级）；新于软件的读不了
         rep.err(paths.MARKER, f"配置版本 {ver} 比本软件支持的 {paths.SCHEMA_VERSION} 新："
                               "项目由更新版本的 XAFSmith 创建，请升级软件")

@@ -61,6 +61,15 @@ def check_not_newer(v) -> None:
                          "this XAFSmith supports: the project was created by a newer XAFSmith, please upgrade")
 
 
+def is_valid(v) -> bool:
+    """版本串能否解析（schema.check_config 用：无法解析的版本在读入时会被拒绝）。"""
+    try:
+        parse_version(v)
+        return True
+    except ValueError:
+        return False
+
+
 def is_newer(v) -> bool:
     """版本 v 是否新于软件的 paths.SCHEMA_VERSION；无法解析的版本串返回 False（由 upgrade 报错）。"""
     try:
