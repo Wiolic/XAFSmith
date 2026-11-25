@@ -529,7 +529,7 @@ def quickfit_checks(app, w):
         # G2：用内置结构计算 FEFF（对话框 exec 换成直接接受；选第一行 = Cu）
         import xafsmith.qt.pages.fitting.quick_fit as qk
         el_, ed_, nm_, have_ = q._builtin_target()
-        say((el_, ed_, nm_) == ("Cu", "K", ["Cu"]), f"G2 对话框内容：吸收元素 / 边 / 内置结构 = {el_} {ed_} {nm_}")
+        say((el_, ed_, nm_) == ("Cu", "K", ["Cu", "CuO", "Cu2O"]), f"G2 对话框内容：吸收元素 / 边 / 内置结构 = {el_} {ed_} {nm_}")
         orig_exec, qk.BuiltinDialog.exec = qk.BuiltinDialog.exec, lambda self: 1
         try:
             q._change_structure()                      # G1 的“换结构…”：滚动、聚焦并打开 G2 对话框（这里直接确定）
