@@ -13,6 +13,7 @@ from ...widgets import T, Banner, Card, Page
 
 class FeffPage(Page):
     title_zh, title_en, icon_name = "FEFF 路径", "FEFF paths", "atom"
+    key = "feff"
 
     def build(self):
         from xafsmith import feff_wrap as xfeff, structures as xstruct

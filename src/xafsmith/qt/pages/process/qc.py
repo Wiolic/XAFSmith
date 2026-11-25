@@ -15,6 +15,7 @@ from ._shared import need_groups
 
 class QCPage(Page):
     title_zh, title_en, icon_name = "质量检查", "Quality check", "shield"
+    key = "qc"
 
     def build(self):
         from xafsmith import normalize as xnorm, qc as xqc, services

@@ -12,6 +12,8 @@ from ...widgets import T, Banner, Card, Page
 
 class LCFPage(Page):
     title_zh, title_en, icon_name = "LCF", "LCF", "layers"
+    key = "lcf"
+    needs = ("groups",)
 
     def build(self):
         from xafsmith import fit_lcf as xlcf

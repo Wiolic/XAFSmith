@@ -18,6 +18,8 @@ from .._common import rlabel
 
 class ChiPage(Page):
     title_zh, title_en, icon_name = "χ(k) 与 FT", "χ(k) & FT", "wave"
+    key = "chi"
+    needs = ("groups",)
 
     def build(self):
         from xafsmith import autobk as xbkg, ft as xft, mut_planner as xmut, normalize as xnorm

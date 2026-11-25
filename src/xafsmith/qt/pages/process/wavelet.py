@@ -117,6 +117,8 @@ def show_wavelet_guide(parent):
 class WaveletPage(Page):
     """小波变换：可选两条谱左右对比（同一套参数），R 区间极大值表合并显示，导出每条谱的数据与图"""
     title_zh, title_en, icon_name = "小波变换", "Wavelet transform", "grid"
+    key = "wavelet"
+    needs = ("groups",)
     max_width = 1500
 
     def build(self):

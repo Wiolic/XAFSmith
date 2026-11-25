@@ -13,6 +13,7 @@ from .fit_view import FitView
 
 class HistoryPage(Page):
     title_zh, title_en, icon_name = "拟合历史", "Fit history", "history"
+    key = "history"
 
     def build(self):
         from xafsmith import fit_exafs as xfit

@@ -12,6 +12,7 @@ from ...widgets import T, Banner, Card, Page
 
 class CalibPage(Page):
     title_zh, title_en, icon_name = "能量校准", "Energy calibration", "target"
+    key = "calib"
 
     def build(self):
         from xafsmith import calib as xcal

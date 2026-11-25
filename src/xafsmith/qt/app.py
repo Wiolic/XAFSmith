@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QHBoxLayout, 
 from xafsmith import paths
 from . import theme, widgets as W
 from .theme import C, SP, WIDTH, icon
+from .pages import fitting as ft, output as op, process as pr, project as pj
 from .state import State, is_project, remember
 from .widgets import T
 
@@ -28,46 +29,20 @@ QUIET_DIALOGS = W.QUIET   # 自动测试时不弹窗
 CREDIT_NAMES = ("Eggy", "Claude Opus 5.5")
 
 
-def page_specs():
-    """(键, 类) 按使用流程分组；None 表示组间空隙"""
-    from .pages import project as pj, process as pr, fitting as ft, output as op
-    return [
-        ("home", pj.HomePage), ("data", pj.DataPage), ("batch", pj.BatchPage),
-        None,
-        ("spectra", SpectraTabs), ("norm", pr.NormPage),
-        ("chi", pr.ChiPage), ("wavelet", pr.WaveletPage),
-        None,
-        ("feff", ft.FeffPage), ("fit", ft.FitContainer), ("history", ft.HistoryPage), ("lcf", ft.LCFPage),
-        ("xanes", ft.XanesPage),
-        None,
-        ("summary", op.SummaryPage), ("pubfig", op.PubFigPage), ("methods", op.MethodsPage),
-        None,
-        ("planner", op.PlannerPage), ("elements", op.ElementsPage), ("agent", op.AgentPage), ("help", op.HelpPage),
-    ]
-
-
-# “载入与检查”一页三个标签：载入谱、质量检查、能量校准（各自仍可用 go("load") 等直接打开）
-TABBED = {"spectra": ("load", "qc", "calib")}
-PARENT = {k: g for g, ks in TABBED.items() for k in ks}
-HIDDEN = {"home"}              # 不在导航中显示：由“打开 / 新建项目”按钮进入
-# 页面的前置数据：缺少时导航按钮变灰并在悬停说明缺哪一步（不禁用，仍可点进去看说明与跳转按钮）
-NEEDS = {"norm": ("groups",), "chi": ("groups",), "wavelet": ("groups",), "lcf": ("groups",), "xanes": ("groups",),
-         "fit": ("groups", "feff"), "pubfig": ("groups",)}
-NEED_TEXT = {"groups": ("先在“载入与检查”里载入谱", "Load spectra first (Load & check)"),
-             "feff": ("先在“FEFF 路径”里生成散射路径", "Generate scattering paths first (FEFF paths)")}
-NO_PROJECT = ("home", "planner", "elements", "help")     # 未打开项目时也能用的页面
-
-
 class SpectraTabs(QWidget):
     """载入谱 / 质量检查 / 能量校准 合并为一页（标签切换），各标签仍是独立的页面对象"""
     title_zh, title_en, icon_name = "载入与检查", "Load & check", "upload"
+    key = "spectra"
+    needs: tuple[str, ...] = ()
+    no_project = False
+    hidden = False
+    sub_pages = (pr.LoadPage, pr.QCPage, pr.CalibPage)
 
     def __init__(self, app):
         super().__init__()
         from PySide6.QtWidgets import QTabWidget
-        from .pages import process as pr
         self.app = app
-        self.subs = {"load": pr.LoadPage(app), "qc": pr.QCPage(app), "calib": pr.CalibPage(app)}
+        self.subs = {cls.key: cls(app) for cls in self.sub_pages}
         v = QVBoxLayout(self)
         v.setContentsMargins(0, 6, 0, 0)
         v.setSpacing(0)
@@ -123,6 +98,48 @@ def _fit_rect(x, y, w, h):
     x = max(a.left() + side, min(int(x), a.right() - side - w + 1))
     y = max(a.top() + top, min(int(y), a.bottom() - side - h + 1))
     return x, y, w, h
+
+
+def page_specs():
+    """[(键, 类) | None]：导航顺序与分组（None 表示组间空隙）；键取自各页面类的 key 属性。
+    页面的 needs / no_project / hidden 也是类属性，下面的 TABBED 等表由它们推导。"""
+    return [None if cls is None else (cls.key, cls) for cls in _NAV]
+
+
+# 导航顺序与分组：类的列表，None 为组间空隙。新增页面时在此加一项，并给页面类写 key 等属性
+_NAV = [
+    pj.HomePage, pj.DataPage, pj.BatchPage,
+    None,
+    SpectraTabs, pr.NormPage,
+    pr.ChiPage, pr.WaveletPage,
+    None,
+    ft.FeffPage, ft.FitContainer, ft.HistoryPage, ft.LCFPage,
+    ft.XanesPage,
+    None,
+    op.SummaryPage, op.PubFigPage, op.MethodsPage,
+    None,
+    op.PlannerPage, op.ElementsPage, op.AgentPage, op.HelpPage,
+]
+
+
+def derive_tables(specs):
+    """由页面类属性推导 (TABBED, PARENT, HIDDEN, NEEDS, NO_PROJECT)。"""
+    classes = [spec[1] for spec in specs if spec is not None]
+    tabbed = {c.key: tuple(s.key for s in c.sub_pages) for c in classes if hasattr(c, "sub_pages")}
+    parent = {k: g for g, ks in tabbed.items() for k in ks}
+    hidden = {c.key for c in classes if c.hidden}
+    needs = {c.key: c.needs for c in classes if c.needs}
+    no_project = tuple(c.key for c in classes if c.no_project)
+    return tabbed, parent, hidden, needs, no_project
+
+
+# “载入与检查”一页三个标签：载入谱、质量检查、能量校准（各自仍可用 go("load") 等直接打开）
+# HIDDEN：不在导航中显示，由“打开 / 新建项目”按钮进入
+# NEEDS：页面的前置数据，缺少时导航按钮变灰并在悬停说明缺哪一步（不禁用，仍可点进去看说明与跳转按钮）
+# NO_PROJECT：未打开项目时也能用的页面
+TABBED, PARENT, HIDDEN, NEEDS, NO_PROJECT = derive_tables(page_specs())
+NEED_TEXT = {"groups": ("先在“载入与检查”里载入谱", "Load spectra first (Load & check)"),
+             "feff": ("先在“FEFF 路径”里生成散射路径", "Generate scattering paths first (FEFF paths)")}
 
 
 class MainWindow(QMainWindow):

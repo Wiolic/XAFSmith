@@ -49,6 +49,12 @@ class Page(QScrollArea):
     title_zh = ""
     title_en = ""
     icon_name = "doc"
+    # 页面注册（导航表由这些属性推导，见 qt/app.py）：key 是页面键；needs 是前置数据（缺则导航按钮变灰）；
+    # no_project 为 True 表示未打开项目时也可用；hidden 为 True 表示不在导航栏显示
+    key = ""
+    needs: tuple[str, ...] = ()
+    no_project = False
+    hidden = False
     max_width = 1180
     fill = False          # True：内容占满页面高度（左右分栏、各自滚动），不出现整页滚动条
 

@@ -49,6 +49,7 @@ def apply_guess(g, element):
 
 class LoadPage(Page):
     title_zh, title_en, icon_name = "载入谱", "Load spectra", "upload"
+    key = "load"
 
     def build(self):
         from xafsmith import pipeline as pl

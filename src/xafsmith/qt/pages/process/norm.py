@@ -17,6 +17,8 @@ from ._shared import need_groups, norm_fields, reset_button
 
 class NormPage(Page):
     title_zh, title_en, icon_name = "归一化", "Normalization", "edge"
+    key = "norm"
+    needs = ("groups",)
 
     def build(self):
         from xafsmith import io as xio, normalize as xnorm

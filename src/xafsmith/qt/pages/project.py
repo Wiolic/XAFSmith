@@ -37,6 +37,9 @@ def norm2_shown(v):
 class HomePage(Page):
     """打开或新建项目（侧栏“打开 / 新建项目”进入；不在导航中显示）。流程进度与本项目信息在侧栏“流程与本项目”的悬浮窗口中。"""
     title_zh, title_en, icon_name = "打开或新建项目", "Open or create a project", "home"
+    key = "home"
+    no_project = True
+    hidden = True
 
     def title(self):
         return T("打开或新建项目", "Open or create a project") if is_project() else T("欢迎使用 XAFSmith", "Welcome to XAFSmith")
@@ -119,6 +122,7 @@ class HomePage(Page):
 
 class DataPage(Page):
     title_zh, title_en, icon_name = "数据登记", "Register data", "table"
+    key = "data"
     _meta_dirty = False
     _meta_save = None
 
@@ -260,6 +264,7 @@ class DataPage(Page):
 
 class BatchPage(Page):
     title_zh, title_en, icon_name = "校准与处理", "Calibrate & process", "bolt"
+    key = "batch"
     _par_dirty = False
     _par_save = None
 

@@ -21,6 +21,7 @@ from ..widgets import T, Banner, Card, Page
 # ============================================================================= 报告导出
 class SummaryPage(Page):
     title_zh, title_en, icon_name = "报告导出", "Report export", "doc"
+    key = "summary"
 
     def build(self):
         from xafsmith import summary
@@ -84,6 +85,7 @@ class SummaryPage(Page):
 class MethodsPage(Page):
     """论文“方法”段落（中英文）+ 补充材料用的拟合参数表"""
     title_zh, title_en, icon_name = "方法导出", "Methods export", "quote"
+    key = "methods"
 
     def build(self):
         self.header(T("由项目文件生成论文“方法”段落（中、英文）与拟合参数表。只写有记录的事实；投稿前请逐句核对。",
@@ -203,6 +205,8 @@ def _fit_pairs(S, fit, keys):
 # ============================================================================= 图片导出
 class PubFigPage(Page):
     title_zh, title_en, icon_name = "图片导出", "Figure export", "chart"
+    key = "pubfig"
+    needs = ("groups",)
 
     KINDS = ["xanes", "deriv", "chik", "chir", "trend"]
 
@@ -492,6 +496,8 @@ class PubFigPage(Page):
 # ============================================================================= 制样指导
 class PlannerPage(Page):
     title_zh, title_en, icon_name = "制样指导", "Sample preparation", "flask"
+    key = "planner"
+    no_project = True
 
     def build(self):
         from xafsmith import mut_planner as xmut
@@ -620,6 +626,8 @@ _PT += [(58 + i, 9, 4 + i) for i in range(14)] + [(90 + i, 10, 4 + i) for i in r
 class ElementsPage(Page):
     """点元素：吸收边（能量、荧光产额、跳跃比）、荧光线、荧光滤片（同 Hephaestus 的 Absorption / Filter）"""
     title_zh, title_en, icon_name = "吸收边查询", "Edge lookup", "target"
+    key = "elements"
+    no_project = True
     max_width = 1600
 
     def build(self):
@@ -733,6 +741,7 @@ class ElementsPage(Page):
 # ============================================================================= AI 助手
 class AgentPage(Page):
     title_zh, title_en, icon_name = "AI 助手", "AI assistant", "spark"
+    key = "agent"
 
     def build(self):
         from xafsmith import agent
@@ -779,6 +788,8 @@ class AgentPage(Page):
 class HelpPage(Page):
     """侧栏中的“使用指南”：点击后打开独立的使用指南窗口（qt/help.py），主窗口停在当前页"""
     title_zh, title_en, icon_name = "使用指南", "Help", "help"
+    key = "help"
+    no_project = True
 
     def build(self):
         self.app.open_help()

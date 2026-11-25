@@ -15,6 +15,8 @@ from ...widgets import T, Banner, Page
 
 class XanesPage(Page):
     title_zh, title_en, icon_name = "XANES 定量", "XANES quantification", "peak"
+    key = "xanes"
+    needs = ("groups",)
 
     def build(self):
         from ...state import ensure_norm

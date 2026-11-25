@@ -15,6 +15,10 @@ from .quick_fit import QuickFitPage
 
 class FitContainer(QWidget):
     title_zh, title_en, icon_name = "EXAFS 拟合", "EXAFS fitting", "fit"
+    key = "fit"
+    needs = ("groups", "feff")
+    no_project = False
+    hidden = False
 
     def __init__(self, app):
         super().__init__()
