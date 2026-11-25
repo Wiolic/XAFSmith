@@ -12,7 +12,8 @@ from PySide6.QtWidgets import QGridLayout, QPushButton, QWidget
 
 from xafsmith import paths
 from .. import widgets as W
-from ..state import err_lines, fit_label, has_chi, load_cfg, plain_rc, save_cfg, save_fit
+from xafsmith import services
+from ..state import err_lines, fit_label, has_chi, load_cfg, save_cfg
 from ..theme import C, FS
 from ..widgets import T, Banner, Card, Page
 
@@ -36,7 +37,7 @@ class SummaryPage(Page):
 
         def save_session_fits():
             for f in S.fits:
-                save_fit(f)
+                services.save_fit(f, "GUI fit")
             W.toast(self, T("已保存", "Saved"))
 
         def go():
@@ -339,7 +340,7 @@ class PubFigPage(Page):
             import matplotlib.pyplot as plt
             if cur.get("fig") is not None:
                 plt.close(cur["fig"])
-            with plain_rc():
+            with services.plain_rc():
                 made = make()
                 if made is None:
                     W._clear_layout(holder.layout())
@@ -373,7 +374,7 @@ class PubFigPage(Page):
         def save():
             if cur.get("fig") is None or not fmts.value():
                 return
-            with plain_rc():
+            with services.plain_rc():
                 cur["fig"].set_dpi(100)
                 files = pf.save(cur["fig"], cur["cap"], paths.PUBFIGS / base_name(), fmts.value())
             cur["fig"] = None

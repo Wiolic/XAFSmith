@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import pandas as pd
 from ... import widgets as W
-from ...state import fit_label, save_fit
+from xafsmith import services
+from ...state import fit_label
 from ...widgets import T, Banner, Card, Page
 
 from .fit_view import FitView
@@ -28,7 +29,7 @@ class HistoryPage(Page):
 
         def save_all():
             for f in S.fits:
-                save_fit(f)
+                services.save_fit(f, "GUI fit")
             W.toast(self, T(f"已保存 {len(S.fits)} 个拟合", f"{len(S.fits)} fits saved"))
         card.add(W.hbox(None, W.button(T("全部保存到 output/fits/（报告与方法导出会用到）", "Save all to output/fits/ (used by report and methods export)"),
                                        icon_name="save", slot=lambda: W.wait_cursor(save_all))))

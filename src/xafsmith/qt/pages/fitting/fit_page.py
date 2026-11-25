@@ -10,9 +10,9 @@ from pathlib import Path
 import pandas as pd
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QWidget
-from xafsmith import paths
+from xafsmith import paths, services
 from ... import widgets as W
-from ...state import feff_dirs, group_snapshot, has_chi, idents, load_model, run_model, saved_models
+from ...state import feff_dirs, group_snapshot, has_chi, idents, saved_models
 from ...theme import C, SP
 from ...widgets import T, Banner, Card, Page
 
@@ -76,9 +76,9 @@ def saved_model_job(S, mf_v, names):
     need = []
     for s_ in names:
         try:
-            m_ = load_model(mf_v, s_)
+            m_ = services.load_model(mf_v, s_)
             need += [d["sample"] for d in m_["datasets"]] if "datasets" in m_ else [m_["sample"]]
-        except Exception:                # 模型有误：留给后台 load_model 照旧报错
+        except Exception:                # 模型有误：留给后台 services.load_model 照旧报错
             logs.log.debug("qt.pages.fitting.saved_model_job 预读模型失败（后台会重新报错）", exc_info=True)
     S_snap = group_snapshot(S, need)
 
@@ -86,7 +86,7 @@ def saved_model_job(S, mf_v, names):
         out = []
         for i, s_ in enumerate(names):
             progress(i / len(names), s_ or "")
-            out.append(run_model(S_snap, load_model(mf_v, s_)))
+            out.append(services.run_model(services.load_model(mf_v, s_), fallback=S_snap.groups))
         return out
     return work
 
@@ -94,8 +94,7 @@ def saved_model_job(S, mf_v, names):
 def custom_fit_job(S, model, src):
     """自定义拟合的后台任务（须在界面线程调用）。src：多数据集为 {数据集 id: 会话谱名}，否则为会话谱名；谱在此深拷贝。"""
     groups = {i: copy.deepcopy(S.groups[k]) for i, k in src.items()} if isinstance(src, dict) else copy.deepcopy(S.groups[src])
-    S_snap = group_snapshot(S, [])      # 给了 groups 时 run_model 不读 S；传空快照而非活的会话
-    return lambda: run_model(S_snap, model, groups)
+    return lambda: services.run_model(model, groups)      # 给了 groups 时不读会话
 
 
 class FitPage(Page):

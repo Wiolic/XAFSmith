@@ -769,20 +769,18 @@ class QuickFitPage(Page):
 
     # ------------------------------------------------------------ 按钮
     def _save(self):
-        from xafsmith.common import write_params
-        from ...state import safe, save_fit
+        from xafsmith import services
         if not self._res:
             return
         fit = self._res["res"].fit
         model = fit["model"]
-        base = safe(model["name"])
+        base = services.safe(model["name"])
         if (paths.MODELS / f"{base}.json").exists() and not W.ask(
                 self, T("覆盖模型", "Overwrite model"),
                 T(f"models/{base}.json 已存在，覆盖吗？（拟合记录会追加一行）", f"models/{base}.json exists. Overwrite it? (a row is appended to the fit records)")):
             return
         try:
-            save_fit(fit)
-            write_params(paths.FITS / f"{base}.params.json", model, "xafsmith quickfit")
+            services.save_fit(fit, "GUI quickfit")
         except Exception as ex:      # noqa: BLE001
             logs.log.warning("快速拟合：保存失败", exc_info=True)
             W.toast(self, T(f"保存失败：{ex}", f"Save failed: {ex}"), "err")

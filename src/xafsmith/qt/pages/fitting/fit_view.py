@@ -5,9 +5,9 @@ from __future__ import annotations
 from xafsmith import logs
 import pandas as pd
 from PySide6.QtWidgets import QWidget
-from xafsmith import paths
+from xafsmith import paths, services
 from ... import widgets as W
-from ...state import fit_dataset, fit_ds_ids, safe, save_fit
+from ...state import fit_dataset, fit_ds_ids
 from ...theme import C
 from ...widgets import T, Banner, Card
 from .._common import rlabel
@@ -69,7 +69,7 @@ class FitView(QWidget):
         head.addWidget(t, 1)
 
         def save():
-            base = save_fit(full)
+            base = services.save_fit(full, "GUI fit").base
             if ids:
                 W.toast(page, T(f"已保存：output/fits/exafs_fits.csv、models/{base}.json、报告与 {len(ids)} 张拟合图",
                                 f"Saved: output/fits/exafs_fits.csv, models/{base}.json, report and {len(ids)} figures"))
@@ -300,7 +300,7 @@ class FitView(QWidget):
             out.layout().addWidget(W.Table(tab.round(5)))
 
             def save():
-                base = safe(fit["summ"]["model"])
+                base = services.safe(fit["summ"]["model"])
                 tab.to_csv(paths.FITS / f"{base}_robustness.csv", index=False, encoding="utf-8-sig")
                 ver.to_csv(paths.FITS / f"{base}_robustness_summary.csv", index=False, encoding="utf-8-sig")
                 W.toast(page, T(f"已保存 output/fits/{base}_robustness*.csv", f"Saved output/fits/{base}_robustness*.csv"))
