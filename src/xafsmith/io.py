@@ -12,9 +12,6 @@ read_any（自动识别，.prj 返回字典）；write_prj、write_group_columns
   format（reader 名）, mu_from('channels'|'file'), columns（实际使用的列映射）,
   meta_guessed（哪些字段是猜的）, read_warnings（读入时的警告）
 透射 μ = ln(I0/It)；荧光 μ = If/I0；文件里同时有通道与 μ 列时一律由通道计算。
-
-用法（单独运行）：
-  python -m xafsmith.io <文件> [<文件> ...]      # 打印识别结果
 """
 import re
 import sys
@@ -92,10 +89,5 @@ def write_group_columns(g, path, cols=("energy", "mu", "norm", "flat", "dmude"))
 
 
 if __name__ == "__main__":
-    for p in sys.argv[1:]:
-        g = read_any(p)
-        if isinstance(g, dict):
-            print(p, "-> Athena 工程:", list(g))
-            continue
-        print(f"{p}: {g.element} {g.edge} mode={g.mode} n={len(g.energy)} "
-              f"E={g.energy[0]:.1f}..{g.energy[-1]:.1f} {g.timestamp}")
+    from . import cli
+    raise SystemExit(cli.main(["inspect", *sys.argv[1:]]))
