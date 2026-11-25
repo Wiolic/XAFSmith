@@ -19,6 +19,19 @@ The command line and the graphical interface now share one service layer (new mo
 - 只给模型名时先在 `models/` 中找，项目根目录里的同名 json（如 `xafsmith.json`）不会被当作模型读入。
   A bare model name is looked up in `models/` first, so a same-named json in the project root (such as `xafsmith.json`) is never read as a model.
 
+- `xafsmith validate` 遇到多数据集模型里没写 `id`、而 `sample` 不是字符串（如误写成列表）时整个校验崩溃（TypeError）；现在报一条错误，指明写上 `id` 或把 `sample` 改为字符串。拟合本来就拒绝这种模型，行为不变。
+  `xafsmith validate` crashed (TypeError) on a multi-dataset model whose dataset has no `id` and a non-string `sample` (a list, say); it now reports an error asking for an `id` or a string `sample`. Fitting already refused such a model.
+
+### 配置版本 / Config version
+- **旧版本项目在内存中升级，文件不改**：读 `xafsmith.json` 时按 `xafsmith.schema` 逐级升到当前数据标准（1.1），文件本身不改，下次正常保存配置时才写成新版本；图形界面打开这样的项目时在窗口底部提示一次，日志记一条。缺 `schema` 按 1.0 处理。1.0 → 1.1 只记新版本号（1.1 新增的只是 meta.csv 的可选列）。新模块 `migrate`。
+  **Older projects are upgraded in memory, the file is left alone**: `xafsmith.json` is brought up to the current data standard (1.1) step by step from its `xafsmith.schema` when read; the file stays as it is until the configuration is next saved; the interface shows a one-time notice and the log gets one line. A missing `schema` counts as 1.0. 1.0 → 1.1 only records the new number (1.1 added only optional meta.csv columns). New module `migrate`.
+- **新于本软件的项目明确拒绝**：`xafsmith.schema` 新于本软件，或版本串无法识别时，读入报错（请升级软件或改正版本号），`xafsmith validate` 也报错误；以前照常读入，可能悄悄忽略新字段。
+  **Projects from a newer version are refused**: a `xafsmith.schema` newer than the software, or one that cannot be parsed, stops loading with an error (upgrade or fix the number) and is an error in `xafsmith validate`; before, such a file was read as is and new fields could be silently ignored.
+- 模板 `templates/xafsmith.json` 与《数据标准》示例的版本号改为 1.1（代码自 v1.1.0 起就是 1.1）。模型 JSON 可写可选的 `schema` 字段，新于本软件时 `validate` 只警告；软件不往已有模型里补写它。
+  The template `templates/xafsmith.json` and the Data standard example now say 1.1 (the code has been 1.1 since v1.1.0). A model JSON may carry an optional `schema` field; newer than the software is only a warning in `validate`; existing models are never given one.
+- 每个 `*.params.json` 多记两项：`xafsmith_version`（软件版本）与 `schema_version`（数据标准版本）。
+  Every `*.params.json` also records `xafsmith_version` and `schema_version`.
+
 ### 可追溯性 / Traceability
 - 新增参数记录：稳健性 `<模型>_robustness.params.json`、LCF `output/lcf/lcf_<样品>.params.json`（样品、标样、全部拟合选项、备注）、XANES `xanes_features.params.json`（按样品记录白线窗口）、QC `qc_report.params.json`（所用归一化参数）、校准 `calib.params.json`（参比与所用配置）。命令行与界面写的同一结果只有 `tool` 与 `time` 两项不同。
   New parameter records: robustness `<model>_robustness.params.json`, LCF `output/lcf/lcf_<sample>.params.json` (sample, standards, every fit option, note), XANES `xanes_features.params.json` (white-line window per sample), QC `qc_report.params.json` (normalization used), calibration `calib.params.json` (references and the configuration used). The same result written from the command line or the interface differs only in `tool` and `time`.
@@ -28,6 +41,12 @@ The command line and the graphical interface now share one service layer (new mo
 ### 内部 / Internal
 - 新模块 `services`：读模型、运行模型、保存拟合、稳健性、模型比较、LCF、XANES、QC、校准的落盘只此一份；`cli` 与界面各页面都调用它，`qt/state.py` 只留会话状态。新增测试 `tests/unit/test_services.py`：同一模型分别走命令行与界面的保存路径，产物（含 PNG）逐字节相同，参数记录除 `tool`、`time` 外相同。
   New module `services`: loading and running models and saving fits, robustness, comparisons, LCF, XANES, QC and calibration exist once; `cli` and every interface page call it and `qt/state.py` keeps only session state. New test `tests/unit/test_services.py`: one model saved through the command-line and the interface paths gives byte-identical outputs (PNG included) and parameter records equal apart from `tool` and `time`.
+- 新模块 `defaults`：处理参数默认值、新建配置写入的 norm / bkg / ft、`META_COLS`、两套数据后缀与 `~/.xafsmith` 各只定义一处（原散在 5 个模块）。`norm2` 的 `None`（计算缺省）与 `-10`（写进新配置）保持各自行为：归一化中两者等价，导出 Athena 工程时不等价。
+  New module `defaults`: processing defaults, the norm / bkg / ft written into a new configuration, `META_COLS`, the two data-suffix sets and `~/.xafsmith` are each defined once (they were spread over 5 modules). `norm2 = None` (computation default) and `-10` (written into new configurations) keep their own behaviour: equivalent in normalization, not in the Athena project export.
+- 新模块 `modelcheck`：模型 JSON 的结构检查只写一份，`validate`（报告全部问题）与拟合（遇第一个错误就停）共用；两边原有的规则差异、消息文字与先后顺序都不变（97 个人造模型与本机项目全部模型对照逐条相同）。
+  New module `modelcheck`: model-JSON structure checks exist once, shared by `validate` (reports every issue) and fitting (stops at the first error); the rules each side had, their messages and order are unchanged (checked entry by entry on 97 synthetic models and every model of a local project).
+- 去掉计算模块各自的单独运行入口（`python -m xafsmith.<模块>`，参数与 `xafsmith` 子命令不一致，有的还绕过参比校准）；`python -m xafsmith.io` 与 `python -m xafsmith.agent` 改为转到 `xafsmith inspect` / `xafsmith agent`。`origin_builder` 的入口保留（Origin 里运行导出脚本要用）。
+  Computation modules no longer run on their own (`python -m xafsmith.<module>` took arguments unlike the `xafsmith` subcommands and some skipped the reference calibration); `python -m xafsmith.io` and `python -m xafsmith.agent` forward to `xafsmith inspect` / `xafsmith agent`. `origin_builder` keeps its entry (Origin runs the exported script).
 
 ## [1.4.1] — 2026-11-25
 
