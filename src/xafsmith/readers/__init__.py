@@ -2,14 +2,53 @@
 
 pipeline 与图形界面统一只调用 read_scan（见 docs/dev/io_readers.md）。
 """
+import importlib.metadata
 from pathlib import Path
 
+from xafsmith import logs
 from .base import ReadError, Reader, guess_element_edge     # noqa: F401
 from .formats import (AthenaXmuReader, BsrfReader, ColumnsReader, PrjReader, XdacReader,  # noqa: F401
                       XdiReader)
 
 REGISTRY = [BsrfReader(), XdiReader(), AthenaXmuReader(), XdacReader(), PrjReader(), ColumnsReader()]
 BY_NAME = {r.name: r for r in REGISTRY}
+ENTRY_POINT_GROUP = "xafsmith.readers"
+
+
+def load_plugins():
+    """加载第三方读入格式：entry point 组 “xafsmith.readers”，每项给出 Reader 子类或实例。
+    插件追加在内置之后（同分时内置优先）；非 Reader、重名、加载出错都只记日志并跳过，绝不影响启动。
+    Load third-party readers from the "xafsmith.readers" entry-point group; bad ones are logged and skipped.
+    → 新加入的 reader 名列表。"""
+    added = []
+    try:
+        eps = list(importlib.metadata.entry_points(group=ENTRY_POINT_GROUP))
+    except Exception:
+        logs.log.warning("readers.load_plugins 无法枚举 entry points，已忽略 / cannot enumerate entry points, ignored",
+                         exc_info=True)
+        return added
+    for ep in eps:
+        ep_name = getattr(ep, "name", "?")
+        try:
+            obj = ep.load()
+            if isinstance(obj, type) and issubclass(obj, Reader):
+                obj = obj()
+        except Exception:
+            logs.log.warning("读入格式插件“%s”加载失败，已跳过 / reader plugin '%s' failed to load, skipped",
+                             ep_name, ep_name, exc_info=True)
+            continue
+        if not isinstance(obj, Reader):
+            logs.log.warning("读入格式插件“%s”不是 Reader 实例，已跳过 / reader plugin '%s' is not a Reader, skipped",
+                             ep_name, ep_name)
+            continue
+        if not obj.name or obj.name in BY_NAME:
+            logs.log.warning("读入格式插件“%s”的格式名“%s”为空或重名，已跳过 / reader plugin '%s' has an empty or "
+                             "duplicate name '%s', skipped", ep_name, obj.name, ep_name, obj.name)
+            continue
+        REGISTRY.append(obj)
+        BY_NAME[obj.name] = obj
+        added.append(obj.name)
+    return added
 
 
 def list_formats():
@@ -72,3 +111,6 @@ def read_scan(path, fmt=None, mode=None, columns=None, group=None, templates=Non
     names = [getattr(g, "group_name", g.label) for g in gs]
     raise ReadError(f"{Path(path).name} 含 {len(gs)} 组谱，请指定 group：{names}",
                     f"{Path(path).name} has {len(gs)} groups; specify one: {names}")
+
+
+load_plugins()
