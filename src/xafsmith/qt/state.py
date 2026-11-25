@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 from PySide6.QtCore import QObject, Signal
 
-from xafsmith import paths
+from xafsmith import defaults, paths
 
 FUNCS = {"sqrt", "exp", "log", "abs", "min", "max", "pi", "sin", "cos", "tan", "reff", "degen", "e", "log10",
          "sigma2_debye", "sigma2_eins", "tempK"}      # B6：σ² 温度模型的函数与保留符号不是参数名
@@ -155,7 +155,7 @@ def _known_format(xio, p):
 def raw_files():
     from xafsmith import io as xio
     out = [p for p in paths.RAW.rglob("*") if p.is_file()
-           and (p.suffix.lower() in (".dat", ".xmu", ".nor", ".txt", ".prj", ".xdi") or _known_format(xio, p))]
+           and (p.suffix.lower() in defaults.RAW_LIST_SUFFIX or _known_format(xio, p))]
     out += [p for p in paths.ROOT.rglob("*.prj") if ".venv" not in p.parts]
     return sorted(set(out))
 
