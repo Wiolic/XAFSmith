@@ -14,6 +14,14 @@ This tutorial is for people doing **their first EXAFS fit**, from raw data to wr
 
 Where each button is and how it works is in the **GUI guide**; this tutorial focuses on principles and criteria.
 
+> **Just want to get through it once?** Follow this shortest path; a first-time user gets a result fit to show a supervisor within half an hour, and can come back for the principles later:
+>
+> 1. **Data registry**: create a project and import the data (with the metal foil measured in the same session) → chapter 1;
+> 2. **Calibrate & process**: calibrate against the reference, normalize, remove the background, look at χ(k) and |χ(R)| → chapters 3–6;
+> 3. **EXAFS fitting › Quick fit**: choose the samples, click **Compute from a built-in structure…** and pick a structure (no CIF hunting) → **Start fit** → chapters 9–10;
+> 4. For every ✗ in the verdict, click the button under it (e.g. “Set Rmax to 2.3 Å and refit”) until the verdict reads “✅ Trustworthy” → chapter 11;
+> 5. Click **Export report package** for the figures, parameter table, verdict and methods paragraphs → chapter 14.
+
 **Contents**
 
 | Part | Chapters |
@@ -106,6 +114,9 @@ Raw data are **read-only**, and every result can be regenerated from them, which
 
 **Check**: every sample has a non-empty `ref_file`; the check reports no errors.
 
+- **No reference foil in this batch**: enter `none` in `ref_file` to skip the calibration on purpose and carry on (see the end of chapter 3). An empty cell is still an error, so a forgotten reference is not missed.
+- **Reading files directly on the Load page**: when the file header names no element, the software guesses element and edge from the energy and marks them “(guessed)” in the table. Check them: if right, click **Confirm as is**; if wrong, type the element below and click **Apply** (this session only; put it in meta.csv to make it permanent).
+
 ### 2　Quality check: what can these data answer?
 
 **Principle**
@@ -153,6 +164,14 @@ Why not calibrate each sample on its own? Its edge position carries chemical inf
 **Operation**: **Calibrate & process → ② Calibrate with references**. See the result on the **Energy calibration** tab of **Load & check**, one ΔE per reference.
 
 **Check**: ΔE is usually within a few eV; references from one beamtime give similar ΔE.
+
+**No reference?** Measure a metal foil with the samples next time, in the same session. This time you can enter `none` in the `ref_file` column of `meta.csv` and skip the calibration. Know what that costs:
+
+| Affected | Not affected |
+|---|---|
+| Absolute edge positions, the value of ΔE₀, edge comparisons with other sessions | Fitted N, R, σ² (set by the shape and phase of the oscillations) |
+
+The quick-fit verdict then carries an extra ℹ “Not calibrated against a reference”, and the methods paragraph states “no energy calibration (no reference)”, so the result is never passed off as calibrated.
 
 ### 4　Normalization
 
@@ -255,7 +274,21 @@ $f(k)$, $\delta(k)$ and $\lambda(k)$ cannot be taken from the data; they are com
 
 The FEFF R is a **starting point**: the fit adjusts it by a small ΔR; N may stay at the degeneracy or be fitted. The structure need not match the sample exactly, only the local environment — e.g. Ta–O paths of KTaO₃ for the first shell of amorphous TaOx.
 
+**Built-in structures**: the software ships 63 common structures, so you need not hunt for a CIF:
+
+| Kind | Structures |
+|---|---|
+| Metal foils | Ni Cu Rh Pd Ag Pt Au Ir (fcc), V Cr Fe Nb Mo Ta W (bcc), Ti Co Zn Zr Ru Re Os (hcp), plus fcc Co |
+| Oxides | TiO₂ (rutile, anatase), V₂O₅, Cr₂O₃, MnO, Mn₂O₃, MnO₂, Mn₃O₄, FeO, Fe₂O₃, Fe₃O₄, CoO, Co₃O₄, NiO, CuO, Cu₂O, ZnO, ZrO₂, MoO₂, MoO₃, RuO₂, PdO, Ag₂O, SnO₂, CeO₂, WO₃, In₂O₃, GeO₂, IrO₂ |
+| Others | ZnS, MoS₂, FeS₂, SrTiO₃, BaTiO₃, KTaO₃, LiCoO₂, LiFePO₄, ZnFe₂O₄, Co(OH)₂, Ni(OH)₂ |
+
+Apart from the 8 written by the author (Ir, Ta, two Co, IrO₂, CoO, Co₃O₄, KTaO₃), all come from the Crystallography Open Database (COD): ambient temperature and pressure, ordered, each checked by its first shell. The source (COD id and original paper) is shown when you choose a structure; cite the original paper in a publication. Structures not listed (e.g. Ta₂O₅, Nb₂O₅, PtO₂, inverse-spinel ferrites) need your own CIF.
+
+> In some compounds the absorber sits on more than one site, e.g. tetrahedral and octahedral Fe in Fe₃O₄. **Compute from a built-in structure…** in Quick fit computes the first site only and says so; the first shell then describes that site alone. To weight all sites, compute each site on this page and combine them in Detailed fit.
+
 **Operation** (**FEFF paths** page)
+
+The quickest way is to skip this page: in **Quick fit** click **Compute from a built-in structure…** and pick a structure; FEFF6L runs for the samples' absorber and edge and the result is selected (an existing calculation is reused, not recomputed). The steps below compute on this page by hand, for your own CIF or other settings:
 
 1. Structure source **Built-in** → `IrO2` (your own: choose the structures/ folder and **Add structure files…**).
 2. Absorber `Ir`, edge `L3`, RMAX 6 Å.
@@ -280,11 +313,12 @@ S0² depends mainly on the absorbing element and edge, hardly on the chemistry, 
 
 The software fits the first shell only, fixes N to the structure's degeneracy, sets the window itself and states whether the result is trustworthy:
 
-1. **Samples (several)**: IrO₂; **FEFF folder**: `IrO2_IrL3` from the previous chapter (the page shows the first shell, e.g. Ir–O × 6);
+1. **Samples (several)**: IrO₂; **FEFF folder**: `IrO2_IrL3` from the previous chapter, or, if not computed yet, **Compute from a built-in structure…** next to it and pick `IrO2` (the page shows the first shell, e.g. Ir–O × 6);
 2. **Purpose**: **Standard**; keep **Rmax (Å)** at 2.5; the k window comes from IrO₂'s processing settings and Rmin is automatic;
 3. Click **Start fit**; read S0² and ΔE0 in the result table and the ✓ / ✗ of every check in the verdict;
-4. When the verdict is “✅ Trustworthy” click **Save**. Later, when fitting samples, **Pick standard value…** in Sample mode of **Quick fit** takes this S0² (with its error; the source is recorded in the model);
-5. If a check is ✗, follow the advice; for settings beyond the two Ir–O paths sharing parameters, click **Continue in Detailed fit** — Operation B below is what you do there.
+4. For a ✗ check, click the button under it (chapter 11);
+5. When the verdict is “✅ Trustworthy” click **Save**. Later, when fitting samples, **Pick standard value…** in Sample mode of **Quick fit** takes this S0² (with its error; the source is recorded in the model);
+6. For settings beyond the two Ir–O paths sharing parameters, click **Continue in Detailed fit** — Operation B below is what you do there.
 
 **Operation B: Detailed fit** (**EXAFS fitting › Detailed fit**, IrO₂)
 
@@ -340,7 +374,19 @@ On **EXAFS fitting › Quick fit** choose one sample or a batch under **Samples 
 
 **Principle**: a curve that “looks close” is not enough; numbers, plots and physical sense must all agree.
 
-**Operation**: read the **Quality** tab on the right (automatic ✓ / ⚠ per point) and **Before you fit · what is a good fit** at the top right.
+**Operation**: in Quick fit read the **verdict** under the results; in Detailed fit read the **Quality** tab on the right (automatic ✓ / ⚠ per point) and **Before you fit · what is a good fit** at the top right.
+
+**Acting on the quick-fit verdict**: under every ✗ there is one line of advice and then one or two buttons that take you to the fix:
+
+| Button | After which problem | What it does |
+|---|---|---|
+| **Set Rmax to X Å and refit** | Large residual at Rmax (the window may reach the second shell) | Lowers Rmax by 0.2 Å and refits at once; not offered when that would go below the first-shell distance |
+| **Change structure…** | First peak in the wrong place, R far from the structure, large ΔE0, large R-factor | Opens “Compute FEFF from a built-in structure” to try a structure closer to the sample |
+| **Go to energy calibration** | Large ΔE0 | Opens the calibration page to check the reference's ΔE |
+| **Pick a standard's S0²…** | Sample N far above the structure value | Choose the standard's S0² again |
+| **Continue in Detailed fit** | Too many variables, no error estimate, parameter at a bound, strong correlation, odd σ², systematic residual | Takes the model to Detailed fit to fix parameters or add paths |
+
+The buttons only take you to the place to change; **refit and read the verdict again** afterwards. ℹ items are notes and do not affect “Trustworthy”.
 
 **Numbers**
 
@@ -415,6 +461,7 @@ Edge positions, valence calibration and pre-edge fitting are under **XANES quant
 
 | Need | Page |
 |---|---|
+| This quick fit for your supervisor or group meeting: figures, parameter table, full verdict, methods paragraphs, a one-page report | **Quick fit**, under the results → **Export report package** |
 | All results: Excel workbook + HTML report with figures | **Report export** → Build report |
 | Publication figures, or Origin files (.opju) directly | **Figure export** |
 | Methods paragraph (English and Chinese), fit-parameter table for the SI | **Methods export** |
