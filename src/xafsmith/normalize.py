@@ -2,11 +2,7 @@
 
 E0 定义（全项目统一）：默认 'deriv' = 平滑后一阶导数最大值（插值到 0.05 eV 网格）。
 边前/边后范围以相对 E0 的 eV 给出，所有样品用同一套参数（DEFAULT_NORM）。
-
-用法：
-  python -m xafsmith.normalize <文件> [--pre1 -150 --pre2 -30 --norm1 150 --norm2 -1]
 """
-import argparse
 import copy
 
 import numpy as np
@@ -133,21 +129,3 @@ def merge_scans(groups, label="merge", ref_index=0, reject=None, tol_sigma=4.0, 
         p = {k: v for k, v in base.norm_params.items() if k not in ("e0", "norm2")}
         normalize(m, **p)
     return m, report + short_report
-
-
-def main():
-    from .io import read_any
-    ap = argparse.ArgumentParser()
-    ap.add_argument("files", nargs="+")
-    for k in ("pre1", "pre2", "norm1", "norm2"):
-        ap.add_argument(f"--{k}", type=float, default=DEFAULT_NORM[k])
-    ap.add_argument("--nnorm", type=int, default=2)
-    a = ap.parse_args()
-    for f in a.files:
-        g = read_any(f)
-        normalize(g, pre1=a.pre1, pre2=a.pre2, norm1=a.norm1, norm2=a.norm2, nnorm=a.nnorm)
-        print(f"{g.label}: E0={g.e0:.2f} eV  edge_step={g.edge_step:.4f}")
-
-
-if __name__ == "__main__":
-    main()
