@@ -4,11 +4,7 @@
 E0_table 比较，ΔE = E0_table − E0_meas，同一吸收边、同一批测量的所有谱加同一 ΔE。
 注意：若参比未与样品同时测量（无第三电离室），ΔE 只能代表测参比时的单色器状态，
 能量漂移无法逐谱校正——在 calib.json 中记录参比与样品的测量时间差。
-
-用法：
-  python -m xafsmith.calib <参比文件> [--element Ir --edge L3 --etable 11215.0]
 """
-import argparse
 import datetime
 import json
 from pathlib import Path
@@ -70,18 +66,3 @@ def time_gap_hours(t1, t2):
 def save_calib(results, path):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def main():
-    from .io import read_any
-    ap = argparse.ArgumentParser()
-    ap.add_argument("ref")
-    ap.add_argument("--etable", type=float, default=None)
-    a = ap.parse_args()
-    r = read_any(a.ref)
-    res = calibrate_reference(r, e_table=a.etable)
-    print(json.dumps(res, ensure_ascii=False, indent=2))
-
-
-if __name__ == "__main__":
-    main()
