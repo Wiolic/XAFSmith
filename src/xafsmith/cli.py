@@ -576,8 +576,8 @@ def cmd_compare(a):
 
 
 def cmd_lcf(a):
-    from . import paths, pipeline as pl, fit_lcf as lc, report as xrep
-    pd = _pd()
+    from . import paths, pipeline as pl, fit_lcf as lc, services as sv
+    _pd()
     smp, _ = pl.build_sample(a.sample, do_chi=a.space == "chik")
     stds = [pl.build_sample(s, do_chi=a.space == "chik")[0] for s in a.standards]
     kws = dict(xmin=a.emin, xmax=a.emax, space=a.space)
@@ -590,13 +590,9 @@ def cmd_lcf(a):
     if len(stds) > 2:
         print("\n全部组合（前 10）：")
         print(lc.fit_all_combinations(smp, stds, **kws).head(10).to_string())
-    for d in (paths.LCF, paths.FIGS):
-        d.mkdir(parents=True, exist_ok=True)
-    from .common import append_csv
-    append_csv(pd.DataFrame([lc.result_row(r, a.note)]), paths.LCF_CSV)
-    fig = paths.FIGS / f"lcf_{pl.safe(a.sample)}.png"
-    xrep.plot_lcf(r, out=fig)
-    print(f"→ {paths.rel(paths.LCF_CSV)}, {paths.rel(fig)}")
+    files = sv.save_lcf(r, sample=a.sample, standards=a.standards, kwargs=dict(kws, sum_to_one=not a.free),
+                        note=a.note, tool="xafsmith lcf")
+    print(f"→ {paths.rel(paths.LCF_CSV)}, {paths.rel(files[1])}")
 
 
 def cmd_plan(a):

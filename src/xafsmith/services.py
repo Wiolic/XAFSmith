@@ -170,3 +170,31 @@ def save_compare(df, models, tool, out=None) -> Path:
     df.to_csv(out, index=False, encoding="utf-8-sig")
     write_params(out.with_suffix(".params.json"), {"models": list(models)}, tool)
     return out
+
+
+# ----------------------------------------------------------------------------- LCF
+def save_lcf(r, *, sample, standards, kwargs, note, tool, figure=True) -> list[Path]:
+    """LCF 结果：追加一行到 lcf/lcf_results.csv；figure 为真时另写 figs/lcf_<safe(样品)>.png；
+    lcf/lcf_<safe(样品)>.params.json 记录样品、标样、全部 lcf 关键字参数（kwargs 之外取 `fit_lcf.lcf` 的缺省值）与备注。"""
+    import inspect
+
+    import pandas as pd
+
+    from xafsmith import fit_lcf as xlcf, report as xrep
+    from xafsmith.common import append_csv
+    base = safe(sample)
+    for d in (paths.LCF, paths.FIGS):
+        d.mkdir(parents=True, exist_ok=True)
+    append_csv(pd.DataFrame([xlcf.result_row(r, note)]), paths.LCF_CSV)
+    files = [paths.LCF_CSV]
+    if figure:
+        f = paths.FIGS / f"lcf_{base}.png"
+        with plain_rc():
+            xrep.plot_lcf(r, out=f)
+        files.append(f)
+    eff = {k: v.default for k, v in inspect.signature(xlcf.lcf).parameters.items()
+           if k not in ("sample", "standards") and v.default is not inspect.Parameter.empty}
+    eff.update(kwargs)
+    files.append(write_params(paths.LCF / f"lcf_{base}.params.json",
+                              dict(sample=sample, standards=list(standards), **eff, note=note), tool))
+    return files

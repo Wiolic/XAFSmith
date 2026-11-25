@@ -179,3 +179,30 @@ def test_save_robustness_and_compare_write_params(proj):
     assert p["tool"] == "xafsmith compare" and p["params"] == {"models": ["a", "b"]}
     out2 = services.save_compare(pd.DataFrame({"model": ["a"]}), ["a"], "t", proj / "x" / "cmp.csv")
     assert out2.is_file() and out2.with_suffix(".params.json").is_file()
+
+
+def _fake_lcf_result():
+    import numpy as np
+    x = np.linspace(-20, 30, 51)
+    return dict(sample="s 1", space="norm", xmin=-20, xmax=30, rfactor=0.001, chi2_reduced=1.5, sum_weights=1.0, de=0.0,
+                weights={"A": 0.4, "B": 0.6}, weights_err={"A": 0.01, "B": 0.01},
+                curves=dict(x=x, y=x * 0.01, fit=x * 0.01, comps={"A": x * 0.02, "B": x * 0.005}))
+
+
+def test_save_lcf_writes_row_figure_params(proj):
+    import pandas as pd
+    from xafsmith import services
+    r = _fake_lcf_result()
+    files = services.save_lcf(r, sample="s 1", standards=["A", "B"], kwargs=dict(xmin=-20, xmax=30, space="norm"),
+                              note="n1", tool="xafsmith lcf")
+    out = proj / "output"
+    assert files == [out / "lcf" / "lcf_results.csv", out / "figs" / "lcf_s_1.png", out / "lcf" / "lcf_s_1.params.json"]
+    assert all(f.is_file() for f in files)
+    p = json.loads(files[2].read_text(encoding="utf-8"))
+    assert p["tool"] == "xafsmith lcf"
+    q = p["params"]
+    assert q["sample"] == "s 1" and q["standards"] == ["A", "B"] and q["note"] == "n1"
+    assert q["xmin"] == -20 and q["space"] == "norm" and q["sum_to_one"] is True and q["kweight"] == 2   # 缺省值也记录
+    services.save_lcf(r, sample="s 1", standards=["A", "B"], kwargs={}, note="n2", tool="GUI LCF", figure=False)
+    df = pd.read_csv(files[0], encoding="utf-8-sig")
+    assert list(df["note"].dropna())[-2:] == ["n1", "n2"]

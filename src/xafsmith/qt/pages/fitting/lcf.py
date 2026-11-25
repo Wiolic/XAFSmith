@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from xafsmith import logs
 import pandas as pd
-from xafsmith import paths
 from ... import widgets as W
 from ...state import has_chi
 from ...theme import C
@@ -16,7 +15,7 @@ class LCFPage(Page):
 
     def build(self):
         from xafsmith import fit_lcf as xlcf
-        from xafsmith.common import append_csv
+        from xafsmith import services
         from ...state import ensure_norm, process
         S = self.S
         self.header(T("线性组合拟合。端点必须是实测标样；同时与“只用单一标样”的拟合比较。",
@@ -82,8 +81,9 @@ class LCFPage(Page):
             def done(res):
                 S.extra["lcf"] = res
                 S.emit("results")
-                paths.LCF.mkdir(parents=True, exist_ok=True)
-                append_csv(pd.DataFrame([xlcf.result_row(res["r"], note_t)]), paths.LCF_CSV)
+                services.save_lcf(res["r"], sample=smp_k, standards=st_, note=note_t, tool="GUI LCF",
+                                  kwargs=dict(xmin=lo_v, xmax=hi_v, space=sp_v, sum_to_one=sum1, bounds=bnd,
+                                              fit_eshift=esh, kweight=2))
                 self.refresh()
             W.run_task(self, work, done, T("LCF 拟合中…", "LCF fitting…"), btn, progress=True, key="lcf")
         btn.clicked.connect(lambda *_: go())
