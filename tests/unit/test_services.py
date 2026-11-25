@@ -272,3 +272,15 @@ def test_load_model_bare_name_prefers_models_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "MODELS", tmp_path / "models")
     m = services.load_model("xafsmith.json")
     assert m["sample"] == "s1" and m["name"] == "xafsmith"
+
+
+def test_save_xanes_numeric_sample_names(proj):
+    """样品名是数字（如 50）：旧 CSV 读回时仍按字符串比较，重算替换而不是重复追加。"""
+    import pandas as pd
+    from xafsmith import paths, services
+    paths.XANES_CSV.unlink(missing_ok=True)
+    t = pd.DataFrame([dict(sample="50", E0_deriv=1.0), dict(sample="100", E0_deriv=2.0)])
+    services.save_xanes(t, wl_window=30.0, tool="xafsmith xanes")
+    services.save_xanes(pd.DataFrame([dict(sample="50", E0_deriv=1.5)]), wl_window=30.0, tool="xafsmith xanes")
+    df = pd.read_csv(paths.XANES_CSV, encoding="utf-8-sig", dtype={"sample": str})
+    assert list(df["sample"]) == ["100", "50"] and list(df["E0_deriv"]) == [2.0, 1.5]

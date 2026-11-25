@@ -210,8 +210,8 @@ def save_xanes(tab, *, wl_window, tool) -> Path:
     import pandas as pd
     out = paths.XANES_CSV
     out.parent.mkdir(parents=True, exist_ok=True)
-    old = pd.read_csv(out, encoding="utf-8-sig") if out.exists() else None
-    new = tab if old is None else pd.concat([old[~old["sample"].isin(tab["sample"])], tab])
+    old = pd.read_csv(out, encoding="utf-8-sig", dtype={"sample": str}) if out.exists() else None   # 样品名按字符串比（“50”不读成 50）
+    new = tab if old is None else pd.concat([old[~old["sample"].isin(tab["sample"].astype(str))], tab])
     new.to_csv(out, index=False, encoding="utf-8-sig")
     pf = out.with_suffix(".params.json")
     samples = {}
