@@ -34,3 +34,21 @@ def test_guess_for_rejects_edge_outside_spectrum():
     assert guess_for(g, "Ir") == ("Ir", "L3")
     with pytest.raises(ValueError):
         guess_for(g, "Fe")                                                  # Fe K 在 7.1 keV，不在谱范围内
+
+
+def test_fit_rect_leaves_room_for_title_bar():
+    """客户区不能贴着屏幕顶端（否则标题栏在屏幕外：看不到最小化 / 还原 / 关闭、拖不动窗口）"""
+    pytest.importorskip("PySide6")
+    import os
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+    QApplication.instance() or QApplication([])
+    from xafsmith.qt.app import _avail, _fit_rect, _frame_margins
+    a = _avail()
+    top, side = _frame_margins()
+    for rect in [(a.left(), a.top(), a.width(), a.height()),            # 存下的是最大化时的整屏
+                 (a.left() - 50, a.top() - 40, 800, 600),               # 位置在屏幕上方之外
+                 (a.right() + 100, a.bottom() + 100, 900, 700)]:        # 在已拔掉的显示器上
+        x, y, w, h = _fit_rect(*rect)
+        assert y - top >= a.top() and x - side >= a.left()
+        assert y + h + side <= a.bottom() + 1 and x + w + side <= a.right() + 1
