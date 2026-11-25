@@ -8,9 +8,8 @@ from __future__ import annotations
 import datetime
 import json
 import re
-from pathlib import Path
 
-from xafsmith import logs, paths, pipeline as pl
+from xafsmith import paths, pipeline as pl
 
 safe = pl.safe                                   # 文件名清洗唯一规则（连续非法字符合成一个 “_”，去首尾 “_”）
 
