@@ -5,11 +5,7 @@
   * 约束：权重 ∈ [0,1]（可关），权重和 = 1（可关），可选允许整体能量平移 dE
   * 输出：权重 ± 误差、R 因子 = Σ(d−f)²/Σd²、χ²_ν；同时给出“只用单一标样”的拟合做比较
   * fit_all_combinations：列举端点组合（2..nmax 个），按 R 因子排序
-
-用法：
-  python -m xafsmith.fit_lcf <样品> <标样1> <标样2> ... --emin -20 --emax 30
 """
-import argparse
 import itertools
 
 import numpy as np
@@ -118,24 +114,3 @@ def result_row(r: dict, note: str = "") -> dict:
         d[f"w[{k}]"] = v
         d[f"err[{k}]"] = r["weights_err"][k]
     return d
-
-
-def main():
-    from .io import read_any
-    from .normalize import normalize
-    ap = argparse.ArgumentParser()
-    ap.add_argument("sample")
-    ap.add_argument("standards", nargs="+")
-    ap.add_argument("--emin", type=float, default=-20)
-    ap.add_argument("--emax", type=float, default=30)
-    ap.add_argument("--space", default="norm")
-    a = ap.parse_args()
-    s = normalize(read_any(a.sample))
-    stds = [normalize(read_any(f)) for f in a.standards]
-    r = lcf(s, stds, xmin=a.emin, xmax=a.emax, space=a.space)
-    print({k: v for k, v in r.items() if k != "curves"})
-    print(single_standard_compare(s, stds, xmin=a.emin, xmax=a.emax, space=a.space))
-
-
-if __name__ == "__main__":
-    main()
