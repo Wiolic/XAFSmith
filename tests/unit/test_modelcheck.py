@@ -252,3 +252,11 @@ if __name__ == "__main__":
         BASELINE.write_text(json.dumps(observe(cases(), dst / "models"), ensure_ascii=False, indent=1) + "\n",
                             encoding="utf-8")
     print("wrote", BASELINE)
+
+
+def test_strict_non_string_default_id_reported_not_crash():
+    """sample 不是字符串且没写 id：validate 报错误条目，不再 TypeError（v1.4.1 前崩溃）。"""
+    from xafsmith import modelcheck
+    m = {"name": "x", "params": {}, "datasets": [{"sample": ["a", "b"], "paths": [{"file": "f"}]}]}
+    iss = list(modelcheck.dataset_head_issues(m, 0, m["datasets"][0], set(), True))
+    assert [i[0] for i in iss] == ["error"] and "sample 不是字符串" in iss[0][2]

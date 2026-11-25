@@ -90,6 +90,9 @@ def dataset_head_issues(m, i, d, seen, strict):
                 yield _err(where, f"缺少字段 {k}", f"missing field {k}")
         if "id" in d and (not isinstance(d["id"], str) or not d["id"].strip()):
             yield _err(f"{where} id", "不能为空", "must not be empty")
+        elif did is not None and not isinstance(did, str):     # sample 不是字符串又没写 id：缺省 id 不可用（v1.4.1 前此处 TypeError 崩溃）
+            yield _err(f"{where} id", "缺省 id 取自 sample，但 sample 不是字符串：请写明 id 或把 sample 改为字符串",
+                       "the default id is the sample, but sample is not a string: give an id or make sample a string")
         elif did is not None:
             if did in seen:
                 yield _err(f"{where} id", f"id {did} 重复（缺省 id = sample）", f"duplicate id {did} (default id = sample)")
