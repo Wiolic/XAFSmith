@@ -28,7 +28,7 @@ class Reader:
     """格式 reader 基类。detect 返回 0–100 的置信度；read 返回 Group 列表。"""
     name = ""
     label = ("", "")
-    suffixes = ()
+    suffixes: tuple[str, ...] = ()
 
     def detect(self, path, head):
         return 0

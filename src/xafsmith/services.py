@@ -13,6 +13,7 @@ from pathlib import Path
 
 from xafsmith import logs, paths, pipeline as pl
 from xafsmith.common import write_params, write_text_atomic
+from xafsmith.typedefs import FitRecord, ModelDict
 
 safe = pl.safe                                   # 文件名清洗唯一规则（连续非法字符合成一个 “_”，去首尾 “_”）
 
@@ -41,7 +42,7 @@ class plain_rc:
 
 
 # ----------------------------------------------------------------------------- 读 / 运行模型
-def load_model(name_or_file, sample=None) -> dict:
+def load_model(name_or_file, sample=None) -> ModelDict:
     """读模型 json：只给名字（带不带 .json 都行）且 models/ 中有就用它，否则 `paths.model_file`（给路径用路径）。
     多数据集模型原样返回；旧格式模型给了 sample 就换样品（名字里的旧样品名同步替换）。"""
     s = str(name_or_file)
@@ -154,7 +155,7 @@ def save_fit(fit, tool, *, write_model=True, trend=True) -> SaveResult:
 
 
 # ----------------------------------------------------------------------------- 稳健性 / 模型比较
-def save_robustness(fit, tab, ver, tool) -> list[Path]:
+def save_robustness(fit: FitRecord, tab, ver, tool) -> list[Path]:
     """稳健性检查结果 → fits/<base>_robustness.csv、<base>_robustness_summary.csv 与 <base>_robustness.params.json
     （params = 模型 dict）。fit 是拟合记录（取 fit["summ"]["model"] 与 fit["model"]）；返回写出的三个文件。"""
     base = safe(fit["summ"]["model"])

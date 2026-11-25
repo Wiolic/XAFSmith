@@ -24,6 +24,37 @@ MARKER = "xafsmith.json"
 SCHEMA_VERSION = "1.1"
 USER_DIR = defaults.USER_DIR      # 用户级目录：日志、最近项目、设置（定义在 defaults，见那里的说明）
 
+# 下面这些名字由 set_root() 在导入时与每次切换项目时写入模块（只声明类型，供 mypy 与编辑器识别；声明本身不产生任何值）
+ROOT: Path
+CONFIG: Path
+PROJECT_MD: Path
+DATA: Path
+RAW: Path
+META: Path
+STRUCT: Path
+MODELS: Path
+NOTES: Path
+SCRIPTS: Path
+OUT: Path
+QC: Path
+CALIB: Path
+PROC: Path
+FEFF: Path
+FITS: Path
+LCF: Path
+XANES: Path
+FIGS: Path
+PUBFIGS: Path
+REPORTS: Path
+GUI: Path
+CALIB_JSON: Path
+QC_CSV: Path
+FITS_CSV: Path
+LCF_CSV: Path
+XANES_CSV: Path
+INPUT_DIRS: tuple[Path, ...]
+OUTPUT_DIRS: tuple[Path, ...]
+
 
 def find_root(start=None):
     env = os.environ.get("XAFSMITH_PROJECT")
