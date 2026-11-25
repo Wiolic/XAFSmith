@@ -89,3 +89,18 @@ def test_cli_top_level_line_same_as_builtin(monkeypatch, capsys, tmp_path, new, 
             cli.main(["--project", str(tmp_path), "qc"])
         return capsys.readouterr().err.splitlines()[0]
     assert run(new("boom")) == run(old("boom")) == f"错误 / Error: {old.__name__}: boom"
+
+
+# ---- 换过的 raise：新类，且仍是原来的内置类
+def test_replaced_raises_use_new_classes():
+    from xafsmith import migrate, modelcheck
+    with pytest.raises(ConfigError):
+        migrate.parse_version("abc")
+    with pytest.raises(ConfigError):
+        migrate.check_not_newer("99.0")
+    with pytest.raises(ConfigError):
+        migrate.upgrade({"xafsmith": {"schema": "0.1"}})
+    with pytest.raises(ModelError):
+        modelcheck.raise_on_errors({"name": "x"})
+    with pytest.raises(ValueError):                      # 仍可被 except ValueError 捕获
+        modelcheck.raise_on_errors({"name": "x"})

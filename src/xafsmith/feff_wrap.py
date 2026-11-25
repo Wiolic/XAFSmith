@@ -11,6 +11,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from .errors import FeffError
+
 CODES = ("feff6", "feff8")
 EXCHANGE = {0: "Hedin-Lundqvist（默认）", 2: "Dirac-Hara", 5: "部分非局域"}
 HOLE = {"K": 1, "L1": 2, "L2": 3, "L3": 4, "M1": 5, "M2": 6, "M3": 7, "M4": 8, "M5": 9}
@@ -162,7 +164,7 @@ def build(structure, absorber, edge, out, site_index=None, rmax=6.0, rcluster=8.
         df = run_feff(out, txt, code=code)
         if len(df):
             return df
-    raise RuntimeError(f"FEFF 未生成路径，失败现场见 {Path(out) / FAILED_DIR}（feffrun_feff.log、feff.err）；原有结果未改动")
+    raise FeffError(f"FEFF 未生成路径，失败现场见 {Path(out) / FAILED_DIR}（feffrun_feff.log、feff.err）；原有结果未改动")
 
 
 def default_edge(element):
