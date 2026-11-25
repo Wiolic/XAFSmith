@@ -21,7 +21,7 @@ This document is for developers and for AI assistants that change the code. For 
             │ quickfit │ fitcheck │ s02_source                         │
             ├────────────────────────────────────────────────────────┤
             │ paths │ defaults │ schema │ modelcheck │ migrate         │  ← infrastructure
-            │ logs │ tasks │ update │ about                            │
+            │ logs │ tasks │ update │ about │ errors │ typedefs        │
             └─────────────┬──────────────────────────────────────────┘
                           │
                  Larch (xraylarch), FEFF6L / FEFF8L, numpy / scipy / lmfit, xraydb
@@ -71,6 +71,9 @@ the tests.
 `.xmu`, XDAC, Athena `.prj`, generic column text. Columns are mapped **by name, never by position**; anything
 guessed is recorded on the group and shown by `xafsmith inspect`. User-defined column templates (GUI column
 wizard, `readers/wizard.py`) are stored in `xafsmith.json` → `formats`. Design notes: [docs/dev/io_readers.md](docs/dev/io_readers.md).
+Separately installed packages can add readers through the entry-point group `xafsmith.readers`
+(`readers.load_plugins`, run once on import): they come after the built-in `REGISTRY`, so detection of existing files
+is unchanged; a plugin that fails to load, is not a `Reader` or reuses a name is logged and skipped.
 
 > Changing column-name recognition can silently change μ. Such changes need a test with a real sample file.
 
@@ -90,6 +93,10 @@ wizard, `readers/wizard.py`) are stored in `xafsmith.json` → `formats`. Design
 
 Conventions / 约定
 
+- Pages declare themselves: class attributes `key`, `title_zh`, `title_en`, `icon_name`, `needs`, `no_project`,
+  `hidden` (defaults on `Page` in `widgets/layout.py`). `qt/app.py` keeps only the navigation order (`_NAV`) and
+  derives `NEEDS`, `NO_PROJECT`, `HIDDEN`, `TABBED` and `PARENT` from the classes; the tabs of “Load & check” are
+  `SpectraTabs.sub_pages`.
 - Every user-visible string is bilingual: `T("中文", "English")`.
 - Every feature must be reachable from the GUI and documented in both GUI guides.
 - Old import paths (`from xafsmith.qt import widgets as W`, `pages.process.NormPage`, …) are kept by
@@ -129,6 +136,13 @@ Recoverable failures are logged (probing/fallback at `debug`, everything else at
 shown as a copyable error card. *About → Export diagnostics* bundles log, versions, environment and project
 configuration — never raw data or spectra. Set `XAFSMITH_DEBUG=1` to record debug messages.
 
+Exception classes (`errors.py`): `XafsmithError` → `ConfigError` (xafsmith.json / meta.csv), `DataError` (data files;
+`readers.ReadError` is one), `ModelError` (model JSON; `quickfit.QuickFitError` is one) — all three also `ValueError` —
+and `FeffError` (also `RuntimeError`). Each subclass keeps the builtin base its call sites raised before, so existing
+`except` clauses are unaffected. Where a class name is shown to users (CLI top level, error banner and dialog, task
+failures, `errors.explain`), `errors.shown_name` maps these classes back to that builtin name, so messages read as
+before. `errors.explain(exc, lang)` turns an exception into “what happened / what you can do”.
+
 ## 6. Tests / 测试
 
 | Suite | Content | Runs in CI |
@@ -167,3 +181,107 @@ Test data are public only (`tests/data/demo_project/SOURCES.md` records source a
 | run a model / save a result (fit, robustness, comparison, LCF, XANES, QC, calibration) | `services.py` (no Qt, no print: the single implementation both the CLI and the GUI call; every save also writes `*.params.json`; file names use `pipeline.safe`; `tests/unit/test_services.py`) |
 | a GUI page | `qt/app.py` (navigation), the page module, `qt/widgets/` |
 | release | `packaging/`, `.github/workflows/release.yml`, `docs/dev/RELEASING.md` |
+| adding a format, an analysis or a page | the three checklists in [CONTRIBUTING.md](CONTRIBUTING.md) |
+
+## 9. Module index / 模块一览
+
+Every module under `src/xafsmith/` (package `__init__.py` / `__main__.py` and the data folders `assets/`, `docs/`,
+`templates/`, `structures_builtin/` aside). `tests/unit/test_consistency.py` fails when a module is missing here.
+`src/xafsmith/` 下每个模块都列在这里；漏列时一致性测试失败。
+
+### Computation and infrastructure (no Qt) / 计算与基础设施
+
+| Module | Role |
+|---|---|
+| `cli.py` | the `xafsmith` command line; each subcommand calls `services` / the computation modules |
+| `services.py` | single service layer shared by CLI and GUI: run a model, save fits, robustness, comparison, LCF, XANES, QC, calibration |
+| `pipeline.py` | configuration-driven batch processing: meta.csv + xafsmith.json → calibration → normalization → merge → χ(k) → FT |
+| `paths.py` | project directory standard; every project path |
+| `defaults.py` | default values and shared constants (no Qt, no larch) |
+| `schema.py` | data standard checks for meta.csv, xafsmith.json and model JSON (`xafsmith validate`) |
+| `modelcheck.py` | model JSON structure rules, collecting (`schema`) or raising (`fit_exafs`) |
+| `migrate.py` | xafsmith.json version migration, in memory only |
+| `common.py` | shared helpers: parameter records, atomic writes, k/E conversion, edge energies |
+| `errors.py` | exception classes and plain-language error explanations |
+| `typedefs.py` | `TypedDict` declarations for configuration, models and fit records (mypy only) |
+| `logs.py` | logging and the diagnostics bundle |
+| `tasks.py` | cancellable task handle with progress, shared by GUI and CLI |
+| `update.py` | update check against GitHub Releases |
+| `about.py` | author, disclaimer and citation text used everywhere |
+| `agent.py` | connects a project to AI assistants (`xafsmith agent`) |
+| `io.py` | facade: read beamline data into a Larch Group |
+| `readers/base.py` | `Reader` base class, `ReadError`, column-name mapping, text-table parsing |
+| `readers/formats.py` | one reader per built-in format |
+| `readers/wizard.py` | column-mapping wizard back end (preview, template, trial read) |
+| `qc.py` | data quality checks → `qc_report.csv` |
+| `calib.py` | energy calibration from the reference foil |
+| `normalize.py` | scan merging, pre/post-edge, normalization, E0 |
+| `autobk.py` | background removal (Larch `autobk`) → χ(k) |
+| `ft.py` | k-space windows and Fourier transform (Larch `xftf`) |
+| `wavelet.py` | wavelet transform of χ(k) |
+| `structures.py` | built-in reference structures and CIF reading |
+| `feff_wrap.py` | structure → feff.inp → FEFF6L / FEFF8L → path list |
+| `fit_exafs.py` | EXAFS path fitting (Larch `feffit` wrapper), multi-dataset, F-test, comparison |
+| `_feffit_restrained.py` | `feffit` driver with soft restraints (adapted from Larch) |
+| `fitcheck.py` | fit quality checks shared by Quick and Detailed fit |
+| `quickfit.py` | Quick fit: first shell only, with a plain-language verdict |
+| `quickfit_report.py` | Quick fit report bundle (figures, tables, verdict, methods, HTML) |
+| `s02_source.py` | S0² candidates from standard fits |
+| `msbind.py` | ΔR / σ² binding suggestions for multiple-scattering paths |
+| `sigma2.py` | Debye / Einstein σ² temperature models |
+| `trend.py` | trend table of a joint-fit series |
+| `seqtools.py` | joint-fit series tools (independent σ², tick sync) |
+| `fit_lcf.py` | linear combination fitting (XANES / EXAFS) |
+| `xanes.py` | XANES: edge position, white line, valence calibration, pre-edge peaks |
+| `mut_planner.py` | sample design: total μt, edge step, mass / layers, nearby edges |
+| `report.py` | figures with automatic captions and result tables |
+| `pubfig.py` | journal-style figures (TIFF / PNG / SVG / PDF) |
+| `summary.py` | project summary workbook and HTML report |
+| `methods_text.py` | methods paragraph (Chinese + English) from the parameters actually used |
+| `si_text.py` | Supporting Information tables from saved fits |
+| `origin_export.py` | figures as an Origin project (.opju) |
+| `origin_builder.py` | stand-alone Origin project builder (needs only `originpro` and pandas) |
+
+### GUI (`qt/`) / 图形界面
+
+| Module | Role |
+|---|---|
+| `qt/app.py` | main window, navigation (`_NAV`), status bar, update check, session save / restore |
+| `qt/state.py` | session state and shared processing helpers |
+| `qt/session.py` | session snapshot and named fit drafts |
+| `qt/theme.py` | colours, fonts, style sheets, icons, matplotlib style |
+| `qt/help.py` | help window (guides, about, diagnostics, updates) |
+| `qt/colwizard.py` | column-mapping wizard dialog |
+| `qt/errdialog.py` | three-part error dialog |
+| `qt/pages/_common.py` | constants and helpers shared by pages |
+| `qt/pages/project.py` | home, data registration, batch processing |
+| `qt/pages/output.py` | reports, figures, methods; planner, elements, AI assistant, help pages |
+| `qt/pages/process/_shared.py` | helpers shared by processing pages |
+| `qt/pages/process/load.py` | Load spectra |
+| `qt/pages/process/qc.py` | Quality check and deglitching |
+| `qt/pages/process/calib.py` | Energy calibration |
+| `qt/pages/process/norm.py` | Normalization |
+| `qt/pages/process/chi.py` | χ(k) and FT |
+| `qt/pages/process/wavelet.py` | Wavelet transform |
+| `qt/pages/fitting/feff.py` | FEFF paths |
+| `qt/pages/fitting/fit_container.py` | “EXAFS fitting” container: Quick fit / Detailed fit |
+| `qt/pages/fitting/quick_fit.py` | Quick fit page |
+| `qt/pages/fitting/fit_page.py` | Detailed fit page (path and parameter tables) |
+| `qt/pages/fitting/fit_view.py` | one fit result: quality, diagnostics, robustness |
+| `qt/pages/fitting/quality.py` | interface text for fit quality checks (logic in `fitcheck`) |
+| `qt/pages/fitting/trend_view.py` | trend tab of joint-fit results |
+| `qt/pages/fitting/guides.py` | fitting notes (three tabs) and their dialog |
+| `qt/pages/fitting/msbind_dialog.py` | multiple-scattering binding dialog |
+| `qt/pages/fitting/sigma2_dialog.py` | σ² temperature-model dialog |
+| `qt/pages/fitting/history.py` | Fit history |
+| `qt/pages/fitting/lcf.py` | Linear combination fitting |
+| `qt/pages/fitting/xanes.py` | XANES analysis |
+| `qt/widgets/core.py` | global state (language, error list, quiet switch); `T()` |
+| `qt/widgets/basic.py` | labels, separators, buttons, rows, form fields |
+| `qt/widgets/inputs.py` | spin boxes, text fields, combos, check boxes, segmented buttons |
+| `qt/widgets/layout.py` | cards, `Page` base class, banners, metrics, tabs, collapsibles |
+| `qt/widgets/plot.py` | matplotlib canvas widget |
+| `qt/widgets/prose.py` | code blocks, copy buttons, rich text, info windows, confirmations |
+| `qt/widgets/system.py` | toasts, open folder, save-as |
+| `qt/widgets/table.py` | editable DataFrame table |
+| `qt/widgets/tasks.py` | `run_task` (QThread, progress, cancel) and `wait_cursor` |
