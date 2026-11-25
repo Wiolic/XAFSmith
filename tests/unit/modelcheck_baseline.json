@@ -1,0 +1,2212 @@
+{
+ "L_ok": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s1\", \"kmax\": 12, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": false, \"name\": \"m\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "L_ok_nokweight_window": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 kweight"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s1\", \"kmax\": 12, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": false, \"name\": \"m\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "L_missing_name": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 name"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s1\", \"kmax\": 12, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": false, \"name\": \"\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "L_missing_sample": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 sample"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"data\", \"kmax\": 12, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": false, \"name\": \"m\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "L_missing_kmin": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 kmin"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "模型缺少 kmin / model is missing kmin"
+  ]
+ },
+ "L_missing_kmax": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 kmax"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "模型缺少 kmax / model is missing kmax"
+  ]
+ },
+ "L_missing_rmin": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 rmin"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "模型缺少 rmin / model is missing rmin"
+  ]
+ },
+ "L_missing_rmax": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 rmax"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "模型缺少 rmax / model is missing rmax"
+  ]
+ },
+ "L_missing_kweight": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 kweight"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s1\", \"kmax\": 12, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": false, \"name\": \"m\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "L_missing_params": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 params"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s1\", \"kmax\": 12, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": false, \"name\": \"m\", \"params\": {}, \"restraints\": []}"
+  ]
+ },
+ "L_missing_paths": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 paths"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s1\", \"kmax\": 12, \"kmin\": 3, \"kweight\": 2, \"paths\": [], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": false, \"name\": \"m\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "L_missing_two_ranges": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 kmin"
+   ],
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 rmax"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "模型缺少 kmin, rmax / model is missing kmin, rmax"
+  ]
+ },
+ "L_missing_all_but_name": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 sample"
+   ],
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 kmin"
+   ],
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 kmax"
+   ],
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 rmin"
+   ],
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 rmax"
+   ],
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 kweight"
+   ],
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 params"
+   ],
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 paths"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "模型缺少 kmin, kmax, rmin, rmax / model is missing kmin, kmax, rmin, rmax"
+  ]
+ },
+ "L_kweight_null": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json kweight",
+    "应为数字或数字列表，实际是 None"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "模型缺少 kweight / model is missing kweight"
+  ]
+ },
+ "L_kmin_null": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json kmin",
+    "应为数字，实际是 None"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "模型缺少 kmin / model is missing kmin"
+  ]
+ },
+ "L_params_list": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json params",
+    "应是对象 {名称: 初值或 {value, vary, min, max, expr}}"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s1\", \"kmax\": 12, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": false, \"name\": \"m\", \"params\": [1, 2], \"restraints\": []}"
+  ]
+ },
+ "L_params_list_and_missing_kmin": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 kmin"
+   ],
+   [
+    "错误",
+    "models/c.json params",
+    "应是对象 {名称: 初值或 {value, vary, min, max, expr}}"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "模型缺少 kmin / model is missing kmin"
+  ]
+ },
+ "L_params_null": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json params",
+    "应是对象 {名称: 初值或 {value, vary, min, max, expr}}"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s1\", \"kmax\": 12, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": false, \"name\": \"m\", \"params\": null, \"restraints\": []}"
+  ]
+ },
+ "L_paths_empty": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json paths",
+    "应是非空数组"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s1\", \"kmax\": 12, \"kmin\": 3, \"kweight\": 2, \"paths\": [], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": false, \"name\": \"m\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "L_paths_notlist": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json paths",
+    "应是非空数组"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s1\", \"kmax\": 12, \"kmin\": 3, \"kweight\": 2, \"paths\": \"x\", \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": false, \"name\": \"m\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "L_paths_bad_item": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json paths[0]",
+    "每条路径需要 file 字段"
+   ],
+   [
+    "错误",
+    "models/c.json paths[1]",
+    "每条路径需要 file 字段"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s1\", \"kmax\": 12, \"kmin\": 3, \"kweight\": 2, \"paths\": [{}, 3], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": false, \"name\": \"m\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "L_sample_empty": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"data\", \"kmax\": 12, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": false, \"name\": \"m\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "L_range_text": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json kmin",
+    "应为数字，实际是 '3'"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s1\", \"kmax\": 12, \"kmin\": \"3\", \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": false, \"name\": \"m\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "L_range_reversed": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json kmin/kmax",
+    "kmin 应小于 kmax"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s1\", \"kmax\": 3, \"kmin\": 12, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": false, \"name\": \"m\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "L_restraints_bad": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json restraints",
+    "应是数组 [{expr, value, sigma, name?, note?}]"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "restraints 必须是数组 / restraints must be an array"
+  ]
+ },
+ "L_restraints_bad_and_missing_rmax": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 rmax"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json restraints",
+    "应是数组 [{expr, value, sigma, name?, note?}]"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "restraints 必须是数组 / restraints must be an array"
+  ]
+ },
+ "L_temp_bad": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json temperature",
+    "temperature 应为大于 0 的有限数字（K），实际是 'hot'"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "temperature: temperature 应为大于 0 的有限数字（K），实际是 'hot' / temperature: temperature must be a finite number > 0 (kelvin), got 'hot'"
+  ]
+ },
+ "L_temp_bad_and_missing_rmax": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 rmax"
+   ],
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json temperature",
+    "temperature 应为大于 0 的有限数字（K），实际是 'hot'"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "temperature: temperature 应为大于 0 的有限数字（K），实际是 'hot' / temperature: temperature must be a finite number > 0 (kelvin), got 'hot'"
+  ]
+ },
+ "L_tempK_no_temperature": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 f"
+   ],
+   [
+    "错误",
+    "models/c.json paths[0].sigma2",
+    "用了 tempK，但该数据集没有 temperature"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "paths[0].sigma2: 用了 tempK，但该数据集没有 temperature / paths[0].sigma2: uses tempK but the dataset has no temperature"
+  ]
+ },
+ "L_extra_keys_ok": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 2, \"epsilon_k\": null, \"fitspace\": \"k\", \"id\": \"s1\", \"kmax\": 12, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"kaiser\"}], \"multi\": false, \"name\": \"m\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "L_not_dict_list": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "顶层应是对象 { … }"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "AttributeError",
+   "'list' object has no attribute 'get'"
+  ]
+ },
+ "L_not_dict_str": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "顶层应是对象 { … }"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "AttributeError",
+   "'str' object has no attribute 'get'"
+  ]
+ },
+ "M_ok": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"A\", \"kmax\": 17, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}, {\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"B\", \"kmax\": 14, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s2\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": true, \"name\": \"j\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "M_ok_top_ranges_in_ds": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json datasets[0](s1)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](s2)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s1\", \"kmax\": 12, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}, {\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s2\", \"kmax\": 12, \"kmin\": 3, \"kweight\": [1, 2], \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s2\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": true, \"name\": \"j\", \"params\": {}, \"restraints\": []}"
+  ]
+ },
+ "M_missing_name": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 name"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"A\", \"kmax\": 17, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}, {\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"B\", \"kmax\": 14, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s2\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": true, \"name\": \"\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "M_missing_params": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 params"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"A\", \"kmax\": 17, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}, {\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"B\", \"kmax\": 14, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s2\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": true, \"name\": \"j\", \"params\": {}, \"restraints\": []}"
+  ]
+ },
+ "M_missing_name_params": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 name"
+   ],
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 params"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"A\", \"kmax\": 17, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}, {\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"B\", \"kmax\": 14, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s2\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": true, \"name\": \"\", \"params\": {}, \"restraints\": []}"
+  ]
+ },
+ "M_datasets_empty": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets",
+    "应是非空数组"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets 必须是非空数组 / datasets must be a non-empty array"
+  ]
+ },
+ "M_datasets_null": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets",
+    "应是非空数组"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets 必须是非空数组 / datasets must be a non-empty array"
+  ]
+ },
+ "M_datasets_str": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets",
+    "应是非空数组"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets 必须是非空数组 / datasets must be a non-empty array"
+  ]
+ },
+ "M_datasets_dict": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets",
+    "应是非空数组"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets 必须是非空数组 / datasets must be a non-empty array"
+  ]
+ },
+ "M_top_sample": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json sample",
+    "多数据集模型不得有顶层 sample（写进 datasets[i]），否则旧代码会误读"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "多数据集模型不得有顶层 sample（写进 datasets[i]） / a multi-dataset model must not have a top-level 'sample' (put it in datasets[i])"
+  ]
+ },
+ "M_top_paths": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json paths",
+    "多数据集模型不得有顶层 paths（写进 datasets[i]），否则旧代码会误读"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "多数据集模型不得有顶层 paths（写进 datasets[i]） / a multi-dataset model must not have a top-level 'paths' (put it in datasets[i])"
+  ]
+ },
+ "M_top_sample_paths": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json sample",
+    "多数据集模型不得有顶层 sample（写进 datasets[i]），否则旧代码会误读"
+   ],
+   [
+    "错误",
+    "models/c.json paths",
+    "多数据集模型不得有顶层 paths（写进 datasets[i]），否则旧代码会误读"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "多数据集模型不得有顶层 sample（写进 datasets[i]） / a multi-dataset model must not have a top-level 'sample' (put it in datasets[i])"
+  ]
+ },
+ "M_params_list": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json params",
+    "应是对象 {名称: 初值或 {value, vary, min, max, expr}}"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"A\", \"kmax\": 17, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}, {\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"B\", \"kmax\": 14, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s2\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": true, \"name\": \"j\", \"params\": [1], \"restraints\": []}"
+  ]
+ },
+ "M_params_null": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json params",
+    "应是对象 {名称: 初值或 {value, vary, min, max, expr}}"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"A\", \"kmax\": 17, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}, {\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"B\", \"kmax\": 14, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s2\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": true, \"name\": \"j\", \"params\": null, \"restraints\": []}"
+  ]
+ },
+ "M_top_sample_and_datasets_empty": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json sample",
+    "多数据集模型不得有顶层 sample（写进 datasets[i]），否则旧代码会误读"
+   ],
+   [
+    "错误",
+    "models/c.json datasets",
+    "应是非空数组"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets 必须是非空数组 / datasets must be a non-empty array"
+  ]
+ },
+ "M_params_list_and_top_sample": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json sample",
+    "多数据集模型不得有顶层 sample（写进 datasets[i]），否则旧代码会误读"
+   ],
+   [
+    "错误",
+    "models/c.json params",
+    "应是对象 {名称: 初值或 {value, vary, min, max, expr}}"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "多数据集模型不得有顶层 sample（写进 datasets[i]） / a multi-dataset model must not have a top-level 'sample' (put it in datasets[i])"
+  ]
+ },
+ "M_missing_name_and_datasets_empty": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 name"
+   ],
+   [
+    "错误",
+    "models/c.json datasets",
+    "应是非空数组"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets 必须是非空数组 / datasets must be a non-empty array"
+  ]
+ },
+ "M_restraints_bad_and_datasets_empty": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets",
+    "应是非空数组"
+   ],
+   [
+    "错误",
+    "models/c.json restraints",
+    "应是数组 [{expr, value, sigma, name?, note?}]"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "restraints 必须是数组 / restraints must be an array"
+  ]
+ },
+ "M_restraints_bad_and_top_sample": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json sample",
+    "多数据集模型不得有顶层 sample（写进 datasets[i]），否则旧代码会误读"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json restraints",
+    "应是数组 [{expr, value, sigma, name?, note?}]"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "restraints 必须是数组 / restraints must be an array"
+  ]
+ },
+ "M_temp_bad_and_datasets_empty": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets",
+    "应是非空数组"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets 必须是非空数组 / datasets must be a non-empty array"
+  ]
+ },
+ "M_ds_not_dict": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1]",
+    "应是对象 { sample, paths, … }"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[1] 不是对象 / datasets[1] is not an object"
+  ]
+ },
+ "M_ds_not_dict_first": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0]",
+    "应是对象 { sample, paths, … }"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0] 不是对象 / datasets[0] is not an object"
+  ]
+ },
+ "M_ds_not_dict_and_later_bad": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0]",
+    "应是对象 { sample, paths, … }"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](B)",
+    "缺少字段 paths"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](B) paths",
+    "应是非空数组"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0] 不是对象 / datasets[0] is not an object"
+  ]
+ },
+ "M_ds_missing_sample": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A)",
+    "缺少字段 sample"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].sample 缺失或为空 / datasets[0].sample is missing or empty"
+  ]
+ },
+ "M_ds_missing_paths": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](B)",
+    "缺少字段 paths"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](B) paths",
+    "应是非空数组"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[1].paths 缺失或为空 / datasets[1].paths is missing or empty"
+  ]
+ },
+ "M_ds_missing_sample_paths": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A)",
+    "缺少字段 sample"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[0](A)",
+    "缺少字段 paths"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[0](A) paths",
+    "应是非空数组"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].sample 缺失或为空 / datasets[0].sample is missing or empty"
+  ]
+ },
+ "M_ds_paths_empty": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A) paths",
+    "应是非空数组"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].paths 缺失或为空 / datasets[0].paths is missing or empty"
+  ]
+ },
+ "M_ds_paths_null": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A) paths",
+    "应是非空数组"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].paths 缺失或为空 / datasets[0].paths is missing or empty"
+  ]
+ },
+ "M_ds_paths_notlist": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A) paths",
+    "应是非空数组"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"A\", \"kmax\": 17, \"kmin\": 3, \"kweight\": 2, \"paths\": \"x\", \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}, {\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"B\", \"kmax\": 14, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s2\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": true, \"name\": \"j\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "M_ds_sample_empty": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].sample 缺失或为空 / datasets[0].sample is missing or empty"
+  ]
+ },
+ "M_ds_sample_null": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].sample 缺失或为空 / datasets[0].sample is missing or empty"
+  ]
+ },
+ "M_ds_sample_missing_no_id": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](None)",
+    "缺少字段 sample"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](None)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].sample 缺失或为空 / datasets[0].sample is missing or empty"
+  ]
+ },
+ "M_ds_id_empty": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0]() id",
+    "不能为空"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0]()",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].id 为空 / datasets[0].id is empty"
+  ]
+ },
+ "M_ds_id_blank": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](  ) id",
+    "不能为空"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](  )",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"  \", \"kmax\": 17, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}, {\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"B\", \"kmax\": 14, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s2\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": true, \"name\": \"j\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "M_ds_id_int": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](5) id",
+    "不能为空"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](5)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].id 为空 / datasets[0].id is empty"
+  ]
+ },
+ "M_ds_id_null": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](None) id",
+    "不能为空"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](None)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].id 为空 / datasets[0].id is empty"
+  ]
+ },
+ "M_ds_id_dup": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](A) id",
+    "id A 重复（缺省 id = sample）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[1].id 重复：A / duplicate datasets[1].id: A"
+  ]
+ },
+ "M_ds_id_dup_via_sample": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json datasets[0](s1)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](s1) id",
+    "id s1 重复（缺省 id = sample）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](s1)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets",
+    "样品 s1 在数据集 s1、s1 中重复使用：同一数据计入两次，误差会被低估"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[1].id 重复：s1 / duplicate datasets[1].id: s1"
+  ]
+ },
+ "M_ds_id_default_ok": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json datasets[0](s1)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](s2)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s1\", \"kmax\": 17, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}, {\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"s2\", \"kmax\": 14, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s2\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": true, \"name\": \"j\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "M_ds_id_dup_three": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](A) id",
+    "id A 重复（缺省 id = sample）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[2](A) id",
+    "id A 重复（缺省 id = sample）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[2](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[1].id 重复：A / duplicate datasets[1].id: A"
+  ]
+ },
+ "M_ds_sample_unhashable_no_id": {
+  "validate": [
+   [
+    "raise",
+    "TypeError",
+    "unhashable type: 'list'"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].id 为空 / datasets[0].id is empty"
+  ]
+ },
+ "M_ds_id_unhashable": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](['A']) id",
+    "不能为空"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](['A'])",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].id 为空 / datasets[0].id is empty"
+  ]
+ },
+ "M_ds_range_missing": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A)",
+    "缺少 rmax（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](B)",
+    "缺少 rmax（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].rmax 缺失（数据集与顶层都没有） / datasets[0].rmax missing (neither in the dataset nor at top level)"
+  ]
+ },
+ "M_ds_range_missing_both_ds": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A)",
+    "缺少 rmax（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](B)",
+    "缺少 rmax（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].rmax 缺失（数据集与顶层都没有） / datasets[0].rmax missing (neither in the dataset nor at top level)"
+  ]
+ },
+ "M_ds_range_missing_two": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A)",
+    "缺少 kmin, rmax（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](B)",
+    "缺少 kmin, rmax（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].kmin/rmax 缺失（数据集与顶层都没有） / datasets[0].kmin/rmax missing (neither in the dataset nor at top level)"
+  ]
+ },
+ "M_ds_range_in_ds_only": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](B)",
+    "缺少 kmin, rmax（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[1].kmin/rmax 缺失（数据集与顶层都没有） / datasets[1].kmin/rmax missing (neither in the dataset nor at top level)"
+  ]
+ },
+ "M_ds_kweight_missing": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A)",
+    "缺少 kweight（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](B)",
+    "缺少 kweight（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].kweight 缺失（数据集与顶层都没有） / datasets[0].kweight missing (neither in the dataset nor at top level)"
+  ]
+ },
+ "M_ds_kweight_missing_ds_has": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](B)",
+    "缺少 kweight（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[1].kweight 缺失（数据集与顶层都没有） / datasets[1].kweight missing (neither in the dataset nor at top level)"
+  ]
+ },
+ "M_ds_kweight_null": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A) kweight",
+    "应为数字或数字列表，实际是 None"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].kweight 缺失（数据集与顶层都没有） / datasets[0].kweight missing (neither in the dataset nor at top level)"
+  ]
+ },
+ "M_ds_kmin_null": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](B) kmin",
+    "应为数字，实际是 None"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[1].kmin 缺失（数据集与顶层都没有） / datasets[1].kmin missing (neither in the dataset nor at top level)"
+  ]
+ },
+ "M_ds_range_null_top": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A) rmax",
+    "应为数字，实际是 None"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](B) rmax",
+    "应为数字，实际是 None"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].rmax 缺失（数据集与顶层都没有） / datasets[0].rmax missing (neither in the dataset nor at top level)"
+  ]
+ },
+ "M_ds_epsilon_bad_and_id_blank": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0]( ) id",
+    "不能为空"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[0]( ) epsilon_k",
+    "应为正数，实际是 -1"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0]( )",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": -1, \"fitspace\": \"r\", \"id\": \" \", \"kmax\": 17, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}, {\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"B\", \"kmax\": 14, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s2\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": true, \"name\": \"j\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "M_ds_epsilon_bad_and_range_missing": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A) epsilon_k",
+    "应为正数，实际是 0"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[0](A)",
+    "缺少 rmax（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](B)",
+    "缺少 rmax（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].rmax 缺失（数据集与顶层都没有） / datasets[0].rmax missing (neither in the dataset nor at top level)"
+  ]
+ },
+ "M_ds_epsilon_bad": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A) epsilon_k",
+    "应为正数，实际是 'a'"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "ok",
+   "{\"datasets\": [{\"dk\": 1, \"epsilon_k\": \"a\", \"fitspace\": \"r\", \"id\": \"A\", \"kmax\": 17, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s1\", \"temperature\": null, \"window\": \"hanning\"}, {\"dk\": 1, \"epsilon_k\": null, \"fitspace\": \"r\", \"id\": \"B\", \"kmax\": 14, \"kmin\": 3, \"kweight\": 2, \"paths\": [{\"file\": \"output/feff/x/feff0001.dat\", \"label\": \"a\"}], \"rmax\": 3, \"rmin\": 1, \"sample\": \"s2\", \"temperature\": null, \"window\": \"hanning\"}], \"multi\": true, \"name\": \"j\", \"params\": {\"s02\": 0.8}, \"restraints\": []}"
+  ]
+ },
+ "M_ds_id_blank_and_missing_range_and_bad_window": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0]() id",
+    "不能为空"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[0]()",
+    "缺少 rmax（数据集与顶层都没有）"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[0]() window",
+    "窗函数 'zzz' 无法识别"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0]()",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](B)",
+    "缺少 rmax（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].id 为空 / datasets[0].id is empty"
+  ]
+ },
+ "M_two_ds_each_bad": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A)",
+    "缺少字段 sample"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1]() id",
+    "不能为空"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1]()",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].sample 缺失或为空 / datasets[0].sample is missing or empty"
+  ]
+ },
+ "M_ds_missing_range_then_second_not_dict": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A)",
+    "缺少 rmax（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1]",
+    "应是对象 { sample, paths, … }"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].rmax 缺失（数据集与顶层都没有） / datasets[0].rmax missing (neither in the dataset nor at top level)"
+  ]
+ },
+ "M_ds_missing_range_then_dup_id": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A)",
+    "缺少 rmax（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](A) id",
+    "id A 重复（缺省 id = sample）"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](A)",
+    "缺少 rmax（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].rmax 缺失（数据集与顶层都没有） / datasets[0].rmax missing (neither in the dataset nor at top level)"
+  ]
+ },
+ "M_ds_temp_bad": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[0].temperature",
+    "datasets[0].temperature 应为大于 0 的有限数字（K），实际是 'hot'"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].temperature: datasets[0].temperature 应为大于 0 的有限数字（K），实际是 'hot' / datasets[0].temperature: datasets[0].temperature must be a finite number > 0 (kelvin), got 'hot'"
+  ]
+ },
+ "M_ds_temp_bad_and_missing_sample": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](B)",
+    "缺少字段 sample"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[0].temperature",
+    "datasets[0].temperature 应为大于 0 的有限数字（K），实际是 'hot'"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].temperature: datasets[0].temperature 应为大于 0 的有限数字（K），实际是 'hot' / datasets[0].temperature: datasets[0].temperature must be a finite number > 0 (kelvin), got 'hot'"
+  ]
+ },
+ "M_top_temp_bad": {
+  "validate": [
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[0].temperature",
+    "datasets[0].temperature 应为大于 0 的有限数字（K），实际是 'hot'"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1].temperature",
+    "datasets[1].temperature 应为大于 0 的有限数字（K），实际是 'hot'"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "datasets[0].temperature: datasets[0].temperature 应为大于 0 的有限数字（K），实际是 'hot'; datasets[1].temperature: datasets[1].temperature 应为大于 0 的有限数字（K），实际是 'hot' / datasets[0].temperature: datasets[0].temperature must be a finite number > 0 (kelvin), got 'hot'; datasets[1].temperature: datasets[1].temperature must be a finite number > 0 (kelvin), got 'hot'"
+  ]
+ },
+ "M_ds_params_list_range_and_ds": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json sample",
+    "多数据集模型不得有顶层 sample（写进 datasets[i]），否则旧代码会误读"
+   ],
+   [
+    "错误",
+    "models/c.json params",
+    "应是对象 {名称: 初值或 {value, vary, min, max, expr}}"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[0](A)",
+    "缺少字段 sample"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "多数据集模型不得有顶层 sample（写进 datasets[i]） / a multi-dataset model must not have a top-level 'sample' (put it in datasets[i])"
+  ]
+ },
+ "M_ds_range_missing_and_restraints_bad": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets[0](A)",
+    "缺少 rmax（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[0](A)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1](B)",
+    "缺少 rmax（数据集与顶层都没有）"
+   ],
+   [
+    "警告",
+    "models/c.json datasets[1](B)",
+    "1 个 FEFF 路径文件不存在（先运行 xafsmith feff），如 output/feff/x/feff0001.dat"
+   ],
+   [
+    "错误",
+    "models/c.json restraints[0]",
+    "应是对象 {expr, value, sigma}"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "restraints[0] 不是对象 / restraints[0] is not an object"
+  ]
+ },
+ "M_sigma2_reserved_and_struct": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json datasets",
+    "应是非空数组"
+   ],
+   [
+    "错误",
+    "models/c.json params.tempK",
+    "参数名 tempK 是保留名"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "params.tempK: 参数名 tempK 是保留名 / params.tempK: parameter name tempK is reserved"
+  ]
+ },
+ "M_all_structure_wrong": {
+  "validate": [
+   [
+    "错误",
+    "models/c.json",
+    "缺少字段 name"
+   ],
+   [
+    "错误",
+    "models/c.json sample",
+    "多数据集模型不得有顶层 sample（写进 datasets[i]），否则旧代码会误读"
+   ],
+   [
+    "错误",
+    "models/c.json paths",
+    "多数据集模型不得有顶层 paths（写进 datasets[i]），否则旧代码会误读"
+   ],
+   [
+    "错误",
+    "models/c.json params",
+    "应是对象 {名称: 初值或 {value, vary, min, max, expr}}"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[0]",
+    "应是对象 { sample, paths, … }"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1]( )",
+    "缺少字段 sample"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1]( )",
+    "缺少字段 paths"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1]( ) id",
+    "不能为空"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1]( )",
+    "缺少 kmin, kmax, rmin, rmax, kweight（数据集与顶层都没有）"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[1]( ) paths",
+    "应是非空数组"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[2](x)",
+    "缺少字段 paths"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[2](x)",
+    "缺少 kmin, kmax, rmin, rmax, kweight（数据集与顶层都没有）"
+   ],
+   [
+    "错误",
+    "models/c.json datasets[2](x) paths",
+    "应是非空数组"
+   ]
+  ],
+  "normalize": [
+   "raise",
+   "ValueError",
+   "多数据集模型不得有顶层 sample（写进 datasets[i]） / a multi-dataset model must not have a top-level 'sample' (put it in datasets[i])"
+  ]
+ }
+}
