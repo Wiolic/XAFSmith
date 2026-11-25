@@ -2,14 +2,8 @@
 
 FEFF6L：非自洽 muffin-tin 势，几秒；FEFF8L：自洽势（SCF），约 1–3 分钟，ΔE0 通常更接近 0。
 两者路径编号一般相同；换用时 ΔE0 的零点会变（Ta L3 KTaO3：约 6.6 → 1.2 eV），固定 e0 的模型要重新确定。
-
-用法：
-  python -m xafsmith.feff_wrap --builtin IrO2 --absorber Ir --edge L3 --out output/feff/IrO2_IrL3
-  python -m xafsmith.feff_wrap --cif Ta2O5.cif --absorber Ta --edge L3 --out output/feff/Ta2O5_TaL3 --rmax 6
-  python -m xafsmith.feff_wrap --builtin KTaO3 --absorber Ta --edge L3 --code feff8 --scf 4.5 --out output/feff/KTaO3_TaL3_feff8
 （推荐用 xafsmith feff，输出目录自动按标准命名）
 """
-import argparse
 import os
 import re
 from pathlib import Path
@@ -204,28 +198,3 @@ def build_builtin(name, absorber, edge, recompute=False, progress=None):
         progress(0.2, "FEFF6L…")
     build(struct, absorber, edge, out, site_index=sites[0][0], title=name, code="feff6")
     return out, False
-
-
-def main():
-    from .structures import builtin, read_cif
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--builtin")
-    ap.add_argument("--cif")
-    ap.add_argument("--absorber", required=True)
-    ap.add_argument("--edge", default="K")
-    ap.add_argument("--rmax", type=float, default=6.0)
-    ap.add_argument("--site", type=int, default=None)
-    ap.add_argument("--out", required=True)
-    ap.add_argument("--code", choices=CODES, default="feff6")
-    ap.add_argument("--scf", type=float, default=4.5)
-    ap.add_argument("--exchange", type=int, default=0)
-    a = ap.parse_args()
-    s = builtin(a.builtin) if a.builtin else read_cif(a.cif)
-    print("不等价吸收位点:", inequivalent_sites(s, a.absorber))
-    df = build(s, a.absorber, a.edge, a.out, site_index=a.site, rmax=a.rmax,
-               title=a.builtin or Path(a.cif).stem, code=a.code, scf=a.scf, exchange=a.exchange)
-    print(df[["name", "label", "reff", "degen", "nleg", "amp_ratio"]].to_string(index=False))
-
-
-if __name__ == "__main__":
-    main()
