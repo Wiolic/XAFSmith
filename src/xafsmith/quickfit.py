@@ -19,6 +19,7 @@ from pathlib import Path
 import numpy as np
 
 from . import fitcheck
+from .errors import ModelError
 
 # ---------------------------------------------------------------- 阈值（设计：quick-fit-f2.md；不得放宽）
 SHELL_GAP = 0.3         # Å：同一壳层内相邻路径的 Reff 间隔上限；≥ 此值（或异种元素）即另一壳层（≈ EXAFS 分辨率量级，与 GLOSSARY 的“第一壳层”一致）
@@ -45,7 +46,7 @@ N_INIT_2PHASE = 0.5     # 混合相：两相 N 的初值各为 N_ref 的一半�
 MIN_K_SPAN = 6.0        # Å⁻¹：联合拟合公共 k 窗的最小宽度（再窄则 N_idp 太少，与 σ²、N 难以分开）
 
 
-class QuickFitError(ValueError):
+class QuickFitError(ModelError):
     """快速拟合输入不合规（中英文消息），调用方（CLI / 界面）直接显示。"""
 
 

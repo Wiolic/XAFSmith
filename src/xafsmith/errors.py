@@ -11,6 +11,28 @@ import re
 
 ISSUES_URL = "https://github.com/Wiolic/XAFSmith/issues"
 
+
+# ---------------------------------------------------------------- 异常层级（E14）
+# 新类同时继承它所替换位置原来抛的内置类，所以已有的 except ValueError / except RuntimeError 照旧命中。
+class XafsmithError(Exception):
+    """XAFSmith 自己抛出的异常的根；不直接抛，用下面的子类。"""
+
+
+class ConfigError(XafsmithError, ValueError):
+    """xafsmith.json / meta.csv 的问题。"""
+
+
+class DataError(XafsmithError, ValueError):
+    """数据文件或谱本身的问题。"""
+
+
+class ModelError(XafsmithError, ValueError):
+    """模型 JSON 的问题。"""
+
+
+class FeffError(XafsmithError, RuntimeError):
+    """FEFF 运行失败。"""
+
 _CONV = re.compile(r"singular|converge|ill-conditioned|too many function calls|could not estimate|covariance|cannot be inverted", re.I)
 
 
