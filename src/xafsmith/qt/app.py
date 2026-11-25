@@ -641,9 +641,26 @@ class MainWindow(QMainWindow):
         from . import session
         session.save_session(self.S, self.pages)
 
+    def _config_upgrade_notice(self):
+        """项目配置（xafsmith.json）是旧版本时提示一次：已在内存中升级，文件没有改动（见 migrate.py）。
+        配置版本新于本软件时给出警告。"""
+        from xafsmith import migrate, pipeline as pl
+        try:
+            if is_project() and paths.CONFIG.exists():
+                pl.load_config()
+                notes = migrate.take_pending(paths.CONFIG)
+                if notes:
+                    self.toast(T("；".join(zh for zh, _ in notes), "; ".join(en for _, en in notes)), "info")
+        except ValueError as ex:
+            logs.log.warning("项目配置版本问题：%s", ex)
+            self.toast(str(ex), "warn")
+        except Exception:                      # noqa: BLE001
+            logs.log.debug("qt.app._config_upgrade_notice 出错（已忽略）", exc_info=True)
+
     def start_session(self):
         """打开项目后调用：有上次的快照就恢复，然后才允许保存。"""
         from . import session
+        self._config_upgrade_notice()
         try:
             if is_project() and session.enabled():
                 snap = session.load_session()
