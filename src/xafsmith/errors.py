@@ -33,6 +33,11 @@ class ModelError(XafsmithError, ValueError):
 class FeffError(XafsmithError, RuntimeError):
     """FEFF 运行失败。"""
 
+
+# “未预料的错误”里显示的类名：新类显示为它所替换的内置类名，使换类前后的提示逐字相同（对象形式与后台任务带回的文字形式都走这里）
+_SHOWN = {"XafsmithError": "Exception", "ConfigError": "ValueError", "DataError": "ValueError",
+          "ModelError": "ValueError", "FeffError": "RuntimeError"}
+
 _CONV = re.compile(r"singular|converge|ill-conditioned|too many function calls|could not estimate|covariance|cannot be inverted", re.I)
 
 
@@ -47,7 +52,7 @@ def _names(exc):
         first = text.split("\n\n")[0].split("\n")[0]
     name, sep, msg = first.partition(": ")
     name = name.rsplit(".", 1)[-1]                                    # numpy.linalg.LinAlgError → LinAlgError
-    return ([name.strip()] if sep else ["Exception"]), (msg if sep else first)
+    return ([_SHOWN.get(name.strip(), name.strip())] if sep else ["Exception"]), (msg if sep else first)
 
 
 def _bi(msg, lang):
@@ -110,7 +115,7 @@ def explain(exc, lang="zh"):
                 "检查结构（CIF 是否完整、吸收元素和吸收边是否对）；失败现场在该 FEFF 文件夹的 _feff_failed 里，原有结果没有改动。" if zh else
                 "Check the structure (is the CIF complete; are absorber and edge right?); the failed run is kept in _feff_failed inside the "
                 "FEFF folder and the previous results are untouched.")
-    t = names[0]
+    t = _SHOWN.get(names[0], names[0])
     return (f"未预料的错误：{t}: {msg}".strip() if zh else f"Unexpected error: {t}: {msg}".strip(),
             "请点“导出诊断包…”，连同这条信息一起发到 GitHub Issues，开发者会处理；保存好当前工作后可重启软件。" if zh else
             "Please click “Export diagnostics…” and send the bundle with this message to GitHub Issues; save your work and restart if needed.")
