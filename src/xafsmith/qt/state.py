@@ -176,7 +176,7 @@ def ref_candidates():
 
 
 def ref_calib(S, ref, e_table=None, smooth_ev=1.0, force=False):
-    from xafsmith import calib as xcal, pipeline as pl
+    from xafsmith import pipeline as pl, services
     if ref in S.calib and not force:
         return S.calib[ref]
     cfg = load_cfg()
@@ -188,7 +188,8 @@ def ref_calib(S, ref, e_table=None, smooth_ev=1.0, force=False):
         e.setdefault("norm", {})["smooth_ev"] = smooth_ev
     r = pl.calibrate_ref_file(ref, cfg)
     S.calib[ref] = r
-    xcal.save_calib(S.calib, paths.CALIB_JSON)
+    services.save_calib(S.calib, tool="GUI calibration",
+                        params=dict(reference=ref, e_table=e_table, smooth_ev=smooth_ev, force=force, references=sorted(S.calib)))
     S.emit("calib")
     return r
 

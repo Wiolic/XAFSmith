@@ -5,7 +5,6 @@ from __future__ import annotations
 from xafsmith import logs
 import numpy as np
 import pandas as pd
-from xafsmith import paths
 from ... import widgets as W
 from ...state import err_lines, save_cfg
 from ...theme import C
@@ -18,7 +17,7 @@ class QCPage(Page):
     title_zh, title_en, icon_name = "质量检查", "Quality check", "shield"
 
     def build(self):
-        from xafsmith import normalize as xnorm, qc as xqc
+        from xafsmith import normalize as xnorm, qc as xqc, services
         S = self.S
         self.header(T("噪声、毛刺、I0 掉点、边跳、可用 k 范围（k_snr3）、荧光自吸收风险。",
                       "Noise, glitches, I0 drop-outs, edge step, usable k (k_snr3), fluorescence self-absorption risk."))
@@ -52,8 +51,7 @@ class QCPage(Page):
                 return pd.DataFrame(rows)
 
             def done(df):
-                paths.QC.mkdir(parents=True, exist_ok=True)
-                df.to_csv(paths.QC_CSV, index=False, encoding="utf-8-sig")
+                services.save_qc(df, norm_params=par, tool="GUI QC")
                 S.qc = df
                 S.emit("qc")
                 self.refresh()

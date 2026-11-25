@@ -231,3 +231,31 @@ def test_save_xanes_merges_by_sample(proj):
     services.save_xanes(tab([("D", 4.0)]), wl_window=10.0, tool="GUI XANES")
     s = json.loads(paths.XANES_CSV.with_suffix(".params.json").read_text(encoding="utf-8"))["params"]["samples"]
     assert list(s) == ["D"]
+
+
+def test_save_qc_and_calib_write_params(proj):
+    import pandas as pd
+    from xafsmith import paths, services
+    out = services.save_qc(pd.DataFrame({"label": ["a"], "e0": [1.0]}), norm_params={"Cu_K": {"pre1": -150}}, tool="GUI QC")
+    assert out == paths.QC_CSV and out.is_file()
+    p = json.loads(paths.QC_CSV.with_suffix(".params.json").read_text(encoding="utf-8"))
+    assert p["tool"] == "GUI QC" and p["params"] == {"norm": {"Cu_K": {"pre1": -150}}}
+    calib = {"ref.dat": {"delta_e": 1.5, "edge_key": "Cu_K", "reference_file": "ref.dat"}}
+    out = services.save_calib(calib, tool="GUI calibration", params={"reference": "ref.dat"})
+    assert out == paths.CALIB_JSON and json.loads(out.read_text(encoding="utf-8")) == calib
+    p = json.loads(paths.CALIB_JSON.with_suffix(".params.json").read_text(encoding="utf-8"))
+    assert p["tool"] == "GUI calibration" and p["params"] == {"reference": "ref.dat"}
+    assert paths.CALIB_JSON.with_suffix(".params.json").name == "calib.params.json"
+    from xafsmith import pipeline as pl
+    assert pl.load_calib() == calib                                    # params.json 不影响读校准记录
+
+
+def test_pipeline_run_qc_and_calib_write_params(proj):
+    """pipeline.run_qc / run_calib 经 services 落盘（tool 为 pipeline.*）"""
+    from xafsmith import paths, pipeline as pl
+    pl.run_calib(pl.load_config(), pl.load_meta())
+    p = json.loads(paths.CALIB_JSON.with_suffix(".params.json").read_text(encoding="utf-8"))
+    assert p["tool"] == "pipeline.run_calib" and p["params"]["references"]
+    pl.run_qc()
+    q = json.loads(paths.QC_CSV.with_suffix(".params.json").read_text(encoding="utf-8"))
+    assert q["tool"] == "pipeline.run_qc" and q["params"]["norm"]

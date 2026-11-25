@@ -223,3 +223,21 @@ def save_xanes(tab, *, wl_window, tool) -> Path:
         samples[str(s)] = dict(wl_window=wl_window, tool=tool, time=stamp)
     write_params(pf, {"samples": samples}, tool)
     return out
+
+
+# ----------------------------------------------------------------------------- QC 表 / 校准记录
+def save_qc(df, *, norm_params, tool) -> Path:
+    """QC 表 → qc/qc_report.csv，与 qc_report.params.json（params = 所用归一化参数）。"""
+    paths.QC.mkdir(parents=True, exist_ok=True)
+    df.to_csv(paths.QC_CSV, index=False, encoding="utf-8-sig")
+    write_params(paths.QC_CSV.with_suffix(".params.json"), {"norm": norm_params}, tool)
+    return paths.QC_CSV
+
+
+def save_calib(calib, *, tool, params, path=None) -> Path:
+    """校准记录 → calib/calib.json（path 缺省），与 calib.params.json（params 由调用方给：参比与所用配置）。"""
+    from xafsmith import calib as xcal
+    path = Path(path) if path else paths.CALIB_JSON
+    xcal.save_calib(calib, path)
+    write_params(path.with_suffix(".params.json"), params, tool)
+    return path

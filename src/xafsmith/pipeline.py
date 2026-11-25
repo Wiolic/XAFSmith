@@ -271,7 +271,11 @@ def run_calib(cfg: dict, meta: pd.DataFrame, out: str | Path | None = None,
             gaps[row.file] = None if h is None else round(h, 2)
         r["time_gap_hours"] = gaps
         res[ref] = r
-    xcal.save_calib(res, out)
+    from . import services
+    services.save_calib(res, tool="pipeline.run_calib", path=out,
+                        params=dict(references=sorted(res), edges={k: {f: v.get(f) for f in ("element", "edge", "e_table", "e_table_source", "norm")
+                                                                       if f in v}
+                                                                   for k, v in cfg.get("edges", {}).items()}))
     return res
 
 
@@ -469,6 +473,7 @@ def run_qc(edge_key: str | None = None, cfg: dict | None = None, meta: pd.DataFr
         row["sample"] = r["sample"]
         rows.append(row)
     df = pd.DataFrame(rows)
-    paths.QC.mkdir(parents=True, exist_ok=True)
-    df.to_csv(paths.QC_CSV, index=False, encoding="utf-8-sig")
+    from . import services
+    services.save_qc(df, norm_params={k: v.get("norm", {}) for k, v in cfg.get("edges", {}).items()},
+                     tool="pipeline.run_qc")
     return df
