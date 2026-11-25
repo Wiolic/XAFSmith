@@ -90,3 +90,11 @@ def test_model_schema_field_newer_warns():
     schema._check_model_schema(rep, "models/a.json", {"schema": "1.1"})
     schema._check_model_schema(rep, "models/a.json", {})
     assert rep.items == []
+
+
+def test_write_params_versions(tmp_path):
+    from xafsmith import __version__, common
+    p = common.write_params(tmp_path / "x.params.json", {"a": 1}, "t")
+    d = json.loads(p.read_text(encoding="utf-8"))
+    assert d["xafsmith_version"] == __version__ and d["schema_version"] == paths.SCHEMA_VERSION
+    assert d["params"] == {"a": 1}

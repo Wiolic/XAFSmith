@@ -81,7 +81,9 @@ def write_params(path, params, tool=None):
     path = Path(path)
     if path.suffix != ".json":
         path = path.with_name(path.stem + ".params.json")
+    from . import __version__, paths           # 记下是哪个版本的软件、按哪版数据标准写的（便于以后追溯）
     out = {"tool": tool, "time": datetime.datetime.now().isoformat(timespec="seconds"),
+           "xafsmith_version": __version__, "schema_version": paths.SCHEMA_VERSION,
            "params": params}
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(out, ensure_ascii=False, indent=2, default=_json_default),
