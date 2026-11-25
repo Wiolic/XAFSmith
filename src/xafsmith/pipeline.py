@@ -26,7 +26,7 @@ import numpy as np
 import pandas as pd
 
 from .common import atomic_path, edge_energy, write_params, write_text_atomic
-from . import paths, logs, defaults
+from . import paths, logs, defaults, migrate
 from . import io as xio
 from . import normalize as xnorm
 from . import autobk as xbkg
@@ -168,7 +168,7 @@ def default_edge_config(element, edge, elements_in_sample=None):
 
 def init_config(meta, path=None):
     path = path or paths.CONFIG
-    cfg = json.loads(Path(path).read_text(encoding="utf-8-sig")) if Path(path).exists() else \
+    cfg = load_config(path) if Path(path).exists() else \
         {"xafsmith": {"schema": paths.SCHEMA_VERSION}, "edges": {}}
     for ek in sorted(set(meta.edge_key)):
         if ek in cfg["edges"]:
@@ -198,8 +198,12 @@ def save_config(cfg, path=None):
 
 
 def load_config(path: str | Path | None = None) -> dict:
+    """读 xafsmith.json 并在内存里升到当前版本（migrate.upgrade）；绝不写回文件。
+    版本新于软件时抛 ValueError。"""
     path = path or paths.CONFIG
-    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    cfg, notes = migrate.upgrade(json.loads(Path(path).read_text(encoding="utf-8-sig")))
+    migrate.announce(path, notes)
+    return cfg
 
 
 # ------------------------------------------------------------------ calibration

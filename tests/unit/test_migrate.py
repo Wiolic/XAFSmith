@@ -1,4 +1,7 @@
 """配置版本迁移（E12）：只在内存升级，不写回文件。"""
+import json
+import os
+
 import pytest
 
 from xafsmith import migrate, paths
@@ -46,3 +49,23 @@ def test_version_compare_is_numeric():
 def test_bad_version_raises(bad):
     with pytest.raises(ValueError):
         migrate.upgrade(_cfg(bad))
+
+
+def test_load_config_does_not_write_back(tmp_path):
+    from xafsmith import pipeline as pl
+    f = tmp_path / "xafsmith.json"
+    f.write_text(json.dumps(_cfg("1.0"), indent=2), encoding="utf-8")
+    os.utime(f, (1_000_000_000, 1_000_000_000))
+    before, st = f.read_bytes(), f.stat().st_mtime_ns
+    cfg = pl.load_config(f)
+    assert cfg["xafsmith"]["schema"] == "1.1"
+    assert f.read_bytes() == before and f.stat().st_mtime_ns == st
+    assert migrate.take_pending(f) and not migrate.take_pending(f)
+
+
+def test_load_config_newer_raises(tmp_path):
+    from xafsmith import pipeline as pl
+    f = tmp_path / "xafsmith.json"
+    f.write_text(json.dumps(_cfg("9.0")), encoding="utf-8")
+    with pytest.raises(ValueError):
+        pl.load_config(f)

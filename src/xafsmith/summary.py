@@ -59,7 +59,8 @@ def collect():
     if len(lcf):
         sheets["LCF"] = lcf
     if paths.CONFIG.exists():
-        cfg = json.loads(paths.CONFIG.read_text(encoding="utf-8-sig"))
+        from .pipeline import load_config
+        cfg = load_config()
         rows = []
         for ek, c in cfg.get("edges", {}).items():
             row = dict(吸收边=ek, E_table=c.get("e_table"), 样品元素=",".join(c.get("elements_in_sample", [])))

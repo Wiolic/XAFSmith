@@ -59,8 +59,8 @@ def _rng(vals, nd=1):
 def collect(samples=None, fits_csv=None):
     """收集生成段落所需的事实；samples=None 表示 meta.csv 中 use≠0 的全部样品。
     fits_csv：拟合记录 CSV，缺省读项目的 exafs_fits.csv（汇报包用它来表达尚未保存的拟合）"""
-    from .pipeline import load_meta
-    cfg = json.loads(paths.CONFIG.read_text(encoding="utf-8-sig")) if paths.CONFIG.exists() else {}
+    from .pipeline import load_config, load_meta
+    cfg = load_config() if paths.CONFIG.exists() else {}
     meta = load_meta() if paths.META.exists() else pd.DataFrame(columns=["sample", "edge_key", "mode", "use"])
     meta = meta[meta["use"].astype(str) != "0"]
     if samples:
