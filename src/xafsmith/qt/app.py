@@ -107,12 +107,21 @@ def _avail():
     return scr.availableGeometry() if scr else QRect(0, 0, 1920, 1040)
 
 
+def _frame_margins():
+    """标题栏与边框占的像素 (上, 其余三边)：setGeometry 设的是客户区，标题栏在它上方"""
+    st = QApplication.style() if QApplication.instance() else None
+    title = st.pixelMetric(st.PixelMetric.PM_TitleBarHeight) if st else 30
+    return max(int(title), 30) + 8, 8
+
+
 def _fit_rect(x, y, w, h):
-    """把窗口矩形限制在屏幕可用区域内（防止保存的位置落在已拔掉的显示器上、窗口比屏幕大）"""
+    """把窗口客户区矩形限制在屏幕可用区域内，并给标题栏和边框留出位置（防止保存的位置落在已拔掉的显示器上、
+    窗口比屏幕大，或客户区贴着屏幕顶端、标题栏被推到屏幕外——那样看不到最小化 / 还原 / 关闭，也拖不动窗口）"""
     a = _avail()
-    w, h = min(int(w), a.width()), min(int(h), a.height())
-    x = max(a.left(), min(int(x), a.right() - w + 1))
-    y = max(a.top(), min(int(y), a.bottom() - h + 1))
+    top, side = _frame_margins()
+    w, h = min(int(w), a.width() - 2 * side), min(int(h), a.height() - top - side)
+    x = max(a.left() + side, min(int(x), a.right() - side - w + 1))
+    y = max(a.top() + top, min(int(y), a.bottom() - side - h + 1))
     return x, y, w, h
 
 
@@ -165,15 +174,20 @@ class MainWindow(QMainWindow):
         g = xup.load_settings().get("win", {}).get("main")
         if g and len(g) == 4:
             self.setGeometry(*_fit_rect(*g))
+        if xup.load_settings().get("win", {}).get("main_max"):
+            self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)       # show() 时按最大化显示
 
     def _save_geometry(self, which, widget):
         if W.QUIET["v"]:
             return
         try:
             from xafsmith import update as xup
-            r = widget.geometry()
+            maxed = widget.isMaximized() or widget.isFullScreen()
+            r = widget.normalGeometry() if maxed else widget.geometry()      # 最大化时存还原后的大小，而不是整屏
             win = dict(xup.load_settings().get("win", {}))
-            win[which] = [r.x(), r.y(), r.width(), r.height()]
+            if r.width() > 0 and r.height() > 0:
+                win[which] = [r.x(), r.y(), r.width(), r.height()]
+            win[which + "_max"] = bool(maxed)
             xup.save_settings(win=win)
         except Exception:
             logs.log.debug("qt.app._save_geometry 出错（已忽略）", exc_info=True)
@@ -901,14 +915,20 @@ class FlowPopup(QFrame):
             write_params(paths.GUI / "gui_session.params.json",
                          dict(norm=S.norm_par, bkg=S.bkg_par, ft=S.ft_par, calib=S.calib, groups=list(S.groups)), "gui")
             self.win.toast(T("已保存 output/gui/gui_session.params.json", "Saved output/gui/gui_session.params.json"))
-        g = QHBoxLayout()
-        g.setSpacing(6)
-        for txt, ic, fn in ((T("项目文件夹", "Project folder"), "folder", lambda: W.open_folder(paths.ROOT)),
-                            ("output", "external", lambda: W.open_folder(paths.OUT)),
-                            (T("保存处理参数", "Save parameters"), "save", save_session),
-                            (T("清空工作区", "Clear workspace"), "refresh",
-                             lambda: (self.btn.close_pop(), self.win.clear_workspace()))):
-            g.addWidget(W.button(txt, icon_name=ic, slot=fn))
+        from PySide6.QtWidgets import QGridLayout, QSizePolicy
+        g = QGridLayout()                       # 2 × 2、等宽：一行放四个时窄弹窗里长文字被挤得偏离中间
+        g.setHorizontalSpacing(6)
+        g.setVerticalSpacing(6)
+        for i, (txt, ic, fn) in enumerate(((T("项目文件夹", "Project folder"), "folder", lambda: W.open_folder(paths.ROOT)),
+                                           ("output", "external", lambda: W.open_folder(paths.OUT)),
+                                           (T("保存处理参数", "Save parameters"), "save", save_session),
+                                           (T("清空工作区", "Clear workspace"), "refresh",
+                                            lambda: (self.btn.close_pop(), self.win.clear_workspace())))):
+            b = W.button(txt, icon_name=ic, slot=fn)
+            b.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            g.addWidget(b, i // 2, i % 2)
+        g.setColumnStretch(0, 1)
+        g.setColumnStretch(1, 1)
         v.addSpacing(4)
         v.addLayout(g)
 
