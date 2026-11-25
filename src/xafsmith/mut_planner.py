@@ -1,13 +1,7 @@
 """mut_planner —— 样品设计：总 μt、边跳、推荐质量/叠层数、邻近吸收边干扰。
 
 数据来源：xraydb（Elam 表）质量吸收系数与边能量。
-
-用法：
-  python -m xafsmith.mut_planner --formula IrO2 --element Ir --edge L3 --area 1.33 \
-         [--diluent BN --mass-diluent 100] [--mass 10]     # mass 单位 mg，area 单位 cm²
-  python -m xafsmith.mut_planner --interfere Ir,Ta,O --element Ir --edge L3 --emax 12000
 """
-import argparse
 
 import pandas as pd
 
@@ -152,30 +146,3 @@ def fluor_filter(el, edge, n_abs=3.0, de=50.0, n_best=4):
     # 同样吸收 n_abs 个吸收长度的散射时，荧光线透过率越高越好（Fe K → Mn，即经典的 Z−1 规则）
     df = df.sort_values("line_transmission", ascending=False).head(n_best).reset_index(drop=True)
     return dict(edge_energy=e_edge, line=ln, line_energy=e_line, table=df)
-
-
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--formula")
-    ap.add_argument("--element", required=True)
-    ap.add_argument("--edge", required=True)
-    ap.add_argument("--area", type=float, default=1.327, help="cm²（默认 φ13 mm）")
-    ap.add_argument("--mass", type=float)
-    ap.add_argument("--diluent")
-    ap.add_argument("--mass-diluent", type=float, default=0.0)
-    ap.add_argument("--target", type=float, default=2.0)
-    ap.add_argument("--interfere")
-    ap.add_argument("--emax", type=float)
-    a = ap.parse_args()
-    if a.formula:
-        if a.mass:
-            print(mut_for_mass(a.formula, a.mass, a.area, a.element, a.edge, a.diluent,
-                               a.mass_diluent))
-        print(recommend_mass(a.formula, a.area, a.element, a.edge, a.target, a.diluent,
-                             a.mass_diluent))
-    if a.interfere:
-        print(interfering_edges(a.interfere.split(","), a.element, a.edge, a.emax).to_string())
-
-
-if __name__ == "__main__":
-    main()
