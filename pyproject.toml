@@ -35,7 +35,7 @@ dependencies = [
 # 直接生成 Origin 工程（.opju）：需要本机装有 Origin 2021 及以上；没有时“图片导出”只写数据与 build_origin.py
 origin = ["originpro"]
 # 开发与测试：python -m pytest tests/unit
-dev = ["pytest", "pytest-cov", "ruff"]
+dev = ["pytest", "pytest-cov", "ruff", "mypy>=2.4.1"]
 
 [project.urls]
 Homepage = "https://github.com/Wiolic/XAFSmith"
@@ -69,3 +69,18 @@ select = ["E9", "F", "B006", "B008"]
 "src/xafsmith/paths.py" = ["F821"]
 # Qt 的惯用写法 index=QModelIndex()
 "src/xafsmith/qt/widgets/table.py" = ["B008"]
+
+[tool.mypy]
+# E14：只检查数据与服务层的几个模块（非严格）；扩大范围前先看 CONTRIBUTING 的说明
+files = [
+    "src/xafsmith/paths.py",
+    "src/xafsmith/common.py",
+    "src/xafsmith/schema.py",
+    "src/xafsmith/services.py",
+    "src/xafsmith/readers",
+    "src/xafsmith/typedefs.py",
+    "src/xafsmith/errors.py",
+]
+python_version = "3.11"
+ignore_missing_imports = true
+follow_imports = "silent"

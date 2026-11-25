@@ -47,6 +47,9 @@ jobs:
       - name: Lint (ruff)
         run: python -m ruff check src tests tools
 
+      - name: Type check (mypy)
+        run: python -m mypy
+
       - name: Unit tests and numerical benchmarks
         run: python -m pytest -q --cov=xafsmith --cov-report=term
 
