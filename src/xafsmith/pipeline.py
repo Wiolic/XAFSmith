@@ -16,6 +16,7 @@
 
 所有函数都从原始数据重新生成结果。
 """
+import copy
 import json
 import re
 from collections.abc import Callable
@@ -25,7 +26,7 @@ import numpy as np
 import pandas as pd
 
 from .common import atomic_path, edge_energy, write_params, write_text_atomic
-from . import paths, logs
+from . import paths, logs, defaults
 from . import io as xio
 from . import normalize as xnorm
 from . import autobk as xbkg
@@ -163,9 +164,7 @@ def default_edge_config(element, edge, elements_in_sample=None):
     return dict(element=element, edge=edge, e_table=round(edge_energy(element, edge), 2),
                 e_table_source="xraydb (Elam)", reference=None,
                 elements_in_sample=elements_in_sample or [element],
-                norm=dict(pre1=-150, pre2=-30, norm1=100, norm2=-10, nnorm=2, smooth_ev=1.0),
-                bkg=dict(rbkg=1.0, kweight=2),
-                ft=dict(kmin=3.0, kmax=12.0, dk=1.0, window="hanning", kweight=2))
+                **copy.deepcopy(defaults.CONFIG_EDGE_DEFAULTS))
 
 
 def init_config(meta, path=None):

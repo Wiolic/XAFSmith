@@ -8,8 +8,9 @@ import copy
 import numpy as np
 # larch / scipy 在函数里导入：图形界面启动时只需要 DEFAULT_NORM，不必等这两个大库（约 0.8 s）载入
 
-DEFAULT_NORM = dict(pre1=-150.0, pre2=-30.0, norm1=100.0, norm2=None, nnorm=2, nvict=0,
-                    e0_method="deriv", e0=None, smooth_ev=1.0)
+from . import defaults
+
+DEFAULT_NORM = defaults.NORM
 
 
 def find_e0(energy, mu, e_guess=None, window=40.0, smooth_ev=1.0, step=0.05):

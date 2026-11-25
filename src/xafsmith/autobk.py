@@ -4,8 +4,9 @@
 """
 
 
-DEFAULT_BKG = dict(rbkg=1.0, kweight=2, kmin=0.0, kmax=None, dk=0.1, win="hanning",
-                   nclamp=3, clamp_lo=0, clamp_hi=1)
+from . import defaults
+
+DEFAULT_BKG = defaults.BKG
 
 
 def autobk(g, **kws):

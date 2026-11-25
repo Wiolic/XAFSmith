@@ -4,7 +4,9 @@
 """
 
 
-DEFAULT_FT = dict(kmin=3.0, kmax=12.0, dk=1.0, window="hanning", kweight=2, rmax_out=10.0)
+from . import defaults
+
+DEFAULT_FT = defaults.FT
 
 
 def forward(g, **kws):
