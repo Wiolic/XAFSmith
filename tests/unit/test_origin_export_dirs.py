@@ -1,4 +1,4 @@
-"""Origin 导出：每次导出的文件夹名不重复（不覆盖）、originpro 模式下文件夹里只有 .opju。
+"""Origin 导出：每次导出的文件夹名不重复（不覆盖）、originpro 模式下文件夹里只有 .opju、归一化 XANES 纵轴不画刻度。
 originpro 用假模块代替（不启动 Origin）。"""
 import sys
 from unittest.mock import MagicMock
@@ -37,6 +37,15 @@ def test_unique_dir_never_reuses(tmp_path):
     d2 = oe.unique_dir(tmp_path, "x")
     d2.mkdir()
     assert d1.name == "x" and d2.name == "x_2" and oe.unique_dir(tmp_path, "x").name == "x_3"
+
+
+def test_normalized_xanes_hides_y_without_offset(tmp_path):
+    fig = _fig()
+    try:
+        assert oe.figure_spec(fig, tmp_path, "t", kind="xanes")["graphs"][0]["hide_y"]
+        assert not oe.figure_spec(fig, tmp_path, "t", kind="chik")["graphs"][0]["hide_y"]
+    finally:
+        plt.close(fig)
 
 
 def test_originpro_mode_leaves_only_opju(tmp_path, monkeypatch):

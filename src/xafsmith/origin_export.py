@@ -167,7 +167,8 @@ def figure_spec(fig, out_dir, name, kind="", png=False):
         df = pd.DataFrame(data)
         csv = out_dir / f"{book}.csv"
         df.to_csv(csv, index=False, encoding="utf-8")
-        hide_y = kind in ("xanes", "deriv") and "offset" in ax.get_ylabel()
+        # 归一化 XANES：纵轴不画刻度与刻度数字（保留轴线与轴标题）；导数图只在错开时隐藏（数值无意义）
+        hide_y = kind == "xanes" or (kind == "deriv" and "offset" in ax.get_ylabel())
         xlim = [float(v) + shift for v in ax.get_xlim()]
         xinc = _inc(ax, "x")
         if shift and xinc:          # 能量轴范围取整到刻度间隔的整数倍
