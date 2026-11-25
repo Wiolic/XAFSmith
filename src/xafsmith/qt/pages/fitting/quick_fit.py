@@ -575,9 +575,10 @@ class QuickFitPage(Page):
         if not name:
             return
         redo = dlg.redo.isChecked()
-        if el is None:                      # 吸收元素 / 边不明：取该结构里最重的元素，边同 FEFF 页缺省
+        if el is None:                      # 吸收元素 / 边不明：取 index.csv 的第一个吸收元素（如 SrTiO3 → Ti），手写结构取最重的元素
             from pymatgen.core import Element
-            el = max({sp.symbol for sp in xs.builtin(name).composition.elements}, key=lambda e: Element(e).Z)
+            ab = (xs._INDEX.get(name, {}).get("absorbers") or "").split()
+            el = ab[0] if ab else max({sp.symbol for sp in xs.builtin(name).composition.elements}, key=lambda e: Element(e).Z)
             edge = xf.default_edge(el)
         pg = self
 
@@ -588,6 +589,16 @@ class QuickFitPage(Page):
             pg.refresh()
             W.toast(pg, T(f"已选用已有计算：{paths.rel(out)}" if reused else f"FEFF 完成：{paths.rel(out)}",
                           f"Using the existing calculation: {paths.rel(out)}" if reused else f"FEFF done: {paths.rel(out)}"))
+            try:
+                ns = xf.n_absorber_sites(name, el)
+            except Exception:      # noqa: BLE001
+                logs.log.warning("快速拟合：数不等价位点失败 %s", name, exc_info=True)
+                ns = 1
+            if ns > 1:                      # 只算了第一个位点：第一壳层只代表这个位点，不是整个化合物的平均
+                W.toast(pg, T(f"{name} 中 {el} 有 {ns} 个不等价位点，这里只算了第一个；第一壳层只代表该位点。"
+                              "要按位点加权，请到“FEFF 路径”页算全部位点，再在精细拟合里组合。",
+                              f"{el} has {ns} inequivalent sites in {name}; only the first was computed, so the first shell describes "
+                              "that site only. To weight all sites, compute them on the FEFF paths page and combine them in Detailed fit."), "warn")
         W.run_task(self, lambda progress: xf.build_builtin(name, el, edge, recompute=redo, progress=progress), done,
                    T(f"FEFF6L 计算 {name}（{el} {edge}）…", f"Running FEFF6L for {name} ({el} {edge})…"), self._builtin_btn,
                    progress=True, cancellable=False, key="feff")

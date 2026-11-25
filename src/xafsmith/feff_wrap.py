@@ -183,6 +183,12 @@ def builtin_feff_dir(name, absorber, edge, site_index=0):
     return paths.FEFF / f"{name}_{absorber}{edge}" / f"site{site_index}"
 
 
+def n_absorber_sites(name, absorber):
+    """内置结构里吸收元素的不等价位点数（> 1 时 build_builtin 只算第一个位点，第一壳层只代表该位点）"""
+    from .structures import builtin
+    return len(inequivalent_sites(builtin(name), absorber))
+
+
 def build_builtin(name, absorber, edge, recompute=False, progress=None):
     """用内置结构跑 FEFF6L（参数同 FEFF 页缺省：RMAX 6 Å、NLEG 4、第一个不等价位点）。
     返回 (输出文件夹, 是否沿用已有结果)；已有 feff0001.dat 且 recompute=False 时不重算。"""
