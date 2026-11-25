@@ -42,9 +42,12 @@ class plain_rc:
 
 # ----------------------------------------------------------------------------- 读 / 运行模型
 def load_model(name_or_file, sample=None) -> dict:
-    """读模型 json（`paths.model_file`：给路径用路径，只给名字在 models/ 中找，带不带 .json 都行）。
+    """读模型 json：只给名字（带不带 .json 都行）且 models/ 中有就用它，否则 `paths.model_file`（给路径用路径）。
     多数据集模型原样返回；旧格式模型给了 sample 就换样品（名字里的旧样品名同步替换）。"""
-    f = paths.model_file(name_or_file)
+    s = str(name_or_file)
+    q = paths.MODELS / (s if s.endswith(".json") else f"{s}.json")
+    # 只给名字（界面列表里的 models/ 文件名）时先取 models/：避免项目根同名 json（如 xafsmith.json）被当成模型
+    f = q if ("/" not in s and "\\" not in s and q.exists()) else paths.model_file(name_or_file)
     m = json.loads(f.read_text(encoding="utf-8-sig"))
     m.setdefault("name", f.stem)
     if "datasets" in m:            # 多数据集：样品由模型内 datasets 决定，不替换

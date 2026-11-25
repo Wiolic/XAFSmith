@@ -259,3 +259,16 @@ def test_pipeline_run_qc_and_calib_write_params(proj):
     pl.run_qc()
     q = json.loads(paths.QC_CSV.with_suffix(".params.json").read_text(encoding="utf-8"))
     assert q["tool"] == "pipeline.run_qc" and q["params"]["norm"]
+
+
+def test_load_model_bare_name_prefers_models_dir(tmp_path, monkeypatch):
+    """只给名字时取 models/ 里的文件，不取项目根同名 json（如 xafsmith.json）"""
+    import json as _json
+    from xafsmith import paths, services
+    (tmp_path / "models").mkdir()
+    (tmp_path / "xafsmith.json").write_text(_json.dumps({"edges": {}}), encoding="utf-8")
+    (tmp_path / "models" / "xafsmith.json").write_text(_json.dumps({"sample": "s1", "paths": []}), encoding="utf-8")
+    monkeypatch.setattr(paths, "ROOT", tmp_path)
+    monkeypatch.setattr(paths, "MODELS", tmp_path / "models")
+    m = services.load_model("xafsmith.json")
+    assert m["sample"] == "s1" and m["name"] == "xafsmith"
