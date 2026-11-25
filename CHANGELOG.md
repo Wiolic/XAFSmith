@@ -4,6 +4,25 @@
 [语义化版本](https://semver.org/lang/zh-CN/)。
 All notable changes are recorded here (format: Keep a Changelog; versioning: SemVer).
 
+## [未发布] / Unreleased
+
+工程改进，不加分析功能，数值与界面文字都不变。
+Engineering work with no new analysis features; numbers and interface text are unchanged.
+
+### 开发者 / For developers
+- **异常分类**：`errors.py` 新增 `XafsmithError` 及子类 `ConfigError`（xafsmith.json / meta.csv）、`DataError`（数据文件，`ReadError` 现在属于它）、`ModelError`（模型 JSON，`QuickFitError` 现在属于它）、`FeffError`（FEFF 运行失败）。前三个仍是 `ValueError`、`FeffError` 仍是 `RuntimeError`，已有的 `except` 照旧捕获；配置、meta.csv、模型检查与 FEFF 的报错改抛这些类，消息不变。错误提示里显示的类名仍是原来的内置类名（`errors.shown_name`），用户看到的文字逐字不变。
+  **Error classes**: `errors.py` adds `XafsmithError` with `ConfigError` (xafsmith.json / meta.csv), `DataError` (data files; `ReadError` is now one), `ModelError` (model JSON; `QuickFitError` is now one) and `FeffError` (FEFF failures). The first three are still `ValueError` and `FeffError` is still `RuntimeError`, so existing `except` clauses catch them as before; configuration, meta.csv, model-check and FEFF errors now raise them with unchanged messages. Error messages keep showing the builtin class name (`errors.shown_name`), so the text users see is identical.
+- **类型声明**：新模块 `typedefs.py`（配置、模型、路径、参数、拟合记录的 `TypedDict`，运行时无作用）。CI 加 mypy（非严格），先查 `paths`、`common`、`schema`、`services`、`readers`、`typedefs`、`errors`。
+  **Type declarations**: new module `typedefs.py` (`TypedDict`s for the configuration, models, paths, parameters and fit records; no runtime effect). CI runs mypy (non-strict) on `paths`, `common`, `schema`, `services`, `readers`, `typedefs` and `errors`.
+- **读入格式插件**：另装的包可在 entry point 组 `xafsmith.readers` 登记读入格式，排在内置格式之后；加载失败、不是 `Reader` 或重名的插件记日志后跳过，不影响启动。内置格式的顺序与识别结果不变。
+  **Reader plugins**: a separately installed package can register a data format in the entry-point group `xafsmith.readers`; plugins come after the built-in readers, and one that fails to load, is not a `Reader` or reuses a name is logged and skipped without affecting startup. The built-in readers and their detection results are unchanged.
+- **页面自己声明属性**：每个页面类写明 `key`、`needs`、`no_project`、`hidden`，导航顺序只在 `qt/app.py` 的 `_NAV` 一处；`NEEDS`、`NO_PROJECT` 等表由页面类推导（与之前逐项相同，有测试锁定）。
+  **Pages declare their own properties**: each page class states `key`, `needs`, `no_project` and `hidden`; the navigation order lives only in `_NAV` in `qt/app.py`, and the `NEEDS`, `NO_PROJECT` and related tables are derived from the classes (identical to before, pinned by a test).
+- **一致性测试**（`tests/unit/test_consistency.py`）：每个命令行子命令都在《命令行速查》里，每个页面标题都在中英两份界面指南里，`T()` 都有英文，`ARCHITECTURE.md` 的模块表与 `src/` 一致。
+  **Consistency tests** (`tests/unit/test_consistency.py`): every CLI command is in the CLI reference, every page title is in both GUI guides, every `T()` has English, and the `ARCHITECTURE.md` module table matches `src/`.
+- `CONTRIBUTING.md` 新增“新增一种格式 / 一个分析 / 一个页面”三张清单；改代码后的检查加上 mypy。
+  `CONTRIBUTING.md` gains three checklists (a data format, an analysis, a page); the checks after changing code include mypy.
+
 ## [1.4.2] — 2026-11-25
 
 工程补丁版，不加分析功能。命令行与图形界面改用同一个业务层（新模块 `services`）：同一个结果无论从哪边保存，文件名与内容都相同，并且每种保存都留下参数记录。项目配置有了版本迁移：旧版本在内存中升级、文件不改，新于软件的明确拒绝。默认值、模型结构检查各只写一份。拟合、LCF、QC、校准的数值逐位不变（黄金基线 `tests/golden/demo.json` 与本机快照）。

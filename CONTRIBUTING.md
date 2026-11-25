@@ -45,9 +45,10 @@ python -m pytest tests/unit tests/benchmark        # includes tests/benchmark/te
 python tests/test_qt.py                            # page-by-page GUI test on the public demo project (offscreen); --quick skips FEFF8L and robustness
 python tests/test_qt.py --project <local project>  # same, on your own project (only on a machine that has one)
 python -m ruff check src tests tools               # 0 errors; do not run `ruff format`
+python -m mypy                                     # 0 errors; checks the modules listed in pyproject [tool.mypy] (non-strict)
 ```
 
-- The first, third and fourth commands must pass; CI runs them on Windows and Ubuntu with Python 3.11 and 3.12.
+- The first, third, fourth and fifth commands must pass; CI runs them on Windows and Ubuntu with Python 3.11 and 3.12.
 - Fitting changes, on a machine that has the private IrTaOx project only: `xafsmith fit IrO2_1shell_ArtemisCompare --nosave`
   must give S0² ≈ 0.816 and ΔE0 ≈ 8.93; also `python -m pytest tests/local` (git-ignored, includes the
   `tools/golden.py local` snapshot).
@@ -64,7 +65,7 @@ python -m ruff check src tests tools               # 0 errors; do not run `ruff 
 2. **Data formats need a real sample file**, not a format written from memory. Column recognition is by name,
    never by position.
 3. **GUI**: every feature must be reachable with the mouse; all text bilingual via `T("中文", "English")`;
-   update both `docs/图形界面使用指南.md` and `docs/GUI_guide_en.md`.
+   update both `src/xafsmith/docs/图形界面使用指南.md` and `src/xafsmith/docs/GUI_guide_en.md`.
 4. **Data standard**: changes to project files update `docs/数据标准.md`, `schema.py` (validate) and
    `templates/` together.
 5. **Paths** only through `xafsmith.paths`; raw data are read-only; outputs go under `output/`.
@@ -76,6 +77,56 @@ python -m ruff check src tests tools               # 0 errors; do not run `ruff 
    and becomes the GitHub Release notes verbatim (`tools/release_notes.py`, used by `release.yml`), so write
    **everything that changed** there; a release without its CHANGELOG section fails.
    发布时这一节就是 GitHub Release 说明的全文：改了什么都写在这里。
+
+## Adding things / 新增一种格式、一个分析、一个页面
+
+Three checklists. `tests/unit/test_consistency.py` fails when a CLI command, a page title or a module is missing from
+the documents named below, so most forgotten steps show up in the tests.
+三张清单；漏写文档时 `tests/unit/test_consistency.py` 会失败。
+
+### A data format / 一种读入格式
+1. A real sample file first (rule 2). If it may be shared, put it in `tests/data/` and record it in
+   `tests/data/demo_project/SOURCES.md`.
+2. Subclass `Reader` (`readers/base.py`): `name` (unique), `label = ("中文", "English")`, `suffixes`,
+   `detect(path, head) -> 0–100` and `read(path, mode=None, columns=None, group=None) -> list[Group]`. Recognise columns
+   by name, never by position; raise `ReadError(zh, en)` with both languages.
+3. Built into XAFSmith: add the class to `readers/formats.py` and to `REGISTRY` in `readers/__init__.py`. The order of
+   `REGISTRY` decides ties in detection, so new formats go **before** the catch-all `ColumnsReader` and must not change
+   which reader wins for existing files (the golden baseline would show it).
+   As a separate package: register it in the entry-point group `xafsmith.readers`; it is appended after the built-in
+   readers, and a plugin that fails to load, is not a `Reader` or reuses a name is logged and skipped:
+   ```toml
+   [project.entry-points."xafsmith.readers"]
+   myformat = "my_package.reader:MyReader"
+   ```
+4. A unit test that reads the sample file; `docs/dev/io_readers.md` and the format list in `src/xafsmith/docs/数据标准.md`.
+
+### An analysis / 一个分析
+1. The calculation goes in its own module under `src/xafsmith/`, with no Qt imports. Defaults and constants go in
+   `defaults.py`, never repeated at the call site.
+2. Anything that writes files goes in `services.py`, so the command line and the interface save the same files with
+   the same names (`services.safe`) and a `.params.json` (`common.write_params`). Writes go through
+   `common.write_text_atomic`.
+3. Errors: raise `ConfigError` / `DataError` / `ModelError` / `FeffError` (`errors.py`) with a bilingual message;
+   they are still `ValueError` / `RuntimeError`, so callers' `except` clauses keep working.
+4. A `xafsmith <command>` in `cli.py` that calls the service, and its line in `src/xafsmith/docs/命令行速查.md`.
+5. A GUI place to run it (next checklist, or a card on an existing page) — rule 3.
+6. Tests: unit tests for the calculation; if it produces numbers that users report, add them to the golden snapshot
+   (`tools/golden.py`) and rewrite the baseline in a commit that says why.
+7. `ARCHITECTURE.md` module table and a CHANGELOG entry.
+
+### A page / 一个页面
+1. A `Page` subclass (`qt/widgets/layout.py`) with the class attributes `key` (unique), `title_zh`, `title_en`,
+   `icon_name`, and when they apply `needs` (data the page requires: `"groups"`, `"feff"`), `no_project = True` (usable
+   without an open project) and `hidden = True` (not in the navigation).
+2. Add the class to `_NAV` in `qt/app.py` (navigation order; `None` is the gap between groups). The tables `NEEDS`,
+   `NO_PROJECT`, `HIDDEN`, `TABBED` and `PARENT` are derived from the classes, do not edit them by hand. A tab inside
+   "Load & check" goes in `SpectraTabs.sub_pages` instead.
+3. Long work goes through `run_task` (rule 6); no calculation in the page itself — call the calculation module or
+   `services`.
+4. Every string via `T("中文", "English")`; a section in both GUI guides whose text contains the page title
+   (`title_zh` in `图形界面使用指南.md`, `title_en` in `GUI_guide_en.md`).
+5. A check in `tests/test_qt.py`, and the `ARCHITECTURE.md` GUI table.
 
 ## AI assistants / AI 助手
 
