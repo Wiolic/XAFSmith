@@ -4,10 +4,10 @@
 [语义化版本](https://semver.org/lang/zh-CN/)。
 All notable changes are recorded here (format: Keep a Changelog; versioning: SemVer).
 
-## [未发布 / Unreleased]
+## [1.4.2] — 2026-11-25
 
-命令行与图形界面改用同一个业务层（新模块 `services`）：同一个结果无论从哪边保存，文件名与内容都相同，并且每种保存都留下参数记录。拟合、LCF、QC、校准的数值逐位不变（黄金基线 `tests/golden/demo.json` 与本机快照）。
-The command line and the graphical interface now share one service layer (new module `services`): a result saved from either side has the same file names and contents, and every kind of save leaves a parameter record. Numbers of fits, LCF, QC and calibration are unchanged bit for bit (golden baseline `tests/golden/demo.json` and the local snapshot).
+工程补丁版，不加分析功能。命令行与图形界面改用同一个业务层（新模块 `services`）：同一个结果无论从哪边保存，文件名与内容都相同，并且每种保存都留下参数记录。项目配置有了版本迁移：旧版本在内存中升级、文件不改，新于软件的明确拒绝。默认值、模型结构检查各只写一份。拟合、LCF、QC、校准的数值逐位不变（黄金基线 `tests/golden/demo.json` 与本机快照）。
+An engineering patch release with no new analysis features. The command line and the graphical interface now share one service layer (new module `services`): a result saved from either side has the same file names and contents, and every kind of save leaves a parameter record. The project configuration gains version migration: older versions are upgraded in memory with the file left alone, newer ones are refused. Default values and model structure checks each exist once. Numbers of fits, LCF, QC and calibration are unchanged bit for bit (golden baseline `tests/golden/demo.json` and the local snapshot).
 
 ### 修复 / Fixed
 - **界面保存拟合补写 `<模型>.params.json`**：以前只有命令行写，界面保存（拟合结果、拟合历史“全部保存”、输出页、快速拟合）不写，报告与方法导出追溯不到模型。
@@ -21,12 +21,14 @@ The command line and the graphical interface now share one service layer (new mo
 
 - `xafsmith validate` 遇到多数据集模型里没写 `id`、而 `sample` 不是字符串（如误写成列表）时整个校验崩溃（TypeError）；现在报一条错误，指明写上 `id` 或把 `sample` 改为字符串。拟合本来就拒绝这种模型，行为不变。
   `xafsmith validate` crashed (TypeError) on a multi-dataset model whose dataset has no `id` and a non-string `sample` (a list, say); it now reports an error asking for an `id` or a string `sample`. Fitting already refused such a model.
+- XANES 特征表的“按样品合并”对数字样品名（如 `50`）失效：旧表读回时样品名成了数字，重算不替换旧行而是重复追加；现在按字符串比较。`xafsmith.json` 中 `xafsmith` 项不是对象时 `validate` 与保存配置崩溃，现在报错误。
+  The XANES table's merge by sample failed for numeric sample names (such as `50`): read back as numbers, old rows were never replaced and recomputes appended duplicates; names are now compared as strings. A non-object `xafsmith` entry in `xafsmith.json` crashed `validate` and config saving; it is now an error.
 
 ### 配置版本 / Config version
 - **旧版本项目在内存中升级，文件不改**：读 `xafsmith.json` 时按 `xafsmith.schema` 逐级升到当前数据标准（1.1），文件本身不改，下次正常保存配置时才写成新版本；图形界面打开这样的项目时在窗口底部提示一次，日志记一条。缺 `schema` 按 1.0 处理。1.0 → 1.1 只记新版本号（1.1 新增的只是 meta.csv 的可选列）。新模块 `migrate`。
   **Older projects are upgraded in memory, the file is left alone**: `xafsmith.json` is brought up to the current data standard (1.1) step by step from its `xafsmith.schema` when read; the file stays as it is until the configuration is next saved; the interface shows a one-time notice and the log gets one line. A missing `schema` counts as 1.0. 1.0 → 1.1 only records the new number (1.1 added only optional meta.csv columns). New module `migrate`.
-- **新于本软件的项目明确拒绝**：`xafsmith.schema` 新于本软件，或版本串无法识别时，读入报错（请升级软件或改正版本号），`xafsmith validate` 也报错误；以前照常读入，可能悄悄忽略新字段。
-  **Projects from a newer version are refused**: a `xafsmith.schema` newer than the software, or one that cannot be parsed, stops loading with an error (upgrade or fix the number) and is an error in `xafsmith validate`; before, such a file was read as is and new fields could be silently ignored.
+- **新于本软件的项目明确拒绝**：`xafsmith.schema` 新于本软件，或版本串无法识别时（`1.1.0` 与 `1.1` 视为同一版本），读入报错（请升级软件或改正版本号），`xafsmith validate` 也报错误；以前照常读入，可能悄悄忽略新字段。
+  **Projects from a newer version are refused**: a `xafsmith.schema` newer than the software, or one that cannot be parsed (`1.1.0` equals `1.1`), stops loading with an error (upgrade or fix the number) and is an error in `xafsmith validate`; before, such a file was read as is and new fields could be silently ignored.
 - 模板 `templates/xafsmith.json` 与《数据标准》示例的版本号改为 1.1（代码自 v1.1.0 起就是 1.1）。模型 JSON 可写可选的 `schema` 字段，新于本软件时 `validate` 只警告；软件不往已有模型里补写它。
   The template `templates/xafsmith.json` and the Data standard example now say 1.1 (the code has been 1.1 since v1.1.0). A model JSON may carry an optional `schema` field; newer than the software is only a warning in `validate`; existing models are never given one.
 - 每个 `*.params.json` 多记两项：`xafsmith_version`（软件版本）与 `schema_version`（数据标准版本）。
