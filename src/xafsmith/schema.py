@@ -12,11 +12,10 @@ import math
 
 import pandas as pd
 
-from . import paths
+from . import defaults, paths
 
 # ---------------------------------------------------------------- meta.csv
-META_COLS = ["file", "sample", "edge_key", "mode", "role", "use", "time", "npts", "emax", "note",
-             "batch", "ref_file", "format", "group", "seq"]      # format、group 为可选列（schema 1.1）；seq（序列变量，C2）为可选列
+META_COLS = defaults.META_COLS      # format、group 为可选列（schema 1.1）；seq（序列变量，C2）为可选列
 META_REQUIRED = ["file", "sample", "edge_key", "mode", "role", "use", "ref_file"]
 ROLES = {"reference", "standard", "sample"}
 MODES = {"trans", "fluo", ""}
