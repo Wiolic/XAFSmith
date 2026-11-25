@@ -491,7 +491,7 @@ Load samples and standards first. Three tabs:
 | Tab | What it does |
 |---|---|
 | Edge & white line | E0 (derivative maximum), E_half (normalized μ = 0.5), white-line position, height and area; **Save** writes `output/xanes/xanes_features.csv` (rows of the same samples are replaced, the rest kept) |
-| Valence calibration | Fits “edge position = slope × valence + intercept” on **measured standards of known valence**, then estimates the valence of samples with errors; values outside the standards' range are flagged “extrapolated” |
+| Valence calibration | Fits “quantity = slope × valence + intercept” (the quantity is an edge position E_half / E0_deriv / WL_E, or the white-line height WL_height or area WL_area) on **measured standards of known valence**, then estimates the valence of samples with errors; values outside the standards' range are flagged “extrapolated” |
 | Pre-edge fitting | Choose the range, number of peaks and edge baseline (erf / arctan) and click **Fit pre-edge**; peaks at a range limit or with area ≈ 0 are flagged |
 
 > Valence calibration only holds for standards and samples with the same ligands and similar structures.

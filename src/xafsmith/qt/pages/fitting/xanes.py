@@ -96,14 +96,17 @@ class XanesPage(Page):
         w = QWidget()
         lay = W.QVBoxLayout(w)
         lay.setContentsMargins(0, 10, 0, 0)
-        lay.addWidget(W.label(T("1 选已知价态的实测标样并填写价态；2 选边位置定义；3 选要估算的样品。",
-                                "1 choose measured standards of known valence and enter it; 2 choose the edge definition; 3 choose samples."), "muted"))
+        lay.addWidget(W.label(T("1 选已知价态的实测标样并填写价态；2 选标定量（边位置，或白线峰高 / 峰面积）；3 选要估算的样品。",
+                                "1 choose measured standards of known valence and enter it; 2 choose the quantity (edge position, or white-line "
+                                "height / area); 3 choose samples."), "muted"))
         stds = W.MultiSelect(cands, self.state.get("vstd", []), T("标样", "Standards"))
-        how = W.combo(["E_half", "E0_deriv", "WL_E"], self.state.get("how", "E_half"),
+        how = W.combo(list(xx.CAL_METRICS), self.state.get("how", "E_half"),
                       fmt=lambda h: {"E_half": T("E_half（半高点）", "E_half (half height)"), "E0_deriv": T("E0_deriv（导数最大值）", "E0_deriv (derivative max)"),
-                                     "WL_E": T("WL_E（白线峰位）", "WL_E (white-line peak)")}[h])
+                                     "WL_E": T("WL_E（白线峰位）", "WL_E (white-line peak)"),
+                                     "WL_height": T("WL_height（白线峰高）", "WL_height (white-line height)"),
+                                     "WL_area": T("WL_area（白线峰面积）", "WL_area (white-line area)")}[h])
         smp = W.MultiSelect(cands, self.state.get("vsmp", []), T("要估算价态的样品", "Samples to estimate"))
-        lay.addWidget(W.hbox(W.field(T("标样", "Standards"), stds), W.field(T("边位置定义", "Edge definition"), how),
+        lay.addWidget(W.hbox(W.field(T("标样", "Standards"), stds), W.field(T("标定量", "Quantity"), how),
                              W.field(T("样品", "Samples"), smp), spacing=12))
         holder = W.vbox()
         lay.addWidget(holder)
@@ -137,8 +140,10 @@ class XanesPage(Page):
                     logs.log.warning("qt.pages.fitting.calc 出错（已忽略或已提示）：%s", st_, exc_info=True)
                     out.layout().addWidget(Banner("info", str(ex)))
                     return
-                out.layout().addWidget(W.label(T(f"E = <b>{cal['a']:.3f}</b>·价态 + <b>{cal['b']:.2f}</b> eV；R² = {cal['r2']:.4f}；斜率误差 {cal['a_err']:.3f} eV/价（{cal['n']} 个标样）",
-                                                 f"E = <b>{cal['a']:.3f}</b>·valence + <b>{cal['b']:.2f}</b> eV; R² = {cal['r2']:.4f}; slope error {cal['a_err']:.3f} eV per unit ({cal['n']} standards)"), rich=True))
+                sym, unit = xx.CAL_METRICS[col]
+                us = f" {unit}" if unit else ""
+                out.layout().addWidget(W.label(T(f"{sym} = <b>{cal['a']:.4g}</b>·价态 + <b>{cal['b']:.6g}</b>{us}；R² = {cal['r2']:.4f}；斜率误差 {cal['a_err']:.3g}{us}/价（{cal['n']} 个标样）",
+                                                 f"{sym} = <b>{cal['a']:.4g}</b>·valence + <b>{cal['b']:.6g}</b>{us}; R² = {cal['r2']:.4f}; slope error {cal['a_err']:.3g}{us} per unit ({cal['n']} standards)"), rich=True))
                 if cal["n"] < 3:
                     out.layout().addWidget(Banner("warn", T("只有 2 个标样：直线没有统计误差，估算的价态误差未知。",
                                                             "Only 2 standards: the line has no statistical error; valence errors are unknown.")))
@@ -153,12 +158,12 @@ class XanesPage(Page):
                     sf = xx.features_table([S.groups[k] for k in smp.value()]).set_index("sample")
                     for k in smp.value():
                         v, err = xx.predict_valence(cal, float(sf.loc[k, col]))
-                        rows.append({T("样品", "Sample"): k, T("边位置", "Edge position"): float(sf.loc[k, col]),
+                        rows.append({T("样品", "Sample"): k, col: float(sf.loc[k, col]),
                                      T("价态", "Valence"): round(v, 3), T("误差", "Error"): None if not np.isfinite(err) else round(err, 3),
                                      T("外推", "Extrapolated"): T("是", "yes") if not (min(val) <= v <= max(val)) else ""})
                         p.ax.scatter([v], [float(sf.loc[k, col])], marker="x", s=50, label=k)
                 p.ax.set_xlabel(T("价态", "valence"))
-                p.ax.set_ylabel(f"{col} (eV)")
+                p.ax.set_ylabel(f"{col} ({unit})" if unit else col)
                 p.draw()
                 if rows:
                     rt = pd.DataFrame(rows)

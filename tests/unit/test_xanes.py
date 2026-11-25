@@ -85,3 +85,11 @@ def test_preedge_fit():
     assert areas[0] < 0.01 or any("面积≈0" in w for w in r2["warnings"])
     with pytest.raises(ValueError):
         preedge_fit(Group(energy=e, mu=y, e0=E0), emin=-20, emax=0)
+
+
+def test_cal_metrics_include_white_line_height_and_area():
+    from xafsmith import xanes as xx
+    assert {"WL_height", "WL_area"} <= set(xx.CAL_METRICS)
+    cal = xx.valence_calibration([1.2, 1.5, 1.8], [2, 3, 4])       # 白线峰高随价态线性增加
+    v, _ = xx.predict_valence(cal, 1.65)
+    assert abs(v - 3.5) < 1e-9

@@ -6,8 +6,8 @@
   WL_E       白线峰位：E0 至 E0+wl_window 内归一化 μ（flattened）的最大值位置
   WL_height  白线峰高（flattened，边跳 = 1）
   WL_area    白线面积：∫ max(flat − 1, 0) dE，积分区间 E0 … E0+wl_window（eV）
-价态标定：用已知价态的实测标样，对所选边位置定义做线性最小二乘 E = a·价态 + b，
-          样品价态 = (E − b)/a，误差由拟合协方差传递（不含标样本身的不确定性与化学环境差异）。
+价态标定：用已知价态的实测标样，对所选标定量（边位置 E_half / E0_deriv / WL_E，或白线峰高 WL_height、
+          峰面积 WL_area，见 CAL_METRICS）做线性最小二乘 Q = a·价态 + b，样品价态 = (Q − b)/a，误差由拟合协方差传递（不含标样本身的不确定性与化学环境差异）。
 边前峰：在 [E0+emin, E0+emax] 内用 n 个高斯峰（σ ≤ 2.5 eV）+ 误差函数（或反正切）台阶 + 常数拟合 flattened μ；
         台阶中心限制在半高点 E_half ± 6 eV，代表主边上升沿。
 
@@ -18,6 +18,11 @@ import math
 
 import numpy as np
 import pandas as pd
+
+
+# 价态标定可用的量：列名 → (公式中的符号, 单位)
+CAL_METRICS = {"E_half": ("E", "eV"), "E0_deriv": ("E", "eV"), "WL_E": ("E", "eV"),
+               "WL_height": ("WL_height", ""), "WL_area": ("WL_area", "eV")}
 
 
 def _need_norm(g):

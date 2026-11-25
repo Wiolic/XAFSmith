@@ -630,7 +630,7 @@ def cmd_xanes(a):
         std = dict(x.split("=", 1) for x in a.valence)
         t = tab.set_index("sample")
         cal = xx.valence_calibration([t.loc[s, a.position] for s in std], [float(v) for v in std.values()])
-        print(f"\n{a.position} = {cal['a']:.3f}·价态 + {cal['b']:.2f}  (R²={cal['r2']:.4f}, n={cal['n']})")
+        print(f"\n{a.position} = {cal['a']:.4g}·价态 + {cal['b']:.6g}  (R²={cal['r2']:.4f}, n={cal['n']})")
         for s in t.index:
             if s not in std:
                 v, err = xx.predict_valence(cal, float(t.loc[s, a.position]))
@@ -932,7 +932,8 @@ def build_parser():
     p = sp.add_parser("xanes", help="XANES 边位置/白线/价态")
     p.add_argument("--samples", nargs="+", required=True)
     p.add_argument("--valence", nargs="*", help="标样=价态，如 CoO=2 Co3O4=2.667")
-    p.add_argument("--position", default="E_half", choices=["E_half", "E0_deriv", "WL_E"])
+    p.add_argument("--position", default="E_half", choices=["E_half", "E0_deriv", "WL_E", "WL_height", "WL_area"],
+                   help="价态标定量：边位置，或白线峰高 / 峰面积")
     p.add_argument("--wl-window", type=float, default=30.0); p.set_defaults(f=cmd_xanes)
     p = sp.add_parser("export-prj", help="导出 Athena 工程")
     p.add_argument("--samples", nargs="+", required=True); p.add_argument("--out"); p.set_defaults(f=cmd_export_prj)
