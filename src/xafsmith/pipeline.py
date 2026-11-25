@@ -87,7 +87,7 @@ def scan_raw(raw_dir=None, meta_path=None):
     """扫描 data/raw，生成/更新 meta.csv（已存在的行保留用户的修改）。"""
     meta_path = meta_path or paths.META
     raw_dir = Path(raw_dir or paths.RAW)
-    old = pd.read_csv(meta_path, dtype=str).fillna("") if Path(meta_path).exists() else \
+    old = pd.read_csv(meta_path, dtype=str, encoding="utf-8-sig", keep_default_na=False) if Path(meta_path).exists() else \
         pd.DataFrame(columns=META_COLS)
     for c in META_COLS:
         if c not in old:
