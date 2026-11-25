@@ -2,11 +2,7 @@
 
 汇报用图：16:9，2666×1500（figsize 13.33×7.5 in, dpi 200）。
 R 空间图一律标注“未相移校正”。
-
-用法：
-  python -m xafsmith.report results/exafs_fits.csv     # 打印汇总
 """
-import sys
 
 import matplotlib
 import numpy as np
@@ -135,7 +131,3 @@ def _save(fig, out):
 def summary_table(csv):
     df = pd.read_csv(csv)
     return df
-
-
-if __name__ == "__main__":
-    print(summary_table(sys.argv[1]).to_string())
