@@ -41,7 +41,7 @@ def proj(tmp_path_factory):
     meta = pd.read_csv(mf, dtype=str, encoding="utf-8-sig").fillna("")
     src = meta[meta["sample"] == "cu_metal_rt"].iloc[0]
     rows = []
-    for i, s in enumerate(("cu_a", "cu_b")):
+    for s in ("cu_a", "cu_b"):
         r = src.copy()
         r["sample"], r["file"] = s, f"data/raw/public/{s}.xdi"
         shutil.copyfile(d / src["file"], d / r["file"])

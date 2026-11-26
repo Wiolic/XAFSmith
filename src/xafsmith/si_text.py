@@ -287,7 +287,7 @@ def build(keys=None):
         logs.log.debug("si_text.build 出错（已忽略或已提示）", exc_info=True)
         lv = "?"
     zh, en = [], []
-    for base, g in _group_models(keys, fits).items():
+    for g in _group_models(keys, fits).values():
         model, r0 = g["model"], g["rows"][0]
         smp = list(dict.fromkeys(g["samples"]))
         info = _sample_info(smp[0])

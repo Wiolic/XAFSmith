@@ -106,7 +106,7 @@ class ColumnWizard(QDialog):
             try:
                 a["if"] = [int(x) for x in txt.split(",") if x != ""]
             except ValueError:
-                raise ReadError("If 列号应是整数，多个用逗号隔开", "If column numbers must be integers separated by commas")
+                raise ReadError("If 列号应是整数，多个用逗号隔开", "If column numbers must be integers separated by commas") from None
         return a
 
     def _template(self):

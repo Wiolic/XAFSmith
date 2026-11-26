@@ -37,5 +37,5 @@ def test_guess_for_matches_common_guess_edge_and_rejects_bad_symbol(fe):
     assert guess_for(fe, "Fe") == ("Fe", "K")
     with pytest.raises(ValueError):
         guess_for(fe, "")
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         guess_for(fe, "Zz")

@@ -43,7 +43,7 @@ def _reach(obj, seen=None, depth=0):
 
 def _filled(c):
     try:
-        c.cell_contents
+        _ = c.cell_contents
         return True
     except ValueError:
         return False

@@ -83,7 +83,7 @@ def feffit_restrained(paramgroup, datasets, restraints, c0, rmax_out=10, path_ou
     add_sigma2funcs(params)
     for attr in FEFFDAT_VALUES:
         params._asteval.symtable[attr] = 1.0
-    for pname, par in work_paramgroup._params.items():
+    for par in work_paramgroup._params.values():
         par._delay_asteval = True
         params.add(par)
     for pname, parval in paramgroup.items():  # explicitly copy 'skip'!

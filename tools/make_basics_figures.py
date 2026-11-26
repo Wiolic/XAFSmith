@@ -343,7 +343,7 @@ def fig_wavelet(foil, oxide):
 def main():
     global LANG
     demo = Path(sys.argv[1]).resolve()
-    for LANG in ("zh", "en"):
+    for LANG in ("zh", "en"):  # noqa: B007  (LANG is a module global read by the figure functions)
         style()
         fig_absorption_coeff()
         fig_levels()

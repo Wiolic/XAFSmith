@@ -145,7 +145,7 @@ def preedge_fit(g, emin=-20.0, emax=0.0, npeaks=1, step="erf", centers=None):
     for i in range(npeaks):
         pre = f"p{i + 1}_"
         P = res.params
-        sd = lambda n: None if P[pre + n].stderr is None else float(P[pre + n].stderr)   # noqa: E731
+        sd = lambda n: None if P[pre + n].stderr is None else float(P[pre + n].stderr)   # noqa: E731, B023  sd() runs within this iteration
         peaks.append(dict(peak=i + 1, center=float(P[pre + "center"].value) + e0, center_err=sd("center"),
                           area=float(P[pre + "amplitude"].value), area_err=sd("amplitude"),
                           height=float(P[pre + "height"].value), fwhm=float(P[pre + "fwhm"].value)))

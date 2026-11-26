@@ -495,7 +495,7 @@ def summarize(res, model, data=None):
             v = path.path_paramvals()
 
             def err(pn):
-                p = path.params.get(path.pathpar_name(pn)) if path.params else None
+                p = path.params.get(path.pathpar_name(pn)) if path.params else None  # noqa: B023  err() runs within this iteration
                 return None if p is None or p.stderr is None else float(p.stderr)
             amp = float(path.degen) * float(v["s02"])
             prows.append(dict(path=path.label, reff=float(path.reff), degen=float(path.degen),

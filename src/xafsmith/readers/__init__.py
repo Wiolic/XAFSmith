@@ -67,7 +67,7 @@ def detect_format(path):
     try:
         head = _head(path)
     except OSError as ex:
-        raise ReadError(f"无法打开 {path.name}：{ex}", f"Cannot open {path.name}: {ex}")
+        raise ReadError(f"无法打开 {path.name}：{ex}", f"Cannot open {path.name}: {ex}") from ex
     best, score = None, 0
     for r in REGISTRY:
         s = r.detect(path, head)

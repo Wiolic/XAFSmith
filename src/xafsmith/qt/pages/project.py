@@ -400,7 +400,7 @@ class BatchPage(Page):
         W.link_range(pre1, pre2, 1.0)
         mark = lambda *_: setattr(self, "_par_dirty", True)        # noqa: E731
         for w_ in (el, pre1, pre2, norm1, norm2, nnorm, sm, rbkg, bkw, kmin, kmax, dk, win, fkw, s0v, s0e, s0s):
-            sig = getattr(w_, "valueChanged", None) or getattr(w_, "currentIndexChanged", None) or getattr(w_, "textChanged")
+            sig = getattr(w_, "valueChanged", None) or getattr(w_, "currentIndexChanged", None) or w_.textChanged
             sig.connect(mark)
 
         def save():

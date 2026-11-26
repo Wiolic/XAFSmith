@@ -61,11 +61,13 @@ target-version = "py311"
 extend-exclude = ["tests/data", "build", "dist"]
 
 [tool.ruff.lint]
-# 已开：语法错误、pyflakes（F）、W（空白）、UP（pyupgrade 现代写法）、PIE（多余写法）、B006/B008（默认参数）。
+# 已开：语法错误、pyflakes（F）、W（空白）、UP（pyupgrade 现代写法）、PIE（多余写法）、B（bugbear：默认参数、闭包绑定、except 链等）。
 # 暂不开 E501 与 ruff format（会改写几乎所有文件）；v1.0 前统一格式化一次。
 # 暂不开 C4（推导式改写，量大价值低）、E（含 E501，同上）、I（会改导入顺序）、SIM（改写分支结构，风险高于收益）、
 # PERF（微优化）、RUF（规则杂、版本间变动大）、PL（风格规则过多）。
-select = ["E9", "F", "W", "UP", "PIE", "B006", "B008"]
+select = ["E9", "F", "W", "UP", "PIE", "B"]
+# B905（zip 缺 strict=）不开：加 strict=True 会在长度不等时抛异常，改变现有行为（zip 默认按最短截断，数值逐位不变的原则下不改）。
+ignore = ["B905"]
 
 [tool.ruff.lint.per-file-ignores]
 # __init__.py 是有意的再导出

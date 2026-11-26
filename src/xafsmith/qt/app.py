@@ -50,7 +50,7 @@ class SpectraTabs(QWidget):
         self.tabs.setObjectName("pageTabs")
         self.tabs.setDocumentMode(True)
         self.tabs.setStyleSheet("QTabWidget#pageTabs::tab-bar{left:36px;}")
-        for k, pg in self.subs.items():
+        for pg in self.subs.values():
             self.tabs.addTab(pg, "  " + T(pg.title_zh, pg.title_en) + "  ")
         self.tabs.currentChanged.connect(self._changed)
         v.addWidget(self.tabs)
