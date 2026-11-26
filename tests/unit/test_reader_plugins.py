@@ -31,8 +31,9 @@ class _FakeEP:
 
 @pytest.fixture
 def clean_registry():
-    reg, by = list(readers.REGISTRY), dict(readers.BY_NAME)
+    reg, by, plg = list(readers.REGISTRY), dict(readers.BY_NAME), list(readers._PLUGINS)
     yield
+    readers._PLUGINS[:] = plg
     readers.REGISTRY[:] = reg
     readers.BY_NAME.clear()
     readers.BY_NAME.update(by)
@@ -91,3 +92,22 @@ def test_entry_points_failure_ignored(monkeypatch, clean_registry):
         raise OSError("no metadata")
     monkeypatch.setattr(importlib.metadata, "entry_points", boom)
     assert readers.load_plugins() == []
+
+
+class _Broken(Reader):
+    name = "plugin_broken"
+
+    def detect(self, path, head):
+        raise IndexError("plugin bug")
+
+
+def test_plugin_detect_error_is_skipped(monkeypatch, clean_registry, tmp_path, caplog):
+    # 插件的 detect 抛异常：记日志并跳过该插件，其他文件照常识别（不让一个坏插件使所有读入失败）
+    _patch(monkeypatch, [_FakeEP("broken", _Broken)])
+    assert readers.load_plugins() == ["plugin_broken"]
+    f = tmp_path / "a.xdi"
+    f.write_text("# XDI/1.0\n# Column.1: energy\n# Column.2: mutrans\n#----\n# energy mutrans\n1 2\n2 3\n", encoding="utf-8")
+    with caplog.at_level(logging.WARNING):
+        name, _ = readers.detect_format(f)
+    assert name == "xdi"
+    assert "plugin_broken" in caplog.text

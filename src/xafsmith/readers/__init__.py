@@ -13,6 +13,7 @@ from .formats import (AthenaXmuReader, BsrfReader, ColumnsReader, PrjReader, Xda
 REGISTRY = [BsrfReader(), XdiReader(), AthenaXmuReader(), XdacReader(), PrjReader(), ColumnsReader()]
 BY_NAME = {r.name: r for r in REGISTRY}
 ENTRY_POINT_GROUP = "xafsmith.readers"
+_PLUGINS: list = []          # 由 load_plugins 加入的 reader（detect 出错时只跳过它们，内置 reader 行为不变）
 
 
 def load_plugins():
@@ -47,6 +48,7 @@ def load_plugins():
             continue
         REGISTRY.append(obj)
         BY_NAME[obj.name] = obj
+        _PLUGINS.append(obj)
         added.append(obj.name)
     return added
 
@@ -70,7 +72,15 @@ def detect_format(path):
         raise ReadError(f"无法打开 {path.name}：{ex}", f"Cannot open {path.name}: {ex}") from ex
     best, score = None, 0
     for r in REGISTRY:
-        s = r.detect(path, head)
+        if any(r is p for p in _PLUGINS):
+            try:
+                s = r.detect(path, head)
+            except Exception:                      # 插件出错不能让所有文件都无法识别
+                logs.log.warning("读入格式插件“%s”识别 %s 时出错，已跳过 / reader plugin '%s' failed on %s, skipped",
+                                 r.name, path.name, r.name, path.name, exc_info=True)
+                continue
+        else:
+            s = r.detect(path, head)
         if s > score:
             best, score = r.name, s
     return (best, score) if score >= 30 else (None, score)
