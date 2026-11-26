@@ -129,6 +129,12 @@ Thread rules (see the header of `xafsmith/tasks.py`):
 - inputs are copied before the task starts; results are written back in `on_done` (GUI thread);
 - matplotlib in workers uses the object API (`Figure` + Agg canvas), never `pyplot`.
 
+What runs where: fits, FEFF, loading, report building and the wavelet transform run in tasks. The wavelet page tags
+each request with a sequence number: one computation at a time, a request made while one runs is queued as a single
+rerun with the latest settings, and a result that is no longer the latest is dropped. Short work stays on the GUI
+thread under `wait_cursor`: χ(k)/FT redraws (about 0.1 s for ten spectra) and the journal-figure preview, which draws
+on the page's Qt canvas and so must stay on the GUI thread.
+
 ## 5. Errors and logging / 错误与日志
 
 `logs.py` configures a rotating log at `~/.xafsmith/xafsmith.log` on import and installs an exception hook.
@@ -149,8 +155,8 @@ before. `errors.explain(exc, lang)` turns an exception into “what happened / w
 |---|---|---|
 | `tests/unit/` | one file per module (readers, schema, calib, normalize, tasks, session, update, …) | yes |
 | `tests/benchmark/` | Cu-foil first shell vs Larch's `doc_feffit1` example, bit-identical to a direct Larch call, full-pipeline invariants; multi-dataset and restraint fits bit-identical to a frozen v1.1 copy (`_legacy_fit_v11.py`) in the single-dataset, unrestrained case, error calibration on synthetic spectra | yes |
-| `tests/test_qt.py` | page-by-page GUI test (offscreen) on the public demo project, both languages | yes |
-| `tests/local/` | tests that need the author's own data (git-ignored) | no |
+| `tests/gui/` | page-by-page GUI test (pytest, offscreen) on a temporary copy of the public demo project, both languages. One session-scoped window; files run in the order of their two-digit prefix and share state (`ctx`); `say()` records each check and a test fails listing all its `[FAIL]` lines. `tests/test_qt.py` is a thin entry over it | yes |
+| `tests/local/` | tests that need the author's own data (git-ignored), including `tests/local/gui/` (GUI checks specific to that project, on a temporary copy of it) | no |
 
 Test data are public only (`tests/data/demo_project/SOURCES.md` records source and license of every file).
 
@@ -178,7 +184,10 @@ Test data are public only (`tests/data/demo_project/SOURCES.md` records source a
 | fitting (Detailed fit) | `fit_exafs.py`, `qt/pages/fitting/fit_page.py`, `docs/XAFS处理规范.md` |
 | Quick fit (first shell, joint, mixed phase, verdict) | `quickfit.py` (no Qt: first shell, automatic Rmin, model building, verdict thresholds as module constants), `fitcheck.py` (quality checks shared with Detailed fit), `s02_source.py` (standard-fit S0² candidates), `qt/pages/fitting/quick_fit.py`, `GLOSSARY.md`, `docs/adr/0001-*` |
 | joint-fit series (trend table, trend figure, user trend order, σ² independence, tick sync) | `trend.py` (no Qt: seq variable, N_err rule, shared flags, quick-fit first-shell rows, user order), `seqtools.py`, `pubfig.trend`, `origin_export._errorbar_parts`, `qt/pages/fitting/trend_view.py`, `docs/数据标准.md` |
-| run a model / save a result (fit, robustness, comparison, LCF, XANES, QC, calibration) | `services.py` (no Qt, no print: the single implementation both the CLI and the GUI call; every save also writes `*.params.json`; file names use `pipeline.safe`; `tests/unit/test_services.py`) |
+| run a model / save a result (fit, robustness, comparison, LCF, XANES, QC, calibration, merged scans) | `services.py` (no Qt, no print: the single implementation both the CLI and the GUI call; every save also writes `*.params.json`, except the merge report, which never had one; file names use `pipeline.safe`; `tests/unit/test_services.py`) |
+| the model the Detailed-fit page builds | `services.build_fit_model`, `params_from_table`, `paths_from_table`, `default_param_row` (pure functions; starting values of new parameters in `defaults.FIT_PARAM_DEFAULTS`); `fit_page.py` only collects the tables, and its card builders share one `_CardCtx`; `tests/unit/test_fit_model_build.py` |
+| reading files picked in the GUI | `io.read_direct` (auto-detect, a reader, a template, or column numbers given by the user, which become a temporary template and take the same path as saved templates; `.prj` returns every group) |
+| wavelet maxima | `wavelet.compute` / `wavelet.maxima` (the page only formats the table and draws) |
 | a GUI page | `qt/app.py` (navigation), the page module, `qt/widgets/` |
 | release | `packaging/`, `.github/workflows/release.yml`, `docs/dev/RELEASING.md` |
 | adding a format, an analysis or a page | the three checklists in [CONTRIBUTING.md](CONTRIBUTING.md) |
@@ -194,7 +203,7 @@ Every module under `src/xafsmith/` (package `__init__.py` / `__main__.py` and th
 | Module | Role |
 |---|---|
 | `cli.py` | the `xafsmith` command line; each subcommand calls `services` / the computation modules |
-| `services.py` | single service layer shared by CLI and GUI: run a model, save fits, robustness, comparison, LCF, XANES, QC, calibration |
+| `services.py` | single service layer shared by CLI and GUI: run a model, save fits, robustness, comparison, LCF, XANES, QC, calibration, merged scans; build the Detailed-fit model dict |
 | `pipeline.py` | configuration-driven batch processing: meta.csv + xafsmith.json → calibration → normalization → merge → χ(k) → FT |
 | `paths.py` | project directory standard; every project path |
 | `defaults.py` | default values and shared constants (no Qt, no larch) |
@@ -209,7 +218,7 @@ Every module under `src/xafsmith/` (package `__init__.py` / `__main__.py` and th
 | `update.py` | update check against GitHub Releases |
 | `about.py` | author, disclaimer and citation text used everywhere |
 | `agent.py` | connects a project to AI assistants (`xafsmith agent`) |
-| `io.py` | facade: read beamline data into a Larch Group |
+| `io.py` | facade: read beamline data into a Larch Group; `read_direct` for files picked in the GUI |
 | `readers/base.py` | `Reader` base class, `ReadError`, column-name mapping, text-table parsing |
 | `readers/formats.py` | one reader per built-in format |
 | `readers/wizard.py` | column-mapping wizard back end (preview, template, trial read) |
@@ -218,7 +227,7 @@ Every module under `src/xafsmith/` (package `__init__.py` / `__main__.py` and th
 | `normalize.py` | scan merging, pre/post-edge, normalization, E0 |
 | `autobk.py` | background removal (Larch `autobk`) → χ(k) |
 | `ft.py` | k-space windows and Fourier transform (Larch `xftf`) |
-| `wavelet.py` | wavelet transform of χ(k) |
+| `wavelet.py` | wavelet transform of χ(k); `compute` and `maxima` used by the wavelet page |
 | `structures.py` | built-in reference structures and CIF reading |
 | `feff_wrap.py` | structure → feff.inp → FEFF6L / FEFF8L → path list |
 | `fit_exafs.py` | EXAFS path fitting (Larch `feffit` wrapper), multi-dataset, F-test, comparison |

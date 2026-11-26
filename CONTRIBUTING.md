@@ -42,16 +42,19 @@ This is the only authoritative list; `AGENTS.md` files link here. Run from `XAFS
 
 ```bash
 python -m pytest tests/unit tests/benchmark        # includes tests/benchmark/test_golden.py (golden baseline)
-python tests/test_qt.py                            # page-by-page GUI test on the public demo project (offscreen); --quick skips FEFF8L and robustness
-python tests/test_qt.py --project <local project>  # same, on your own project (only on a machine that has one)
+python -m pytest tests/gui -q                      # page-by-page GUI test on a temporary copy of the public demo project (offscreen)
+python -m pytest tests/local                       # only on a machine that has the private project (git-ignored; includes tests/local/gui)
 python -m ruff check src tests tools               # 0 errors; do not run `ruff format`
 python -m mypy                                     # 0 errors; checks the modules listed in pyproject [tool.mypy] (non-strict)
 ```
 
-- The first, third, fourth and fifth commands must pass; CI runs them on Windows and Ubuntu with Python 3.11 and 3.12.
+- The first, second, fourth and fifth commands must pass; CI runs them on Windows and Ubuntu with Python 3.11 and 3.12.
+- `python tests/test_qt.py` still works as a thin entry over `tests/gui` (`--project <dir>` runs `tests/local/gui` for the
+  IrTaOx project, `--quick` skips FEFF8L and robustness). GUI tests always run on a temporary copy of the project and never
+  write to it. `tests/gui` is a pipeline: files run in the order of their two-digit prefix and share state, so a file run
+  alone skips the checks whose prerequisites are missing; `test_99_english.py` must stay last.
 - Fitting changes, on a machine that has the private IrTaOx project only: `xafsmith fit IrO2_1shell_ArtemisCompare --nosave`
-  must give S0² ≈ 0.816 and ΔE0 ≈ 8.93; also `python -m pytest tests/local` (git-ignored, includes the
-  `tools/golden.py local` snapshot).
+  must give S0² ≈ 0.816 and ΔE0 ≈ 8.93; `tests/local` includes the `tools/golden.py local` snapshot.
 - If a number changes **on purpose**: rewrite the baseline with `python tools/golden.py demo --write` and state the reason
   in the commit message (and in the PR). Never loosen a tolerance just to make a test pass.
   数值有意改变时重写基线并在提交信息里写明原因。
@@ -126,7 +129,8 @@ the documents named below, so most forgotten steps show up in the tests.
    `services`.
 4. Every string via `T("中文", "English")`; a section in both GUI guides whose text contains the page title
    (`title_zh` in `图形界面使用指南.md`, `title_en` in `GUI_guide_en.md`).
-5. A check in `tests/test_qt.py`, and the `ARCHITECTURE.md` GUI table.
+5. A check in `tests/gui/` (in the file whose number matches where the page's data become available, or a new
+   `test_NN_<topic>.py`; checks shared with `tests/local/gui` go in `tests/gui/checks.py`), and the `ARCHITECTURE.md` GUI table.
 
 ## AI assistants / AI 助手
 
