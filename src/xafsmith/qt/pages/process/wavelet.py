@@ -168,31 +168,16 @@ class WaveletPage(Page):
 
         def compute(name):
             g = S.groups[name]
-            m = g.k <= S.ft_par["kmax"]
-            rmax = w["rmax"].value()
-            if w["kind"].value() == "Morlet":
-                kk, rr, Wt = xwav.morlet(g.k[m], g.chi[m], kweight=w["kw"].value(), rmax=rmax, eta=w["eta"].value(),
-                                         sigma=w["sig"].value())
-            else:
-                from larch import Group
-                kk, rr, Wt = xwav.cauchy(Group(k=g.k[m], chi=g.chi[m]), kweight=w["kw"].value(), rmax_out=rmax)
-                mm = (rr <= rmax) & (rr > 0)
-                rr, Wt = rr[mm], Wt[mm]
-            return dict(name=name, g=g, kk=np.asarray(kk), rr=np.asarray(rr), W=np.asarray(Wt))
+            kk, rr, Wt = xwav.compute(g.k, g.chi, kind=w["kind"].value(), kweight=w["kw"].value(), rmax=w["rmax"].value(),
+                                      eta=w["eta"].value(), sigma=w["sig"].value(), kmax=S.ft_par["kmax"])
+            return dict(name=name, g=g, kk=kk, rr=rr, W=Wt)
 
         def maxima(d):
-            rows = []
             wins = parse_ranges(rng.text())
-            kk, rr, Wt = d["kk"], d["rr"], d["W"]
-            for lo, hi in wins:
-                sel = (rr >= lo) & (rr <= hi)
-                if not sel.any():
-                    continue
-                sub = Wt[sel]
-                i, j = np.unravel_index(np.argmax(sub), sub.shape)
-                rows.append({T("样品", "Sample"): d["name"], T("R 区间 (Å)", "R window (Å)"): f"{lo:g}–{hi:g}",
-                             T("极大值所在 k (Å⁻¹)", "k at maximum (Å⁻¹)"): round(float(kk[j]), 2),
-                             T("极大值所在 R (Å)", "R at maximum (Å)"): round(float(rr[sel][i]), 2), "|W| max": float(sub[i, j])})
+            rows = [{T("样品", "Sample"): d["name"], T("R 区间 (Å)", "R window (Å)"): f"{m['window_lo']:g}–{m['window_hi']:g}",
+                     T("极大值所在 k (Å⁻¹)", "k at maximum (Å⁻¹)"): round(m["k_max"], 2),
+                     T("极大值所在 R (Å)", "R at maximum (Å)"): round(m["r_max"], 2), "|W| max": m["w_max"]}
+                    for m in xwav.maxima(d["kk"], d["rr"], d["W"], wins)]
             return pd.DataFrame(rows)
 
         def update():
