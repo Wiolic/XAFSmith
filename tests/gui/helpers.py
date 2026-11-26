@@ -97,7 +97,7 @@ def texts(page):
 # ---- 以下为迁入 pytest 时新增（不属于原脚本）：项目临时副本、失败汇总
 def copy_project(src, dst, subset_outputs=("feff",)):
     """把项目复制到临时目录 dst，使测试从不写源项目。
-    演示项目（体积小）整个复制；其他项目只复制 xafsmith.json、data/、models/、structures/ 与 output/ 下 subset_outputs 里的子目录
+    演示项目（体积小）整个复制；其他项目只复制 xafsmith.json、data/、models/、structures/ 与 output/ 下 subset_outputs 里的子目录或文件
     （不复制体积很大的整个 output）。基准测试的 FEFF 路径文件（tests/data/benchmark）复制到 dst 旁边的 benchmark/，
     检查里用 PROJ.parent / "benchmark" 引用它。"""
     import shutil
@@ -112,9 +112,12 @@ def copy_project(src, dst, subset_outputs=("feff",)):
         for d in ("data", "models", "structures"):
             if (src / d).is_dir():
                 shutil.copytree(src / d, dst / d)
-        for d in subset_outputs:
+        for d in subset_outputs:                    # output/ 下的子目录，或单个文件（如 "fits/exafs_fits.csv"）
             if (src / "output" / d).is_dir():
                 shutil.copytree(src / "output" / d, dst / "output" / d)
+            elif (src / "output" / d).is_file():
+                (dst / "output" / d).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src / "output" / d, dst / "output" / d)
     shutil.copytree(demo.parent / "benchmark", dst.parent / "benchmark")
     return dst
 
