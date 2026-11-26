@@ -126,3 +126,30 @@ def test_wavelet_background(app, w, ctx, proj):
                        kmax=S.ft_par["kmax"])[2].ravel()
     say(got.shape == exp.shape and np.array_equal(got, exp), "小波：画出的是最新一次（k 权重 2）的结果，与 wavelet.compute 相同")
     say(not W.task_running("wavelet"), "小波：后台任务已结束")
+
+
+def test_merge_scans_page(app, w, ctx, proj):
+    """归一化页“合并扫描”：生成合并谱并写 output/gui/merge_<名称>.csv（E17：写盘在 services.merge_scans）"""
+    need(ctx, "loaded")
+    import copy
+    from xafsmith import paths
+    S, P = w.S, w.pages
+    S.groups["cu_dup_for_merge"] = copy.deepcopy(S.groups["cu_metal_rt"])
+    S.groups["cu_dup_for_merge"].label = "cu_dup_for_merge"
+    out = paths.GUI / "merge_gui_merge_test.csv"
+    existed = out.exists()
+    w.go("norm")
+    P["norm"].state.update(m_sel=["cu_metal_rt", "cu_dup_for_merge"], m_name="gui_merge_test", m_rej=[])
+    P["norm"].refresh()
+    n = len(W.ERRORS)
+    click(P["norm"], "合并")
+    wait(app)
+    step("合并扫描", n)
+    g = S.groups.get("gui_merge_test")
+    say(g is not None and g.nscans == 2, f"合并：生成 gui_merge_test（{getattr(g, 'nscans', None)} 条扫描）")
+    text = out.read_text(encoding="utf-8-sig") if out.exists() else ""
+    say(not existed and text.startswith("label,rms_vs_median") and "cu_dup_for_merge" in text, "合并：报告 csv 已写入 output/gui")
+    S.groups.pop("gui_merge_test", None)
+    S.groups.pop("cu_dup_for_merge", None)
+    if not existed and out.exists():
+        out.unlink()

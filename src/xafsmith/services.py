@@ -300,6 +300,19 @@ def save_xanes(tab, *, wl_window, tool) -> Path:
 
 
 # ----------------------------------------------------------------------------- QC 表 / 校准记录
+def merge_scans(groups, *, label, reject=None, tol_sigma=4.0, tool="gui:normalize"):
+    """合并多条扫描（`normalize.merge_scans`）并把报告写到 `paths.GUI / merge_<safe(label)>.csv`（utf-8-sig，无索引列）。
+    返回 (合并后的 group, 报告 DataFrame, csv 路径)。tool 只记入日志（合并报告历来没有 params.json，不新增文件）。"""
+    import pandas as pd
+    from xafsmith import normalize as xnorm
+    m, rep = xnorm.merge_scans(groups, label=label, reject=reject, tol_sigma=tol_sigma)
+    df = pd.DataFrame(rep)
+    out = paths.GUI / f"merge_{safe(label)}.csv"
+    df.to_csv(out, index=False, encoding="utf-8-sig")
+    logs.log.info("merge_scans（%s）：%d 条 → %s（%d 条被采用）", tool, len(groups), label, getattr(m, "nscans", 0))
+    return m, df, out
+
+
 def save_qc(df, *, norm_params, tool) -> Path:
     """QC 表 → qc/qc_report.csv，与 qc_report.params.json（params = 所用归一化参数）。"""
     paths.QC.mkdir(parents=True, exist_ok=True)

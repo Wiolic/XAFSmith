@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from xafsmith import logs
 import numpy as np
-import pandas as pd
 from PySide6.QtWidgets import QWidget
-from xafsmith import paths
+from xafsmith import paths, services
 from ... import widgets as W
 from xafsmith.services import safe
 from ...theme import C
@@ -147,7 +146,6 @@ class NormPage(Page):
         self.notice("err", T(f"{len(errs)} 条谱归一化失败", f"{len(errs)} spectra failed to normalize"), errs, key="norm")
 
     def _merge(self, sel):
-        from xafsmith import normalize as xnorm
         S = self.S
         w = QWidget()
         lay = W.QVBoxLayout(w)
@@ -177,12 +175,12 @@ class NormPage(Page):
                     f"“{name.text()}”已存在，合并结果将覆盖它。继续吗？",
                     f"“{name.text()}” already exists and will be overwritten. Continue?")):
                 return
-            m, rep = xnorm.merge_scans([S.groups[k] for k in v], label=name.text(), reject=rej.value(), tol_sigma=tol.value())
+            m, rep, _ = services.merge_scans([S.groups[k] for k in v], label=name.text(), reject=rej.value(), tol_sigma=tol.value(),
+                                             tool="gui:normalize")
             S.groups[name.text()] = m
-            pd.DataFrame(rep).to_csv(paths.GUI / f"merge_{safe(name.text())}.csv", index=False, encoding="utf-8-sig")
             W._clear_layout(out.layout())
             out.layout().addWidget(Banner("ok", T(f"已生成 {name.text()}（{m.nscans} 条扫描）", f"Created {name.text()} ({m.nscans} scans)")))
-            out.layout().addWidget(W.Table(pd.DataFrame(rep)))
+            out.layout().addWidget(W.Table(rep))
             S.emit("groups")              # 不 ack：回到本页时重建，下拉框里才有新合并的谱
         lay.addWidget(W.hbox(None, W.button(T("合并", "Merge"), primary=True, slot=lambda: W.wait_cursor(go))))
         lay.addWidget(out)
