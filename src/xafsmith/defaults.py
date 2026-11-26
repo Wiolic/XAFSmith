@@ -3,6 +3,7 @@
 normalize / autobk / ft 的 DEFAULT_* 与 schema / pipeline / qt 里的同名常量都指向这里。
 """
 from pathlib import Path
+from typing import Any
 
 # 用户级目录（日志、最近项目、设置），在导入时求值。paths.USER_DIR 指向同一对象；
 # logs / update 在 cli 解析 --project 之前就被导入，不能为此导入 paths（paths 导入时即确定项目根目录），所以定义放在这里
@@ -33,3 +34,13 @@ META_COLS = ["file", "sample", "edge_key", "mode", "role", "use", "time", "npts"
 DATA_SUFFIX = {".xdi", ".xmu", ".dat", ".txt", ".csv", ".chi", ".prj"}
 # RAW_LIST_SUFFIX：GUI 列出原始数据文件夹时，直接认作数据文件的后缀（含 .nor，不含 .csv .chi）
 RAW_LIST_SUFFIX = (".dat", ".xmu", ".nor", ".txt", ".prj", ".xdi")
+
+# 精细拟合页参数表：新参数的初值 (value, vary, min, max)，按参数名匹配（services.default_param_row）。
+# 前缀判断顺序：thD/thE 先于 ss0_ 先于 ss；不与 quickfit 的 SS_INIT 等合并（语义不同）
+FIT_PARAM_DEFAULTS: dict[str, Any] = dict(
+    exact={"s02": (0.85, True, 0.3, 1.5), "e0": (0.0, True, -15, 15)},
+    theta=(300.0, True, 50.0, 2000.0),     # thD*, thE*
+    ss0=(0.0, True, None, None),           # ss0_*
+    ss=(0.003, True, 0.0, 0.05),           # ss*
+    dr=(0.0, True, -0.5, 0.5),             # dr*
+    other=(1.0, True, None, None))

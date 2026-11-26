@@ -10,6 +10,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, cast
 
 from xafsmith import logs, paths, pipeline as pl
 from xafsmith.common import write_params, write_text_atomic
@@ -39,6 +40,75 @@ class plain_rc:
 
     def __exit__(self, *a):
         self._ctx.__exit__(*a)
+
+
+# ----------------------------------------------------------------------------- 精细拟合页：模型字典拼装（纯函数）
+PARAM_TABLE_COLS = ["name", "value", "vary", "min", "max", "expr"]
+
+
+def default_param_row(name: str) -> dict[str, Any]:
+    """参数表里新参数（旧表里没有的名字）的默认行：按名字取 `defaults.FIT_PARAM_DEFAULTS`（thD/thE → ss0_ → ss → dr → 其他）。"""
+    from xafsmith.defaults import FIT_PARAM_DEFAULTS as D
+    v, vary, lo, hi = D["exact"].get(name) or (
+        D["theta"] if name.startswith(("thD", "thE")) else
+        D["ss0"] if name.startswith("ss0_") else
+        D["ss"] if name.startswith("ss") else
+        D["dr"] if name.startswith("dr") else D["other"])
+    return dict(name=name, value=v, vary=vary, min=lo, max=hi, expr="")
+
+
+def params_from_table(df) -> dict:
+    """参数表 DataFrame → 模型 `params`：expr 非空 → {"expr"}；否则 value / vary / min / max（NaN → None）。"""
+    import pandas as pd
+    params: dict[str, Any] = {}
+    for _, r in df.iterrows():
+        if isinstance(r.expr, str) and r.expr.strip():
+            params[r["name"]] = {"expr": r.expr}
+        else:
+            params[r["name"]] = {"value": float(r.value), "vary": bool(r.vary),
+                                 "min": None if pd.isna(r["min"]) else float(r["min"]),
+                                 "max": None if pd.isna(r["max"]) else float(r["max"])}
+    return params
+
+
+def paths_from_table(used) -> list[dict]:
+    """已勾选的路径表行 → 模型 `paths`：N 非空才写；third / note 非空才写（note 去首尾空白，只是说明、计算忽略）。"""
+    out = []
+    for _, r in used.iterrows():
+        d = dict(file=r.file, label=r.label, s02=r.s02, e0=r.e0, deltar=r.deltar, sigma2=r.sigma2)
+        if str(r.N).strip():
+            d["N"] = str(r.N)
+        if isinstance(r.third, str) and r.third.strip():
+            d["third"] = r.third
+        if isinstance(r.note, str) and r.note.strip():
+            d["note"] = r.note.strip()
+        out.append(d)
+    return out
+
+
+def build_fit_model(*, name, rng, params, norm, bkg, restraints=None, datasets=None,
+                    sample=None, paths=None, temperature=None) -> ModelDict:
+    """拼模型字典（键的插入顺序即保存的 json 的键顺序，逐字节同旧界面代码）。
+    rng：拟合范围状态 {kmin, kmax, dk, win, kws, rmin, rmax, space}；
+    多数据集给 datasets = [{id, sample, over: {覆盖范围}, temperature: 可选, paths}]；单数据集给 sample / paths / temperature。
+    restraints 为空 → 不写 restraints 键。"""
+    r = dict(kmin=rng["kmin"], kmax=rng["kmax"], dk=rng["dk"], window=rng["win"], kweight=rng["kws"] or [2],
+             rmin=rng["rmin"], rmax=rng["rmax"], fitspace=rng["space"])
+    extra = dict(restraints=restraints) if restraints else {}
+    if datasets is not None:
+        dsl = []
+        for ds in datasets:
+            d = dict(id=ds["id"], sample=ds["sample"])
+            d.update(ds.get("over") or {})
+            if ds.get("temperature") is not None:
+                d["temperature"] = ds["temperature"]
+            d["paths"] = ds["paths"]
+            dsl.append(d)
+        return cast(ModelDict, dict(name=name, params=params, **r, datasets=dsl, norm=dict(norm), bkg=dict(bkg), **extra))
+    model: dict[str, Any] = dict(name=name, sample=sample, **r, params=params, paths=paths, norm=dict(norm), bkg=dict(bkg), **extra)
+    if temperature is not None:
+        model["temperature"] = temperature
+    return cast(ModelDict, model)
 
 
 # ----------------------------------------------------------------------------- 读 / 运行模型
