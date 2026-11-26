@@ -859,7 +859,6 @@ class FitPage(Page):
         c4.add(nv)
         rcur = self._restraint_section(c4)
         add(c4)
-        defaults = {"s02": (0.85, True, 0.3, 1.5), "e0": (0.0, True, -15, 15)}
         cur = {}
         self._ptab = cur
 
@@ -891,11 +890,7 @@ class FitPage(Page):
                 if n in set(old.name):
                     rows.append(old[old.name == n].iloc[0].to_dict())
                 else:
-                    v, vary, lo, hi = defaults.get(n, (300.0, True, 50.0, 2000.0) if n.startswith(("thD", "thE")) else
-                                                   (0.0, True, None, None) if n.startswith("ss0_") else
-                                                   (0.003, True, 0.0, 0.05) if n.startswith("ss") else
-                                                   (0.0, True, -0.5, 0.5) if n.startswith("dr") else (1.0, True, None, None))
-                    rows.append(dict(name=n, value=v, vary=vary, min=lo, max=hi, expr=""))
+                    rows.append(services.default_param_row(n))
             df = pd.DataFrame(rows, columns=["name", "value", "vary", "min", "max", "expr"])
             for c_ in ("value", "min", "max"):
                 df[c_] = pd.to_numeric(df[c_], errors="coerce").astype(float)
@@ -993,15 +988,7 @@ class FitPage(Page):
             t = cur["tab"].df()
             self.state["partab"] = pd.concat([self.state.get("partab", t.iloc[0:0])[lambda d: ~d.name.isin(t.name)], t],
                                              ignore_index=True)
-            params = {}
-            for _, r in t.iterrows():
-                if isinstance(r.expr, str) and r.expr.strip():
-                    params[r["name"]] = {"expr": r.expr}
-                else:
-                    params[r["name"]] = {"value": float(r.value), "vary": bool(r.vary),
-                                         "min": None if pd.isna(r["min"]) else float(r["min"]),
-                                         "max": None if pd.isna(r["max"]) else float(r["max"])}
-
+            params = services.params_from_table(t)
             restraints = self._restraints_from_table(rcur)
             if restraints is False:
                 return
@@ -1026,36 +1013,15 @@ class FitPage(Page):
                     return
                 tvals[k] = tv
 
-            def mk_paths(used):
-                mpaths = []
-                for _, r in used.iterrows():
-                    d = dict(file=r.file, label=r.label, s02=r.s02, e0=r.e0, deltar=r.deltar, sigma2=r.sigma2)
-                    if str(r.N).strip():
-                        d["N"] = str(r.N)
-                    if isinstance(r.third, str) and r.third.strip():
-                        d["third"] = r.third
-                    if isinstance(r.note, str) and r.note.strip():       # B5：note 只是说明，计算忽略
-                        d["note"] = r.note.strip()
-                    mpaths.append(d)
-                return mpaths
-            rng = dict(kmin=st["kmin"], kmax=st["kmax"], dk=st["dk"], window=st["win"], kweight=st["kws"] or [2],
-                       rmin=st["rmin"], rmax=st["rmax"], fitspace=st["space"])
-            extra = dict(restraints=restraints) if restraints else {}        # 表为空 → 模型不写 restraints 键
             if multi:
-                dsl = []
-                for k in keys:
-                    d = dict(id=ids[k], sample=k)
-                    d.update(over_vals(k)[0])
-                    if k in tvals:
-                        d["temperature"] = tvals[k]
-                    d["paths"] = mk_paths(used_by[k])
-                    dsl.append(d)
-                model = dict(name=mname.text(), params=params, **rng, datasets=dsl, norm=dict(S.norm_par), bkg=dict(S.bkg_par), **extra)
+                model = services.build_fit_model(
+                    name=mname.text(), rng=st, params=params, norm=S.norm_par, bkg=S.bkg_par, restraints=restraints,
+                    datasets=[dict(id=ids[k], sample=k, over=over_vals(k)[0], temperature=tvals.get(k),
+                                   paths=services.paths_from_table(used_by[k])) for k in keys])
             else:
-                model = dict(name=mname.text(), sample=data_k, **rng, params=params, paths=mk_paths(used_by[data_k]),
-                             norm=dict(S.norm_par), bkg=dict(S.bkg_par), **extra)
-                if data_k in tvals:
-                    model["temperature"] = tvals[data_k]
+                model = services.build_fit_model(
+                    name=mname.text(), rng=st, params=params, norm=S.norm_par, bkg=S.bkg_par, restraints=restraints,
+                    sample=data_k, paths=services.paths_from_table(used_by[data_k]), temperature=tvals.get(data_k))
 
             job = custom_fit_job(S, model, {ids[k]: k for k in keys} if multi else data_k)    # 界面线程里深拷贝谱
 
