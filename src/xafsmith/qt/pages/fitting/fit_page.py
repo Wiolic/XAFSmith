@@ -6,7 +6,9 @@ from xafsmith import logs
 import copy
 import json
 import re
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 import pandas as pd
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QWidget
@@ -95,6 +97,40 @@ def custom_fit_job(S, model, src):
     """自定义拟合的后台任务（须在界面线程调用）。src：多数据集为 {数据集 id: 会话谱名}，否则为会话谱名；谱在此深拷贝。"""
     groups = {i: copy.deepcopy(S.groups[k]) for i, k in src.items()} if isinstance(src, dict) else copy.deepcopy(S.groups[src])
     return lambda: services.run_model(model, groups)      # 给了 groups 时不读会话
+
+
+@dataclass
+class _CardCtx:
+    """_model_cards 的几张卡片（拟合范围 / 路径 / 参数 / 按钮栏）共享的界面对象与状态；各卡片方法以它为参数。"""
+    add: Any                       # 往左侧卡片列添加卡片的函数
+    keys: list                     # 参与拟合的数据（单数据集模式只有 1 个）
+    multi: bool                    # 联合拟合模式
+    ids: dict                      # 数据 → 数据集 id
+    dsum: str                      # 特征文件夹合并串（路径表键的一部分）
+    allp: Any                      # FEFF 路径表（含 dir 列）
+    st: dict = field(default_factory=dict)        # 拟合范围状态（self.state["range"]）
+    w: dict = field(default_factory=dict)         # 拟合范围控件
+    nid: Any = None                # N_idp 提示标签
+    ptabs: dict = field(default_factory=dict)     # 数据 → 路径表
+    over: dict = field(default_factory=dict)      # 数据 → 覆盖范围输入框（联合拟合）
+    temps: dict = field(default_factory=dict)     # 数据 → 温度输入框
+    trows: dict = field(default_factory=dict)     # 数据 → “温度 + σ² 模型…”行
+    tcheck: Any = None             # “使用 σ² 温度模型”勾选框
+    sync: Any = None               # “勾选同步”勾选框（联合拟合）
+    syncing: list = field(default_factory=lambda: [False])      # 同步勾选进行中（防递归）
+    cur: dict = field(default_factory=dict)       # {"tab": 参数表}，也就是 FitPage._ptab
+    holder: Any = None             # 参数表容器
+    nv: Any = None                 # 变量数提示标签
+    rcur: Any = None               # 软约束表的 cur
+    mname: Any = None              # 模型名输入框
+    btn: Any = None                # “拟合”按钮
+
+    @property
+    def data_k(self):
+        return self.keys[0]
+
+    def tkey(self, k):
+        return "pathtab_" + (self.ids[k] + "|" if self.multi else "") + self.dsum
 
 
 class FitPage(Page):
@@ -583,10 +619,14 @@ class FitPage(Page):
 
     def _model_cards(self, add, keys, fdirs, multi):
         """keys：参与拟合的数据（单数据集模式只有 1 个）；multi：联合拟合模式（路径表按数据集分标签页，参数表共享）"""
+        ctx = self._card_ctx(add, keys, fdirs, multi)
+        self._range_card(ctx)
+        self._paths_card(ctx)
+        self._params_card(ctx)
+        self._fit_bar(ctx)
+
+    def _card_ctx(self, add, keys, fdirs, multi):
         from xafsmith import feff_wrap as xfeff, pipeline as pl
-        from xafsmith.common import n_idp
-        S = self.S
-        data_k = keys[0]
         ids = {}                      # 数据 → 数据集 id（pipeline.safe(文件名)，重名加序号）
         for k in keys:
             base_ = pl.safe(Path(k).name) or "data"
@@ -595,37 +635,39 @@ class FitPage(Page):
                 i_, n_ = f"{base_}_{n_}", n_ + 1
             ids[k] = i_
         dsum = "|".join(str(d) for d in fdirs)
-
-        def tkey(k):
-            return "pathtab_" + (ids[k] + "|" if multi else "") + dsum
         allp = pd.concat([xfeff.list_paths(d).assign(dir=str(d.relative_to(paths.ROOT))) for d in fdirs], ignore_index=True)
-        # 2 拟合范围
+        return _CardCtx(add=add, keys=keys, multi=multi, ids=ids, dsum=dsum, allp=allp)
+
+    # ---- 2 拟合范围
+    def _range_card(self, ctx):
+        S = self.S
         c2 = Card(T("2  拟合范围", "2  Fit range"))
-        st = self.state.setdefault("range", dict(kmin=S.ft_par["kmin"], kmax=S.ft_par["kmax"], dk=S.ft_par["dk"], win="hanning",
-                                                 kws=[1, 2, 3], rmin=1.0, rmax=3.0, space="r"))
-        w = dict(kmin=W.num(st["kmin"], 0, 10, 0.1), kmax=W.num(st["kmax"], 3, 25, 0.1), dk=W.num(st["dk"], 0, 5, 0.1),
-                 win=W.combo(["hanning", "kaiser", "sine"], st["win"]), kws=W.MultiSelect([1, 2, 3], st["kws"]),
-                 rmin=W.num(st["rmin"], 0, 6, 0.05), rmax=W.num(st["rmax"], 0.5, 10, 0.05), space=W.combo(["r", "k", "q"], st["space"]))
+        st = ctx.st = self.state.setdefault("range", dict(kmin=S.ft_par["kmin"], kmax=S.ft_par["kmax"], dk=S.ft_par["dk"],
+                                                          win="hanning", kws=[1, 2, 3], rmin=1.0, rmax=3.0, space="r"))
+        w = ctx.w = dict(kmin=W.num(st["kmin"], 0, 10, 0.1), kmax=W.num(st["kmax"], 3, 25, 0.1), dk=W.num(st["dk"], 0, 5, 0.1),
+                         win=W.combo(["hanning", "kaiser", "sine"], st["win"]), kws=W.MultiSelect([1, 2, 3], st["kws"]),
+                         rmin=W.num(st["rmin"], 0, 6, 0.05), rmax=W.num(st["rmax"], 0.5, 10, 0.05),
+                         space=W.combo(["r", "k", "q"], st["space"]))
         c2.add(W.fields(("kmin", w["kmin"]), ("kmax", w["kmax"]), ("dk", w["dk"]), (T("窗", "Window"), w["win"]), cols=4))
         c2.add(W.fields((T("k 权重", "k-weights"), w["kws"]), ("Rmin", w["rmin"]), ("Rmax", w["rmax"]),
                         (T("拟合空间", "Fit space"), w["space"]), cols=4))
         W.link_range(w["kmin"], w["kmax"], 0.5)          # kmin < kmax、Rmin < Rmax 自动联动
         W.link_range(w["rmin"], w["rmax"], 0.1)
-        if multi:
+        if ctx.multi:
             c2.add(W.label(T("这是所有数据集的共同范围；个别数据集要用不同的 k / R 范围，在下面“路径”里该数据集的标签页覆盖。",
                              "This is the common range for all datasets; to give one dataset a different k / R range, override it "
                              "on that dataset's tab under “Paths”."), "faint"))
-        nid = W.label("", rich=True)
-        c2.add(nid)
-        add(c2)
+        ctx.nid = W.label("", rich=True)
+        c2.add(ctx.nid)
+        ctx.add(c2)
 
-        # 3 路径
-        def default_rows():
-            return default_path_rows(allp)
+    # ---- 3 路径
+    def _paths_card(self, ctx):
+        keys, multi = ctx.keys, ctx.multi
         for k in keys:
-            if tkey(k) not in self.state:
-                src = self.state.get(tkey(keys[0])) if k != keys[0] else None      # 新数据集：复制第一个数据集当前的路径表
-                self.state[tkey(k)] = src.copy() if src is not None else default_rows()
+            if ctx.tkey(k) not in self.state:
+                src = self.state.get(ctx.tkey(keys[0])) if k != keys[0] else None      # 新数据集：复制第一个数据集当前的路径表
+                self.state[ctx.tkey(k)] = src.copy() if src is not None else default_path_rows(ctx.allp)
         c3 = Card(T("3  路径", "3  Paths"))
         c3.add(W.label(T("勾选使用；单击单元格即可修改。N 留空 = FEFF 简并度；N、s02、e0、deltar、sigma2 都可以写表达式（如 ss1*1.5）。",
                          "Tick to use; click a cell to edit. Empty N = FEFF degeneracy; N, s02, e0, deltar, sigma2 accept "
@@ -634,406 +676,444 @@ class FitPage(Page):
             c3.add(W.label(T("同名参数在数据集之间共享；要各自独立就改名（如 ss1_300K）。",
                              "Parameters with the same name are shared between datasets; rename to make them independent "
                              "(e.g. ss1_300K)."), "faint"))
-        def edit_sigma2(k):
-            """B6：“σ² 模型…”——改路径表当前行的 sigma2 单元格，并在参数表里建所缺的 θ / 静态项参数。"""
-            from .sigma2_dialog import Sigma2Dialog, current_sigma2_value
-            df = ptabs[k].df()
-            if not len(df):
-                return
-            r = ptabs[k].currentIndex().row()
-            if not 0 <= r < len(df):
-                used_ = df.index[df.use.astype(bool)]
-                r = int(used_[0]) if len(used_) else 0
-            row = df.iloc[r].to_dict()
-            try:
-                tnow = float(temps[k].text())
-                tnow = tnow if tnow > 0 else None
-            except ValueError:
-                tnow = None
-            pt = cur["tab"].df() if "tab" in cur else self.state.get("partab")
-            dlg_ = Sigma2Dialog(self, row, tnow, current_sigma2_value(row["sigma2"], pt), multi=multi)
-            if not dlg_.exec():
-                return
-            self._apply_sigma2(dlg_.spec(), k, r, keys, ptabs, cur)
-            if dlg_.spec()["kind"] != "free" and not str(temps[k].text()).strip():
-                W.toast(self, T("已写入 σ² 模型。该数据集还没有温度：请填写“温度 (K)”，否则无法拟合。",
-                                "σ² model written. This dataset has no temperature yet: fill in “Temperature (K)”, "
-                                "otherwise the fit cannot run."), "warn")
+        self._path_tables(ctx)
+        self._tmodel_toggle(ctx, c3)
+        if not multi:
+            c3.add(ctx.trows[ctx.data_k])
+            c3.add(ctx.ptabs[ctx.data_k])
+            c3.add(self._msbind_button(ctx, ctx.data_k))
+        else:
+            self._joint_tools(ctx, c3)
+        ctx.add(c3)
 
-        def edit_msbind(k):
-            """B5：“多重散射绑定…”——只给建议；点“应用”才改本数据集路径表的 deltar / sigma2 / note 单元格。"""
-            from xafsmith import msbind
-            from .msbind_dialog import MsBindDialog
-            df = ptabs[k].df()
-            rows_ = df.to_dict("records")
-            try:
-                sugg = msbind.suggest(rows_)
-            except Exception as ex:
-                W.toast(self, T(f"无法计算多重散射绑定：{ex}", f"Cannot compute the multiple-scattering binding: {ex}"), "err")
-                return
-            dlg_ = MsBindDialog(self, rows_, sugg)
-            if not dlg_.exec():
-                return
-            spec_ = dlg_.spec()
-            if not spec_:
-                W.toast(self, T("没有需要改动的行", "No rows to change"))
-                return
-            m = ptabs[k].m
-            cols_ = list(m.df.columns)
-            for sp_ in spec_:
-                for col_, val_ in (("deltar", sp_["deltar"]), ("sigma2", sp_["sigma2"])):
-                    if val_ is not None:
-                        m.setData(m.index(sp_["index"], cols_.index(col_)), val_)
-                m.setData(m.index(sp_["index"], cols_.index("note")), sp_["note"])
-            W.toast(self, T("多重散射绑定已写入路径表：", "Multiple-scattering binding written to the path table: ")
-                    + "；".join(f"{sp_['label']}（" + "+".join(c_ for c_, v_ in (("deltar", sp_["deltar"]), ("sigma2", sp_["sigma2"]))
-                                                           if v_ is not None) + "）" for sp_ in spec_))
-            QTimer.singleShot(0, self.refresh)
-
-        def msbind_button(k):
-            b_ = W.button(T("多重散射绑定…", "Multiple-scattering binding…"),
-                          tip=T("按 FEFF 路径几何，给已勾选的多重散射路径建议 deltar / sigma2 表达式（只给建议，点“应用”才改表）",
-                                "Suggest deltar / sigma2 expressions for the ticked multiple-scattering paths from the FEFF "
-                                "geometry (suggestions only; the table changes only when you click Apply)"))
-            b_.clicked.connect(lambda *_: edit_msbind(k))
-            return W.hbox(b_, None)
-
-        ptabs, over, temps = {}, {}, {}
-        for k in keys:
+    def _path_tables(self, ctx):
+        """每个数据集一张路径表 + 一个温度输入框"""
+        ids = ctx.ids
+        for k in ctx.keys:
             # B6：温度（K），空 = 模型里不写 temperature；σ² 模型（sigma2_debye / sigma2_eins）与 tempK 用它
-            temps[k] = W.text(str(self.state.get("temp_" + ids[k], "")), T("不写", "not set"))
-            temps[k].setMaximumWidth(120)
-            temps[k].setToolTip(T("测量温度（K）。σ² 写成 sigma2_debye(tempK, thD) 时，tempK 取这里的值；空 = 模型里不写 temperature。",
-                                  "Measurement temperature (K). In sigma2_debye(tempK, thD), tempK takes this value; empty = no "
-                                  "temperature in the model."))
-            temps[k].textChanged.connect(lambda s_, k=k: self.state.__setitem__("temp_" + ids[k], s_.strip()))
-            if "note" not in self.state[tkey(k)].columns:        # B5：旧草稿 / 旧路径表没有 note 列
-                df_ = self.state[tkey(k)].copy()
+            ctx.temps[k] = W.text(str(self.state.get("temp_" + ids[k], "")), T("不写", "not set"))
+            ctx.temps[k].setMaximumWidth(120)
+            ctx.temps[k].setToolTip(T("测量温度（K）。σ² 写成 sigma2_debye(tempK, thD) 时，tempK 取这里的值；空 = 模型里不写 temperature。",
+                                      "Measurement temperature (K). In sigma2_debye(tempK, thD), tempK takes this value; empty = no "
+                                      "temperature in the model."))
+            ctx.temps[k].textChanged.connect(lambda s_, k=k: self.state.__setitem__("temp_" + ids[k], s_.strip()))
+            tk = ctx.tkey(k)
+            if "note" not in self.state[tk].columns:        # B5：旧草稿 / 旧路径表没有 note 列
+                df_ = self.state[tk].copy()
                 df_.insert(list(df_.columns).index("third") + 1 if "third" in df_.columns else len(df_.columns), "note", "")
-                self.state[tkey(k)] = df_
-            self.state[tkey(k)] = order_path_cols(self.state[tkey(k)])      # 旧草稿 / 会话里的旧列顺序
-            ptab = W.Table(self.state[tkey(k)], editable=["use", "label", "N", "s02", "e0", "deltar", "sigma2", "third", "note"],
+                self.state[tk] = df_
+            self.state[tk] = order_path_cols(self.state[tk])      # 旧草稿 / 会话里的旧列顺序
+            ptab = W.Table(self.state[tk], editable=["use", "label", "N", "s02", "e0", "deltar", "sigma2", "third", "note"],
                            bools=["use"], max_height=280, click_edit=True)
             ptab.hide_cols("file")
-            ptabs[k] = ptab
-        # B6：勾选“使用 σ² 温度模型”才显示温度框与“σ² 模型…”按钮；不勾 = 模型里不写 temperature
-        def uses_tmodel():
-            return any(_TMODEL_RE.search(str(v)) for k_ in keys for v in (ptabs[k_].df().get("sigma2", []) if k_ in ptabs else []))
-        tm_on = bool(self.state.get("use_tmodel")) or uses_tmodel()
-        tcheck = W.check(T("使用 σ² 温度模型（Debye / Einstein：多个温度共用一个 θ）",
-                           "Use a σ² temperature model (Debye / Einstein: one θ shared by all temperatures)"), tm_on)
+            ctx.ptabs[k] = ptab
+
+    def _uses_tmodel(self, ctx):
+        return any(_TMODEL_RE.search(str(v)) for k_ in ctx.keys
+                   for v in (ctx.ptabs[k_].df().get("sigma2", []) if k_ in ctx.ptabs else []))
+
+    def _tmodel_toggle(self, ctx, c3):
+        """B6：勾选“使用 σ² 温度模型”才显示温度框与“σ² 模型…”按钮；不勾 = 模型里不写 temperature"""
+        tm_on = bool(self.state.get("use_tmodel")) or self._uses_tmodel(ctx)
+        tcheck = ctx.tcheck = W.check(T("使用 σ² 温度模型（Debye / Einstein：多个温度共用一个 θ）",
+                                        "Use a σ² temperature model (Debye / Einstein: one θ shared by all temperatures)"), tm_on)
         tcheck.setToolTip(T("一般不用勾。只有同一样品在不同温度下测量、想用一个 θ 描述 σ² 随温度的变化时才用。",
                             "Usually leave unticked. Use it only for one sample measured at several temperatures, "
                             "to describe how σ² changes with temperature by a single θ."))
-        trows = {k: self._temp_row(temps[k], edit_sigma2, k) for k in keys}
-        for r_ in trows.values():
+        ctx.trows = {k: self._temp_row(ctx.temps[k], lambda k_: self._edit_sigma2(ctx, k_), k) for k in ctx.keys}
+        for r_ in ctx.trows.values():
             r_.setVisible(tm_on)
-
-        def on_tcheck(on):
-            self.state["use_tmodel"] = bool(on)
-            for r_ in trows.values():
-                r_.setVisible(bool(on))
-            if on or not uses_tmodel():
-                return
-            # 取消勾选 = 停用：用了温度模型的路径 σ² 改回普通参数 ss<壳层号>（否则刷新时又会自动勾上）
-            from .sigma2_dialog import shell_number
-            changed = []
-            for k_ in keys:
-                m = ptabs[k_].m
-                ci = list(m.df.columns).index("sigma2")
-                for r_i in range(len(m.df)):
-                    row = m.df.iloc[r_i]
-                    if _TMODEL_RE.search(str(row["sigma2"])):
-                        new = f"ss{shell_number(row.to_dict())}"
-                        m.setData(m.index(r_i, ci), new)
-                        changed.append(f"{row['label']}: {new}")
-            W.toast(self, T("已停用 σ² 温度模型，路径 σ² 改回普通参数：", "σ² temperature model switched off; path σ² changed "
-                            "back to plain parameters: ") + "；".join(dict.fromkeys(changed)))
-            QTimer.singleShot(0, self.refresh)          # 参数表按新的路径表达式重建（θ / 静态项参数不再出现）
-        tcheck.toggled.connect(on_tcheck)
+        tcheck.toggled.connect(lambda on: self._on_tcheck(ctx, on))
         c3.add(tcheck)
-        if not multi:
-            c3.add(trows[data_k])
-            c3.add(ptabs[data_k])
-            c3.add(msbind_button(data_k))
-        else:
-            # C2：序列样品的联合拟合工具——勾选同步、σ² 各数据集独立
-            sync = W.check(T("勾选同步到所有数据集", "Sync ticked paths to all datasets"), bool(self.state.get("sync_use", False)))
-            sync.setToolTip(T("开：在任一数据集页勾选 / 取消一条路径，其他数据集里同一路径文件的行同步勾选状态（只同步勾选，不改表达式；没有这一行的数据集跳过）。",
-                              "On: ticking / unticking a path in one dataset sets the same path file in the other datasets "
-                              "(only the tick, not the expressions; datasets without that row are skipped)."))
-            sync.toggled.connect(lambda on: self.state.__setitem__("sync_use", bool(on)))
-            ind_btn = W.button(T("σ² 各数据集独立", "Independent σ² per dataset"),
-                               tip=T("把在 ≥ 2 个数据集中共用的 σ² 参数改成每个数据集一个（名字加 _<数据集 id>，初值 / 范围复制原参数）。"
-                                     "变量数会增加，注意 N_idp。与“使用 σ² 温度模型”互斥。",
-                                     "Turn σ² parameters shared by ≥ 2 datasets into one per dataset (name + _<dataset id>, value / "
-                                     "limits copied). The variable count rises: watch N_idp. Not for the σ² temperature model."))
-            ind_btn.setEnabled(not tcheck.isChecked())
-            tcheck.toggled.connect(lambda on: ind_btn.setEnabled(not on))
-            syncing = [False]
 
-            def on_use(k, idx):
-                if not sync.isChecked() or syncing[0]:
-                    return
-                m = ptabs[k].m
-                if m.df.columns[idx.column()] != "use":
-                    return
-                from xafsmith import seqtools
-                row = m.df.iloc[idx.row()]
-                hit = seqtools.sync_targets({ids[k_]: ptabs[k_].df() for k_ in keys}, ids[k], (row["dir"], row["file"]),
-                                            bool(row["use"]))
-                by_id = {ids[k_]: k_ for k_ in keys}
-                syncing[0] = True
-                try:
-                    for i_, r_ in hit:
-                        m2 = ptabs[by_id[i_]].m
-                        m2.setData(m2.index(r_, list(m2.df.columns).index("use")),
-                                   Qt.CheckState.Checked if bool(row["use"]) else Qt.CheckState.Unchecked, Qt.ItemDataRole.CheckStateRole)
-                finally:
-                    syncing[0] = False
-            for k in keys:
-                ptabs[k].m.dataChanged.connect(lambda idx, *_, k=k: on_use(k, idx))
+    def _on_tcheck(self, ctx, on):
+        self.state["use_tmodel"] = bool(on)
+        for r_ in ctx.trows.values():
+            r_.setVisible(bool(on))
+        if on or not self._uses_tmodel(ctx):
+            return
+        # 取消勾选 = 停用：用了温度模型的路径 σ² 改回普通参数 ss<壳层号>（否则刷新时又会自动勾上）
+        from .sigma2_dialog import shell_number
+        changed = []
+        for k_ in ctx.keys:
+            m = ctx.ptabs[k_].m
+            ci = list(m.df.columns).index("sigma2")
+            for r_i in range(len(m.df)):
+                row = m.df.iloc[r_i]
+                if _TMODEL_RE.search(str(row["sigma2"])):
+                    new = f"ss{shell_number(row.to_dict())}"
+                    m.setData(m.index(r_i, ci), new)
+                    changed.append(f"{row['label']}: {new}")
+        W.toast(self, T("已停用 σ² 温度模型，路径 σ² 改回普通参数：", "σ² temperature model switched off; path σ² changed "
+                        "back to plain parameters: ") + "；".join(dict.fromkeys(changed)))
+        QTimer.singleShot(0, self.refresh)          # 参数表按新的路径表达式重建（θ / 静态项参数不再出现）
 
-            def make_independent():
-                from xafsmith import seqtools
-                if tcheck.isChecked():
-                    W.toast(self, T("已勾选“使用 σ² 温度模型”：两者意图相反，请先取消勾选。",
-                                    "“Use a σ² temperature model” is ticked: the two do the opposite; untick it first."), "warn")
-                    return
-                old = self.state.get("partab", pd.DataFrame(columns=seqtools.PARAM_COLS))
-                if "tab" in cur:
-                    t_ = cur["tab"].df()
-                    old = pd.concat([old[~old.name.isin(t_.name)], t_], ignore_index=True)
-                nt, newp, ch = seqtools.sigma2_independent({ids[k]: ptabs[k].df() for k in keys}, old)
-                if not ch:
-                    W.toast(self, T("没有在 ≥ 2 个数据集中共用的 σ² 参数（已勾选的路径）。",
-                                    "No σ² parameter is shared by ≥ 2 datasets (among the ticked paths)."))
-                    return
-                self.state["partab"] = newp
-                for k in keys:
-                    m = ptabs[k].m
-                    ci = list(m.df.columns).index("sigma2")
-                    for r_ in range(len(m.df)):
-                        v_ = nt[ids[k]].at[r_, "sigma2"]
-                        if v_ != m.df.at[r_, "sigma2"]:
-                            m.setData(m.index(r_, ci), v_)
-                W.toast(self, T("σ² 已改为各数据集独立（变量数增加，注意 N_idp）：", "σ² made independent per dataset (more variables: watch N_idp): ")
-                        + "；".join(f"{i_}: {o_}→{n_}" for i_, o_, n_ in ch), "warn")
-            ind_btn.clicked.connect(lambda *_: make_independent())
-            c3.add(W.hbox(sync, ind_btn, None))
-            pages_ = []
-            for k in keys:
-                ov0 = self.state.get("over_" + ids[k], {})
-                over[k] = {f_: W.text(str(ov0.get(f_, "")), T("同共同范围", "common")) for f_ in ("kmin", "kmax", "rmin", "rmax")}
-                others = [k2 for k2 in keys if k2 != k]
+    def _edit_sigma2(self, ctx, k):
+        """B6：“σ² 模型…”——改路径表当前行的 sigma2 单元格，并在参数表里建所缺的 θ / 静态项参数。"""
+        from .sigma2_dialog import Sigma2Dialog, current_sigma2_value
+        ptabs, temps, cur = ctx.ptabs, ctx.temps, ctx.cur
+        df = ptabs[k].df()
+        if not len(df):
+            return
+        r = ptabs[k].currentIndex().row()
+        if not 0 <= r < len(df):
+            used_ = df.index[df.use.astype(bool)]
+            r = int(used_[0]) if len(used_) else 0
+        row = df.iloc[r].to_dict()
+        try:
+            tnow = float(temps[k].text())
+            tnow = tnow if tnow > 0 else None
+        except ValueError:
+            tnow = None
+        pt = cur["tab"].df() if "tab" in cur else self.state.get("partab")
+        dlg_ = Sigma2Dialog(self, row, tnow, current_sigma2_value(row["sigma2"], pt), multi=ctx.multi)
+        if not dlg_.exec():
+            return
+        self._apply_sigma2(dlg_.spec(), k, r, ctx.keys, ptabs, cur)
+        if dlg_.spec()["kind"] != "free" and not str(temps[k].text()).strip():
+            W.toast(self, T("已写入 σ² 模型。该数据集还没有温度：请填写“温度 (K)”，否则无法拟合。",
+                            "σ² model written. This dataset has no temperature yet: fill in “Temperature (K)”, "
+                            "otherwise the fit cannot run."), "warn")
 
-                def copy_to_others(k=k, others=others):
-                    for k2 in others:
-                        self.state[tkey(k2)] = ptabs[k].df().copy()
-                    W.toast(self, T(f"已把 {ids[k]} 的路径表复制到其他 {len(others)} 个数据集",
-                                    f"Copied the path table of {ids[k]} to the other {len(others)} dataset(s)"))
-                    self.refresh()
-                ow = over[k]
-                col = W.vbox(trows[k],
-                             ptabs[k],
-                             msbind_button(k),
-                             W.label(T("覆盖拟合范围（留空 = 用上面“拟合范围”的共同值）",
-                                       "Override the fit range (empty = the common range above)"), "faint"),
-                             W.fields(("kmin", ow["kmin"]), ("kmax", ow["kmax"]), ("Rmin", ow["rmin"]), ("Rmax", ow["rmax"]), cols=4),
-                             *([W.hbox(W.button(T("把本页路径表复制到其他数据集", "Copy this path table to the other datasets"),
-                                                slot=copy_to_others), None)] if others else []))
-                pages_.append((ids[k], col))
-            c3.add(W.tabs(*pages_, state=self.state, key="pathtab_sel"))
-        add(c3)
-        # 4 参数
+    def _edit_msbind(self, ctx, k):
+        """B5：“多重散射绑定…”——只给建议；点“应用”才改本数据集路径表的 deltar / sigma2 / note 单元格。"""
+        from xafsmith import msbind
+        from .msbind_dialog import MsBindDialog
+        df = ctx.ptabs[k].df()
+        rows_ = df.to_dict("records")
+        try:
+            sugg = msbind.suggest(rows_)
+        except Exception as ex:
+            W.toast(self, T(f"无法计算多重散射绑定：{ex}", f"Cannot compute the multiple-scattering binding: {ex}"), "err")
+            return
+        dlg_ = MsBindDialog(self, rows_, sugg)
+        if not dlg_.exec():
+            return
+        spec_ = dlg_.spec()
+        if not spec_:
+            W.toast(self, T("没有需要改动的行", "No rows to change"))
+            return
+        m = ctx.ptabs[k].m
+        cols_ = list(m.df.columns)
+        for sp_ in spec_:
+            for col_, val_ in (("deltar", sp_["deltar"]), ("sigma2", sp_["sigma2"])):
+                if val_ is not None:
+                    m.setData(m.index(sp_["index"], cols_.index(col_)), val_)
+            m.setData(m.index(sp_["index"], cols_.index("note")), sp_["note"])
+        W.toast(self, T("多重散射绑定已写入路径表：", "Multiple-scattering binding written to the path table: ")
+                + "；".join(f"{sp_['label']}（" + "+".join(c_ for c_, v_ in (("deltar", sp_["deltar"]), ("sigma2", sp_["sigma2"]))
+                                                       if v_ is not None) + "）" for sp_ in spec_))
+        QTimer.singleShot(0, self.refresh)
+
+    def _msbind_button(self, ctx, k):
+        b_ = W.button(T("多重散射绑定…", "Multiple-scattering binding…"),
+                      tip=T("按 FEFF 路径几何，给已勾选的多重散射路径建议 deltar / sigma2 表达式（只给建议，点“应用”才改表）",
+                            "Suggest deltar / sigma2 expressions for the ticked multiple-scattering paths from the FEFF "
+                            "geometry (suggestions only; the table changes only when you click Apply)"))
+        b_.clicked.connect(lambda *_: self._edit_msbind(ctx, k))
+        return W.hbox(b_, None)
+
+    def _joint_tools(self, ctx, c3):
+        """C2：序列样品的联合拟合工具——勾选同步、σ² 各数据集独立；每个数据集一个标签页"""
+        keys, ptabs, tcheck = ctx.keys, ctx.ptabs, ctx.tcheck
+        sync = ctx.sync = W.check(T("勾选同步到所有数据集", "Sync ticked paths to all datasets"), bool(self.state.get("sync_use", False)))
+        sync.setToolTip(T("开：在任一数据集页勾选 / 取消一条路径，其他数据集里同一路径文件的行同步勾选状态（只同步勾选，不改表达式；没有这一行的数据集跳过）。",
+                          "On: ticking / unticking a path in one dataset sets the same path file in the other datasets "
+                          "(only the tick, not the expressions; datasets without that row are skipped)."))
+        sync.toggled.connect(lambda on: self.state.__setitem__("sync_use", bool(on)))
+        ind_btn = W.button(T("σ² 各数据集独立", "Independent σ² per dataset"),
+                           tip=T("把在 ≥ 2 个数据集中共用的 σ² 参数改成每个数据集一个（名字加 _<数据集 id>，初值 / 范围复制原参数）。"
+                                 "变量数会增加，注意 N_idp。与“使用 σ² 温度模型”互斥。",
+                                 "Turn σ² parameters shared by ≥ 2 datasets into one per dataset (name + _<dataset id>, value / "
+                                 "limits copied). The variable count rises: watch N_idp. Not for the σ² temperature model."))
+        ind_btn.setEnabled(not tcheck.isChecked())
+        tcheck.toggled.connect(lambda on: ind_btn.setEnabled(not on))
+        for k in keys:
+            ptabs[k].m.dataChanged.connect(lambda idx, *_, k=k: self._on_use(ctx, k, idx))
+        ind_btn.clicked.connect(lambda *_: self._make_independent(ctx))
+        c3.add(W.hbox(sync, ind_btn, None))
+        c3.add(W.tabs(*[self._dataset_tab(ctx, k) for k in keys], state=self.state, key="pathtab_sel"))
+
+    def _dataset_tab(self, ctx, k):
+        """联合拟合里一个数据集的标签页：温度行、路径表、覆盖拟合范围；返回 (数据集 id, 内容)"""
+        ids, ptabs = ctx.ids, ctx.ptabs
+        ov0 = self.state.get("over_" + ids[k], {})
+        ctx.over[k] = {f_: W.text(str(ov0.get(f_, "")), T("同共同范围", "common")) for f_ in ("kmin", "kmax", "rmin", "rmax")}
+        others = [k2 for k2 in ctx.keys if k2 != k]
+
+        def copy_to_others(k=k, others=others):
+            for k2 in others:
+                self.state[ctx.tkey(k2)] = ptabs[k].df().copy()
+            W.toast(self, T(f"已把 {ids[k]} 的路径表复制到其他 {len(others)} 个数据集",
+                            f"Copied the path table of {ids[k]} to the other {len(others)} dataset(s)"))
+            self.refresh()
+        ow = ctx.over[k]
+        col = W.vbox(ctx.trows[k],
+                     ptabs[k],
+                     self._msbind_button(ctx, k),
+                     W.label(T("覆盖拟合范围（留空 = 用上面“拟合范围”的共同值）",
+                               "Override the fit range (empty = the common range above)"), "faint"),
+                     W.fields(("kmin", ow["kmin"]), ("kmax", ow["kmax"]), ("Rmin", ow["rmin"]), ("Rmax", ow["rmax"]), cols=4),
+                     *([W.hbox(W.button(T("把本页路径表复制到其他数据集", "Copy this path table to the other datasets"),
+                                        slot=copy_to_others), None)] if others else []))
+        return ids[k], col
+
+    def _on_use(self, ctx, k, idx):
+        if not ctx.sync.isChecked() or ctx.syncing[0]:
+            return
+        ids, ptabs, keys = ctx.ids, ctx.ptabs, ctx.keys
+        m = ptabs[k].m
+        if m.df.columns[idx.column()] != "use":
+            return
+        from xafsmith import seqtools
+        row = m.df.iloc[idx.row()]
+        hit = seqtools.sync_targets({ids[k_]: ptabs[k_].df() for k_ in keys}, ids[k], (row["dir"], row["file"]),
+                                    bool(row["use"]))
+        by_id = {ids[k_]: k_ for k_ in keys}
+        ctx.syncing[0] = True
+        try:
+            for i_, r_ in hit:
+                m2 = ptabs[by_id[i_]].m
+                m2.setData(m2.index(r_, list(m2.df.columns).index("use")),
+                           Qt.CheckState.Checked if bool(row["use"]) else Qt.CheckState.Unchecked, Qt.ItemDataRole.CheckStateRole)
+        finally:
+            ctx.syncing[0] = False
+
+    def _make_independent(self, ctx):
+        from xafsmith import seqtools
+        keys, ids, ptabs, cur = ctx.keys, ctx.ids, ctx.ptabs, ctx.cur
+        if ctx.tcheck.isChecked():
+            W.toast(self, T("已勾选“使用 σ² 温度模型”：两者意图相反，请先取消勾选。",
+                            "“Use a σ² temperature model” is ticked: the two do the opposite; untick it first."), "warn")
+            return
+        old = self.state.get("partab", pd.DataFrame(columns=seqtools.PARAM_COLS))
+        if "tab" in cur:
+            t_ = cur["tab"].df()
+            old = pd.concat([old[~old.name.isin(t_.name)], t_], ignore_index=True)
+        nt, newp, ch = seqtools.sigma2_independent({ids[k]: ptabs[k].df() for k in keys}, old)
+        if not ch:
+            W.toast(self, T("没有在 ≥ 2 个数据集中共用的 σ² 参数（已勾选的路径）。",
+                            "No σ² parameter is shared by ≥ 2 datasets (among the ticked paths)."))
+            return
+        self.state["partab"] = newp
+        for k in keys:
+            m = ptabs[k].m
+            ci = list(m.df.columns).index("sigma2")
+            for r_ in range(len(m.df)):
+                v_ = nt[ids[k]].at[r_, "sigma2"]
+                if v_ != m.df.at[r_, "sigma2"]:
+                    m.setData(m.index(r_, ci), v_)
+        W.toast(self, T("σ² 已改为各数据集独立（变量数增加，注意 N_idp）：", "σ² made independent per dataset (more variables: watch N_idp): ")
+                + "；".join(f"{i_}: {o_}→{n_}" for i_, o_, n_ in ch), "warn")
+
+    # ---- 4 参数
+    def _params_card(self, ctx):
         c4 = Card(T("4  参数", "4  Parameters"))
         c4.add(W.label(T("vary 不勾 = 固定；expr 非空 = 约束。value 可输入任意位小数；拟合后可在右侧点“采纳拟合值到参数”。",
                          "Untick vary = fixed; non-empty expr = constrained. Values take any number of decimals; after a fit, "
                          "“Use fitted values as start” copies the results here."), "faint"))
-        if multi:
+        if ctx.multi:
             c4.add(W.label(T("一张共享参数表：名字取自所有数据集已勾选的路径。",
                              "One shared table: names come from the ticked paths of all datasets."), "faint"))
-        holder = W.vbox()
-        c4.add(holder)
-        nv = W.label("", rich=True)
-        c4.add(nv)
-        rcur = self._restraint_section(c4)
-        add(c4)
-        cur = {}
-        self._ptab = cur
+        ctx.holder = W.vbox()
+        c4.add(ctx.holder)
+        ctx.nv = W.label("", rich=True)
+        c4.add(ctx.nv)
+        ctx.rcur = self._restraint_section(c4)
+        ctx.add(c4)
+        self._ptab = ctx.cur
+        w = ctx.w
+        for k in ctx.keys:
+            ctx.ptabs[k].edited.connect(lambda *_: self._rebuild_params(ctx))
+        for k_ in ("kmin", "kmax", "dk", "rmin", "rmax"):
+            w[k_].valueChanged.connect(lambda *_: self._count(ctx))
+        for k_ in ("win", "space"):
+            w[k_].currentIndexChanged.connect(lambda *_: self._count(ctx))
+        w["kws"].changed.connect(lambda *_: self._count(ctx))
+        for k in ctx.keys:
+            for wd in ctx.over.get(k, {}).values():
+                wd.textChanged.connect(lambda *_: self._count(ctx))
+        self._rebuild_params(ctx)
 
-        def names_used():
-            """（参数名并集, {数据: 已勾选路径表}）"""
-            out, used_by = [], {}
+    def _names_used(self, ctx):
+        """（参数名并集, {数据: 已勾选路径表}）"""
+        out, used_by = [], {}
+        for k in ctx.keys:
+            used = ctx.ptabs[k].df()
+            used = used[used.use.astype(bool)]
+            used_by[k] = used
+            for _, r in used.iterrows():
+                for col in ("N", "s02", "e0", "deltar", "sigma2", "third"):
+                    for t in idents(r[col]):
+                        if t not in out:
+                            out.append(t)
+        return out, used_by
+
+    def _rebuild_params(self, ctx):
+        cur = ctx.cur
+        for k in ctx.keys:
+            self.state[ctx.tkey(k)] = ctx.ptabs[k].df()
+        old = self.state.get("partab", pd.DataFrame(columns=services.PARAM_TABLE_COLS))
+        if "tab" in cur:
+            t = cur["tab"].df()
+            old = pd.concat([old[~old.name.isin(t.name)], t], ignore_index=True)
+            self.state["partab"] = old
+        names, _ = self._names_used(ctx)
+        rows = []
+        for n in names:
+            if n in set(old.name):
+                rows.append(old[old.name == n].iloc[0].to_dict())
+            else:
+                rows.append(services.default_param_row(n))
+        df = pd.DataFrame(rows, columns=services.PARAM_TABLE_COLS)
+        for c_ in ("value", "min", "max"):
+            df[c_] = pd.to_numeric(df[c_], errors="coerce").astype(float)
+        df["expr"] = df["expr"].fillna("").astype(object)
+        df["vary"] = df["vary"].astype(bool)
+        W._clear_layout(ctx.holder.layout())
+        t = W.Table(df, editable=["value", "vary", "min", "max", "expr"], bools=["vary"], max_height=300, click_edit=True,
+                    decimals=6)
+        t.edited.connect(lambda *_: self._count(ctx))
+        ctx.holder.layout().addWidget(t)
+        cur["tab"] = t
+        self._count(ctx)
+
+    @staticmethod
+    def _over_vals(ctx, k):
+        """该数据集的覆盖范围：({键: 数值}, 无法识别的键)"""
+        vals, bad = {}, []
+        for f_, wd in ctx.over[k].items():
+            txt = wd.text().strip()
+            if not txt:
+                continue
+            try:
+                vals[f_] = float(txt)
+            except ValueError:
+                bad.append(f_)
+        return vals, bad
+
+    def _eff_range(self, ctx, k):
+        r = {f_: ctx.st[f_] for f_ in ("kmin", "kmax", "rmin", "rmax")}
+        if ctx.multi:
+            r.update(self._over_vals(ctx, k)[0])
+        return r
+
+    def _count(self, ctx):
+        from xafsmith.common import n_idp
+        st, w, keys, ids, over, cur = ctx.st, ctx.w, ctx.keys, ctx.ids, ctx.over, ctx.cur
+        for k_ in ("kmin", "kmax", "dk", "rmin", "rmax"):
+            st[k_] = w[k_].value()
+        st.update(win=w["win"].value(), kws=w["kws"].value(), space=w["space"].value())
+        if ctx.multi:
             for k in keys:
-                used = ptabs[k].df()
-                used = used[used.use.astype(bool)]
-                used_by[k] = used
-                for _, r in used.iterrows():
-                    for col in ("N", "s02", "e0", "deltar", "sigma2", "third"):
-                        for t in idents(r[col]):
-                            if t not in out:
-                                out.append(t)
-            return out, used_by
-
-        def rebuild_params():
-            for k in keys:
-                self.state[tkey(k)] = ptabs[k].df()
-            old = self.state.get("partab", pd.DataFrame(columns=["name", "value", "vary", "min", "max", "expr"]))
-            if "tab" in cur:
-                t = cur["tab"].df()
-                old = pd.concat([old[~old.name.isin(t.name)], t], ignore_index=True)
-                self.state["partab"] = old
-            names, _ = names_used()
-            rows = []
-            for n in names:
-                if n in set(old.name):
-                    rows.append(old[old.name == n].iloc[0].to_dict())
-                else:
-                    rows.append(services.default_param_row(n))
-            df = pd.DataFrame(rows, columns=["name", "value", "vary", "min", "max", "expr"])
-            for c_ in ("value", "min", "max"):
-                df[c_] = pd.to_numeric(df[c_], errors="coerce").astype(float)
-            df["expr"] = df["expr"].fillna("").astype(object)
-            df["vary"] = df["vary"].astype(bool)
-            W._clear_layout(holder.layout())
-            t = W.Table(df, editable=["value", "vary", "min", "max", "expr"], bools=["vary"], max_height=300, click_edit=True,
-                        decimals=6)
-            t.edited.connect(count)
-            holder.layout().addWidget(t)
-            cur["tab"] = t
-            count()
-
-        def over_vals(k):
-            """该数据集的覆盖范围：({键: 数值}, 无法识别的键)"""
-            vals, bad = {}, []
-            for f_, wd in over[k].items():
-                txt = wd.text().strip()
-                if not txt:
-                    continue
-                try:
-                    vals[f_] = float(txt)
-                except ValueError:
-                    bad.append(f_)
-            return vals, bad
-
-        def eff_range(k):
-            r = {f_: st[f_] for f_ in ("kmin", "kmax", "rmin", "rmax")}
-            if multi:
-                r.update(over_vals(k)[0])
-            return r
-
-        def count():
-            for k_ in ("kmin", "kmax", "dk", "rmin", "rmax"):
-                st[k_] = w[k_].value()
-            st.update(win=w["win"].value(), kws=w["kws"].value(), space=w["space"].value())
-            if multi:
-                for k in keys:
-                    self.state["over_" + ids[k]] = {f_: wd.text().strip() for f_, wd in over[k].items() if wd.text().strip()}
-                    for f_, wd in over[k].items():
-                        wd.setPlaceholderText(f"{st[f_]:g}")
-                nis = [n_idp(**eff_range(k)) for k in keys]
-                ni = float(sum(nis))
-                nid.setText(T(f"Σ N_idp = <b>{ni:.1f}</b>（各数据集 " + "、".join(f"{ids[k]}: {x:.1f}" for k, x in zip(keys, nis))
+                self.state["over_" + ids[k]] = {f_: wd.text().strip() for f_, wd in over[k].items() if wd.text().strip()}
+                for f_, wd in over[k].items():
+                    wd.setPlaceholderText(f"{st[f_]:g}")
+            nis = [n_idp(**self._eff_range(ctx, k)) for k in keys]
+            ni = float(sum(nis))
+            ctx.nid.setText(T(f"Σ N_idp = <b>{ni:.1f}</b>（各数据集 " + "、".join(f"{ids[k]}: {x:.1f}" for k, x in zip(keys, nis))
                               + f"）；变量数建议 ≤ Σ N_idp/2 = <b>{ni / 2:.1f}</b>",
                               f"Σ N_idp = <b>{ni:.1f}</b> (datasets: " + ", ".join(f"{ids[k]}: {x:.1f}" for k, x in zip(keys, nis))
                               + f"); keep variables ≤ Σ N_idp/2 = <b>{ni / 2:.1f}</b>"))
-            else:
-                ni = n_idp(st["kmin"], st["kmax"], st["rmin"], st["rmax"])
-                nid.setText(T(f"N_idp = <b>{ni:.1f}</b>；变量数建议 ≤ N_idp/2 = <b>{ni / 2:.1f}</b>",
+        else:
+            ni = n_idp(st["kmin"], st["kmax"], st["rmin"], st["rmax"])
+            ctx.nid.setText(T(f"N_idp = <b>{ni:.1f}</b>；变量数建议 ≤ N_idp/2 = <b>{ni / 2:.1f}</b>",
                               f"N_idp = <b>{ni:.1f}</b>; keep variables ≤ N_idp/2 = <b>{ni / 2:.1f}</b>"))
-            if "tab" in cur:
-                t = cur["tab"].df()
-                n = int(((t.vary.astype(bool)) & (t.expr.fillna("").astype(str).str.strip() == "")).sum())
-                col = C["warn"] if n > ni / 2 else C["text2"]
-                nm = "Σ N_idp/2" if multi else "N_idp/2"
-                nv.setText(f'<span style="color:{col}">' + T(f"变量数 = {n}（{nm} = {ni / 2:.1f}）", f"Variables = {n} ({nm} = {ni / 2:.1f})")
+        if "tab" in cur:
+            t = cur["tab"].df()
+            n = int(((t.vary.astype(bool)) & (t.expr.fillna("").astype(str).str.strip() == "")).sum())
+            col = C["warn"] if n > ni / 2 else C["text2"]
+            nm = "Σ N_idp/2" if ctx.multi else "N_idp/2"
+            ctx.nv.setText(f'<span style="color:{col}">' + T(f"变量数 = {n}（{nm} = {ni / 2:.1f}）", f"Variables = {n} ({nm} = {ni / 2:.1f})")
                            + "</span>")
-        for k in keys:
-            ptabs[k].edited.connect(rebuild_params)
-        for k_ in ("kmin", "kmax", "dk", "rmin", "rmax"):
-            w[k_].valueChanged.connect(lambda *_: count())
-        for k_ in ("win", "space"):
-            w[k_].currentIndexChanged.connect(lambda *_: count())
-        w["kws"].changed.connect(lambda *_: count())
-        for k in keys:
-            for wd in over.get(k, {}).values():
-                wd.textChanged.connect(lambda *_: count())
-        rebuild_params()
-        # 拟合按钮栏（固定在左下角，不随左侧滚动）
-        names, used_by = names_used()
-        mkey = "mname_multi" if multi else "mname_" + data_k
-        mname = W.text(self.state.get(mkey, ("+".join(ids[k] for k in keys) + "_joint") if multi
-                                      else f"{Path(data_k).name}_{len(used_by[data_k])}paths"))
+
+    # ---- 拟合按钮栏（固定在左下角，不随左侧滚动）
+    def _fit_bar(self, ctx):
+        keys, ids = ctx.keys, ctx.ids
+        _, used_by = self._names_used(ctx)
+        mkey = "mname_multi" if ctx.multi else "mname_" + ctx.data_k
+        mname = ctx.mname = W.text(self.state.get(mkey, ("+".join(ids[k] for k in keys) + "_joint") if ctx.multi
+                                                  else f"{Path(ctx.data_k).name}_{len(used_by[ctx.data_k])}paths"))
         mname.textChanged.connect(lambda s: self.state.__setitem__(mkey, s))
-        btn = W.button(T("拟合", "Fit"), primary=True, icon_name="play", tip="Ctrl+Enter")
+        btn = ctx.btn = W.button(T("拟合", "Fit"), primary=True, icon_name="play", tip="Ctrl+Enter")
         btn.setMinimumWidth(110)
         W.bind_task(btn, "fit", "fit")
 
         def go():
-            if W.task_running(excl="fit"):
-                return
-            count()
-            _, used_by = names_used()
-            bad_ds = [ids[k] for k in keys if not len(used_by[k])]
-            if bad_ds:
-                W.toast(self, T("至少勾选一条路径" + (f"（数据集 {', '.join(bad_ds)} 没有勾选）" if multi else ""),
-                                "Tick at least one path" + (f" (none ticked for {', '.join(bad_ds)})" if multi else "")), "warn")
-                return
-            for k in keys:
-                if multi and over_vals(k)[1]:
-                    W.toast(self, T(f"数据集 {ids[k]} 的覆盖范围里有无法识别的数字：{', '.join(over_vals(k)[1])}",
-                                    f"Unreadable number in the range override of {ids[k]}: {', '.join(over_vals(k)[1])}"), "warn")
-                    return
-            t = cur["tab"].df()
-            self.state["partab"] = pd.concat([self.state.get("partab", t.iloc[0:0])[lambda d: ~d.name.isin(t.name)], t],
-                                             ignore_index=True)
-            params = services.params_from_table(t)
-            restraints = self._restraints_from_table(rcur)
-            if restraints is False:
-                return
-            tvals = {}
-            if not tcheck.isChecked() and uses_tmodel():
-                W.toast(self, T("路径 σ² 用了温度模型（sigma2_debye / sigma2_eins / tempK）：请勾选“使用 σ² 温度模型”并填温度，"
-                                "或把 σ² 改回普通参数。",
-                                "A path σ² uses a temperature model (sigma2_debye / sigma2_eins / tempK): tick “Use a σ² "
-                                "temperature model” and fill in the temperature, or change σ² back to a plain parameter."), "warn")
-                return
-            for k in (keys if tcheck.isChecked() else []):
-                txt = temps[k].text().strip()
-                if not txt:
-                    continue
-                try:
-                    tv = float(txt)
-                    if not (tv > 0 and tv < float("inf")):
-                        raise ValueError
-                except ValueError:
-                    W.toast(self, T(f"数据集 {ids[k]} 的温度应是大于 0 的数字（K）：{txt!r}",
-                                    f"Temperature of {ids[k]} must be a number > 0 (K): {txt!r}"), "warn")
-                    return
-                tvals[k] = tv
-
-            if multi:
-                model = services.build_fit_model(
-                    name=mname.text(), rng=st, params=params, norm=S.norm_par, bkg=S.bkg_par, restraints=restraints,
-                    datasets=[dict(id=ids[k], sample=k, over=over_vals(k)[0], temperature=tvals.get(k),
-                                   paths=services.paths_from_table(used_by[k])) for k in keys])
-            else:
-                model = services.build_fit_model(
-                    name=mname.text(), rng=st, params=params, norm=S.norm_par, bkg=S.bkg_par, restraints=restraints,
-                    sample=data_k, paths=services.paths_from_table(used_by[data_k]), temperature=tvals.get(data_k))
-
-            job = custom_fit_job(S, model, {ids[k]: k for k in keys} if multi else data_k)    # 界面线程里深拷贝谱
-
-            def done(fit):
-                S.fits.append(fit)
-                S.emit("fits")
-                self._show_result(fit)          # 只更新右侧：左侧的设置与滚动位置不变
-                self.ack()
-            W.run_task(self, job, done, T("拟合中…", "Fitting…"), btn,
-                       key="fit", excl="fit")
+            self._go(ctx)
         btn.clicked.connect(go)
         self._fit_go = go
         self._bar.addWidget(W.label(T("模型名", "Model name"), "faint"))
         self._bar.addWidget(mname, 1)
         self._bar.addWidget(btn)
+
+    def _fit_temps(self, ctx):
+        """各数据集的温度 {数据: K}（只在勾选温度模型时读）；输入不合法 → toast 并返回 None"""
+        tvals = {}
+        for k in (ctx.keys if ctx.tcheck.isChecked() else []):
+            txt = ctx.temps[k].text().strip()
+            if not txt:
+                continue
+            try:
+                tv = float(txt)
+                if not (tv > 0 and tv < float("inf")):
+                    raise ValueError
+            except ValueError:
+                W.toast(self, T(f"数据集 {ctx.ids[k]} 的温度应是大于 0 的数字（K）：{txt!r}",
+                                f"Temperature of {ctx.ids[k]} must be a number > 0 (K): {txt!r}"), "warn")
+                return None
+            tvals[k] = tv
+        return tvals
+
+    def _go(self, ctx):
+        S, keys, ids, multi, cur = self.S, ctx.keys, ctx.ids, ctx.multi, ctx.cur
+        if W.task_running(excl="fit"):
+            return
+        self._count(ctx)
+        _, used_by = self._names_used(ctx)
+        bad_ds = [ids[k] for k in keys if not len(used_by[k])]
+        if bad_ds:
+            W.toast(self, T("至少勾选一条路径" + (f"（数据集 {', '.join(bad_ds)} 没有勾选）" if multi else ""),
+                            "Tick at least one path" + (f" (none ticked for {', '.join(bad_ds)})" if multi else "")), "warn")
+            return
+        for k in keys:
+            if multi and self._over_vals(ctx, k)[1]:
+                W.toast(self, T(f"数据集 {ids[k]} 的覆盖范围里有无法识别的数字：{', '.join(self._over_vals(ctx, k)[1])}",
+                                f"Unreadable number in the range override of {ids[k]}: {', '.join(self._over_vals(ctx, k)[1])}"),
+                        "warn")
+                return
+        t = cur["tab"].df()
+        self.state["partab"] = pd.concat([self.state.get("partab", t.iloc[0:0])[lambda d: ~d.name.isin(t.name)], t],
+                                         ignore_index=True)
+        params = services.params_from_table(t)
+        restraints = self._restraints_from_table(ctx.rcur)
+        if restraints is False:
+            return
+        if not ctx.tcheck.isChecked() and self._uses_tmodel(ctx):
+            W.toast(self, T("路径 σ² 用了温度模型（sigma2_debye / sigma2_eins / tempK）：请勾选“使用 σ² 温度模型”并填温度，"
+                            "或把 σ² 改回普通参数。",
+                            "A path σ² uses a temperature model (sigma2_debye / sigma2_eins / tempK): tick “Use a σ² "
+                            "temperature model” and fill in the temperature, or change σ² back to a plain parameter."), "warn")
+            return
+        tvals = self._fit_temps(ctx)
+        if tvals is None:
+            return
+        name = ctx.mname.text()
+        if multi:
+            model = services.build_fit_model(
+                name=name, rng=ctx.st, params=params, norm=S.norm_par, bkg=S.bkg_par, restraints=restraints,
+                datasets=[dict(id=ids[k], sample=k, over=self._over_vals(ctx, k)[0], temperature=tvals.get(k),
+                               paths=services.paths_from_table(used_by[k])) for k in keys])
+        else:
+            dk = ctx.data_k
+            model = services.build_fit_model(
+                name=name, rng=ctx.st, params=params, norm=S.norm_par, bkg=S.bkg_par, restraints=restraints,
+                sample=dk, paths=services.paths_from_table(used_by[dk]), temperature=tvals.get(dk))
+        job = custom_fit_job(S, model, {ids[k]: k for k in keys} if multi else ctx.data_k)    # 界面线程里深拷贝谱
+
+        def done(fit):
+            S.fits.append(fit)
+            S.emit("fits")
+            self._show_result(fit)          # 只更新右侧：左侧的设置与滚动位置不变
+            self.ack()
+        W.run_task(self, job, done, T("拟合中…", "Fitting…"), ctx.btn, key="fit", excl="fit")
