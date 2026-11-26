@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xafsmith"
-version = "1.4.2"
+dynamic = ["version"]   # 唯一来源：src/xafsmith/__init__.py 的 __version__（见 [tool.setuptools.dynamic]）
 description = "可连接 AI 助手（agent）的同步辐射 XAFS（XANES + EXAFS）分析软件：图形界面 + 命令行，基于 xraylarch / FEFF。Agent-ready synchrotron XAFS analysis software."
 readme = "README.md"
 license = { file = "LICENSE" }   # GPL-3.0-only（自 v1.3.1）
@@ -42,6 +42,9 @@ Homepage = "https://github.com/Wiolic/XAFSmith"
 
 [project.scripts]
 xafsmith = "xafsmith.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "xafsmith.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
