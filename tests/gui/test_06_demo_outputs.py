@@ -102,3 +102,27 @@ def test_background_tasks(app, w, ctx, proj):
     b = next((x for x in P["batch"].findChildren(QPushButton) if x.text() == "① 质量检查"), None)
     say(len(W.ERRORS) == n and not W._ACTIVE and not W._RUNNING and not w.bar.isVisible()
         and b is not None and b.isEnabled(), "任务期间页面重建：正常收尾、状态栏收起")
+
+
+def test_wavelet_background(app, w, ctx, proj):
+    """小波页：计算走后台任务；连续重建页面只画最新一次的结果；结果与 wavelet.compute 逐位相同（E17）"""
+    need(ctx, "loaded")
+    import numpy as np
+    from xafsmith import wavelet as xwav
+    S, P = w.S, w.pages
+    name = "cu_metal_rt"
+    g = S.groups[name]
+    w.go("wavelet")
+    pg = P["wavelet"]
+    n = len(W.ERRORS)
+    for kw_ in (1, 3, 2):                       # 不等待：前两次被后来的请求取代
+        pg.state.update(k=name, k2="", kind="Morlet", kw=kw_)
+        pg.refresh()
+    wait(app)
+    step("小波后台计算", n)
+    mesh = pg.findChildren(W.Plot)[0].axes[0].collections[0]
+    got = np.asarray(mesh.get_array()).ravel()
+    exp = xwav.compute(g.k, g.chi, kind="Morlet", kweight=2, rmax=pg.state["rmax"], eta=pg.state["eta"], sigma=pg.state["sig"],
+                       kmax=S.ft_par["kmax"])[2].ravel()
+    say(got.shape == exp.shape and np.array_equal(got, exp), "小波：画出的是最新一次（k 权重 2）的结果，与 wavelet.compute 相同")
+    say(not W.task_running("wavelet"), "小波：后台任务已结束")

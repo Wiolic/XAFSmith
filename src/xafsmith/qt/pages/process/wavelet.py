@@ -166,12 +166,6 @@ class WaveletPage(Page):
         self.add(mx)
         cur = {}
 
-        def compute(name):
-            g = S.groups[name]
-            kk, rr, Wt = xwav.compute(g.k, g.chi, kind=w["kind"].value(), kweight=w["kw"].value(), rmax=w["rmax"].value(),
-                                      eta=w["eta"].value(), sigma=w["sig"].value(), kmax=S.ft_par["kmax"])
-            return dict(name=name, g=g, kk=kk, rr=rr, W=Wt)
-
         def maxima(d):
             wins = parse_ranges(rng.text())
             rows = [{T("样品", "Sample"): d["name"], T("R 区间 (Å)", "R window (Å)"): f"{m['window_lo']:g}–{m['window_hi']:g}",
@@ -180,11 +174,24 @@ class WaveletPage(Page):
                     for m in xwav.maxima(d["kk"], d["rr"], d["W"], wins)]
             return pd.DataFrame(rows)
 
-        def update():
+        def snapshot():
+            """界面线程里取好控件值与谱的拷贝；后台只算 xwav.compute，不碰控件与 State"""
             st.update(k=w["k"].value(), k2=w["k2"].value(), kind=w["kind"].value(), kw=w["kw"].value(), eta=w["eta"].value(),
                       sig=w["sig"].value(), rmax=w["rmax"].value(), rng=rng.text(), same=same.isChecked())
             names = [w["k"].value()] + ([w["k2"].value()] if w["k2"].value() and w["k2"].value() != w["k"].value() else [])
-            data = [compute(n) for n in names]
+            args = dict(kind=w["kind"].value(), kweight=w["kw"].value(), rmax=w["rmax"].value(), eta=w["eta"].value(),
+                        sigma=w["sig"].value(), kmax=S.ft_par["kmax"])
+            spectra = [(n, np.array(S.groups[n].k, copy=True), np.array(S.groups[n].chi, copy=True)) for n in names]
+
+            def job():
+                out = []
+                for n, k_, chi_ in spectra:
+                    kk, rr, Wt = xwav.compute(k_, chi_, **args)
+                    out.append(dict(name=n, kk=kk, rr=rr, W=Wt))
+                return out
+            return job
+
+        def render(data):
             cur["data"] = data
             tabs, err = [], None
             for d in data:
@@ -229,16 +236,48 @@ class WaveletPage(Page):
                 res.setText(T("Cauchy 小波：形状固定，η、σ 不起作用。", "Cauchy wavelet: fixed shape; η and σ have no effect."))
             w["eta"].setEnabled(w["kind"].value() == "Morlet")
             w["sig"].setEnabled(w["kind"].value() == "Morlet")
+        wt = self.__dict__.setdefault("_wt", dict(seq=0, busy=False, again=False))
+        wt.update(snapshot=snapshot, render=render)          # 页面重建后由最新一次 build 的控件接手
+
+        def update():
+            """请求一次小波计算：连续请求时只保证最新一次会被算并画出（同时只跑一个后台计算）"""
+            wt["seq"] += 1
+            if wt["busy"]:
+                wt["again"] = True
+                return
+            launch()
+
+        def launch():
+            wt["busy"], wt["again"], my = True, False, wt["seq"]
+            try:
+                job = wt["snapshot"]()
+            except Exception:
+                wt["busy"] = False
+                raise
+
+            def finished(data=None):
+                wt["busy"] = False
+                if my == wt["seq"] and data is not None:
+                    W.wait_cursor(lambda: wt["render"](data))
+                elif wt["again"] or my != wt["seq"]:
+                    launch()
+
+            def failed(msg):
+                finished()
+                if not W.QUIET["v"]:
+                    from ...errdialog import show_error
+                    show_error(self, msg, detail=msg)
+            W.run_task(self, job, finished, on_error=failed, key="wavelet")
         for x in ("k", "k2"):          # 换谱 / 打开或关闭对比：重建页面（一图或左右两图）
             w[x].currentIndexChanged.connect(lambda *_: (st.update(k=w["k"].value(), k2=w["k2"].value()), self.refresh()))
         for x in ("kind", "kw"):
-            w[x].currentIndexChanged.connect(lambda *_: W.wait_cursor(update))
-        upd_d = W.debounced(self, lambda: W.wait_cursor(update))     # 小波计算较慢：连续微调只算一次
+            w[x].currentIndexChanged.connect(lambda *_: update())
+        upd_d = W.debounced(self, update)     # 小波计算较慢：连续微调只算一次
         for x in ("eta", "sig", "rmax"):
             w[x].valueChanged.connect(upd_d)
-        same.toggled.connect(lambda *_: W.wait_cursor(update))
-        rng.editingFinished.connect(lambda: W.wait_cursor(update))
-        W.wait_cursor(update)
+        same.toggled.connect(lambda *_: update())
+        rng.editingFinished.connect(lambda: update())
+        update()
 
         def export():
             from xafsmith import pubfig as pf
