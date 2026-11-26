@@ -104,3 +104,17 @@ def test_replaced_raises_use_new_classes():
         modelcheck.raise_on_errors({"name": "x"})
     with pytest.raises(ValueError):                      # 仍可被 except ValueError 捕获
         modelcheck.raise_on_errors({"name": "x"})
+
+
+def test_shown_name_only_renames_own_classes():
+    # 别的包里同名的异常类（pandas.errors.DataError 不是 ValueError）照原名显示；带 xafsmith.errors 前缀的文字照样换名
+    from xafsmith.errors import _names, shown_name
+    DataError = type("DataError", (Exception,), {"__module__": "pandas.errors"})
+    assert shown_name(DataError("x")) == "DataError" and shown_name(DataError) == "DataError"
+    assert shown_name("pandas.errors.DataError") == "DataError"
+    assert shown_name("xafsmith.errors.ConfigError") == "ValueError"
+    tb = "Traceback (most recent call last):\n  File \"x.py\", line 1, in <module>\npandas.errors.DataError: bad"
+    assert _names(tb) == (["DataError"], "bad")
+    tb2 = tb.replace("pandas.errors.DataError", "xafsmith.errors.ConfigError")
+    assert _names(tb2) == (["ValueError"], "bad")
+    assert _names("numpy.linalg.LinAlgError: singular") == (["LinAlgError"], "singular")

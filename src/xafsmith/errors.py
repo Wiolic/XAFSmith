@@ -40,9 +40,14 @@ _SHOWN = {"XafsmithError": "Exception", "ConfigError": "ValueError", "DataError"
 
 
 def shown_name(x) -> str:
-    """显示给用户的异常类名：x 为异常对象、类或类名；新异常类显示为它所替换的内置类名（`_SHOWN`）。"""
-    name = x if isinstance(x, str) else (type(x) if isinstance(x, BaseException) else x).__name__
-    return _SHOWN.get(name, name)
+    """显示给用户的异常类名：x 为异常对象、类或类名；新异常类显示为它所替换的内置类名（`_SHOWN`）。
+    对象与类只在属于本模块时换名（别的包里同名的类，如 pandas.errors.DataError，照原名显示）；
+    类名字符串可带模块前缀，只有不带前缀或前缀是 xafsmith.errors 时换名。"""
+    if isinstance(x, str):
+        mod, _, name = x.rpartition(".")
+        return _SHOWN.get(name, name) if mod in ("", __name__) else name
+    cls = type(x) if isinstance(x, BaseException) else x
+    return _SHOWN.get(cls.__name__, cls.__name__) if cls.__module__ == __name__ else cls.__name__
 
 _CONV = re.compile(r"singular|converge|ill-conditioned|too many function calls|could not estimate|covariance|cannot be inverted", re.I)
 
@@ -57,8 +62,7 @@ def _names(exc):
     else:
         first = text.split("\n\n")[0].split("\n")[0]
     name, sep, msg = first.partition(": ")
-    name = name.rsplit(".", 1)[-1]                                    # numpy.linalg.LinAlgError → LinAlgError
-    return ([shown_name(name.strip())] if sep else ["Exception"]), (msg if sep else first)
+    return ([shown_name(name.strip())] if sep else ["Exception"]), (msg if sep else first)   # numpy.linalg.LinAlgError → LinAlgError
 
 
 def _bi(msg, lang):
