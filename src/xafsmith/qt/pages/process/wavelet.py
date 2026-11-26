@@ -247,6 +247,10 @@ class WaveletPage(Page):
             launch()
 
         def launch():
+            if W.task_running("wavelet"):     # 窗口重建（换语言、换项目）前的计算还在跑，结果交给旧页面：稍后再试，不占 busy
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(150, self, launch)      # 以页面为上下文：页面再次被删除就不再触发
+                return
             wt["busy"], wt["again"], my = True, False, wt["seq"]
             try:
                 job = wt["snapshot"]()
