@@ -208,8 +208,8 @@ def _html(res, lang, figs, methods, version, when):
     n = count_issues(res)
     name = res.model["name"]
     head = (f"快速拟合汇报：{name}" if zh else f"Quick-fit report: {name}")
-    parts = [f"<!doctype html><html lang='{'zh' if zh else 'en'}'><head><meta charset='utf-8'><title>{html.escape(head)}</title>"
-             f"<style>{_CSS}</style></head><body><h1>{html.escape(head)}</h1>",
+    parts = [(f"<!doctype html><html lang='{'zh' if zh else 'en'}'><head><meta charset='utf-8'><title>{html.escape(head)}</title>"
+              f"<style>{_CSS}</style></head><body><h1>{html.escape(head)}</h1>"),
              f"<div class='meta'>{when:%Y-%m-%d %H:%M} · XAFSmith {html.escape(version)}"
              + (" · " + ("联合拟合" if zh else "joint fit") + f" ({len(rs)})" if batch is not None else "") + "</div>"]
     if n:

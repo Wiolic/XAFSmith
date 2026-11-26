@@ -47,8 +47,8 @@ def make_feffinp(structure, absorber, edge="K", site_index=None, rcluster=8.0, r
         if sym not in elems:
             elems.append(sym)
     ipot = {sym: i + 1 for i, sym in enumerate(elems)}
-    lines = [f"TITLE {title or structure.composition.reduced_formula} {absorber} {edge} "
-             f"site {site_index}",
+    lines = [(f"TITLE {title or structure.composition.reduced_formula} {absorber} {edge} "
+              f"site {site_index}"),
              ]
     if code == "feff8":
         lines += [f"EDGE {edge}", f"S02 {s02:.1f}", "CONTROL 1 1 1 1 1 1", "PRINT 1 0 0 0 0 3",

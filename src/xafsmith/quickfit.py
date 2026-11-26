@@ -363,8 +363,8 @@ ADVICE = {
     "n_ratio": ("N 远大于结构值，多半与 σ² 互相补偿，或标样 S0² 不适用于此样品。",
                 "N is much larger than the structure value, probably compensating σ², or the standard's S0² does not apply to this sample."),
     "peak_pos": ("数据 |χ(R)| 的主峰位置与所选结构的第一壳层对不上：检查 FEFF 用的结构（CIF）是否对应这个样品（例如样品是否为金属 / 合金相，或第一近邻是别的元素）。",
-                 "The main |χ(R)| peak of the data does not match the first shell of the chosen structure: check that the FEFF structure (CIF) "
-                 "matches this sample (e.g. a metal / alloy phase, or another element as nearest neighbour)."),
+                 ("The main |χ(R)| peak of the data does not match the first shell of the chosen structure: check that the FEFF structure (CIF) "
+                  "matches this sample (e.g. a metal / alloy phase, or another element as nearest neighbour).")),
     "rmax_leak": ("Rmax 偏大，窗口可能切进第二壳层；把 Rmax 往小调再试。",
                   "Rmax is too large and the window may cut into the second shell; lower Rmax and retry."),
 }

@@ -265,8 +265,8 @@ def _restraint_txt(model, row):
         tail_zh = f"（拟合值 {f[0]:.4g}，偏离 {f[3]:+.1f}σ）" if f else ""
         en.append(f"{r['expr']} = {r['value']:g} ± {r['sigma']:g}{tail_en}")
         zh.append(f"{r['expr']} = {r['value']:g} ± {r['sigma']:g}{tail_zh}")
-    return (f"Soft restraints (restraint term (expr − value)²/σ², multiplied by the reduced χ² of the unrestrained "
-            f"fit; not counted in N_idp): {'; '.join(en)}. ",
+    return ((f"Soft restraints (restraint term (expr − value)²/σ², multiplied by the reduced χ² of the unrestrained "
+             f"fit; not counted in N_idp): {'; '.join(en)}. "),
             f"软约束（约束项 (expr − value)²/σ² 乘以无约束拟合的 χ²_ν；不计入 N_idp）：{'；'.join(zh)}。")
 
 

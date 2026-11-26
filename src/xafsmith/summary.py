@@ -167,8 +167,8 @@ def _html(title, sheets, figs):
            ".w{background:#fff4e5;border:1px solid #f0b46a;padding:8px 12px;margin:10px 0;font-size:13px}"
            ".c{background:#eef5ff;border:1px solid #9cc0f0;padding:8px 12px;margin:10px 0;font-size:13px}"
            ".c ul{margin:4px 0 0 18px;padding:0}")
-    return f"<!doctype html><html><head><meta charset='utf-8'><title>{html.escape(title)}</title>" \
-           f"<style>{css}</style></head><body>{''.join(parts)}{_LIGHTBOX}</body></html>"
+    return (f"<!doctype html><html><head><meta charset='utf-8'><title>{html.escape(title)}</title>"
+            f"<style>{css}</style></head><body>{''.join(parts)}{_LIGHTBOX}</body></html>")
 
 
 # 报告中的图：缩略图网格 + 点击放大（滚轮缩放、拖动平移、双击复位、Esc 关闭）

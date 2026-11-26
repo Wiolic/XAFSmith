@@ -22,12 +22,12 @@ CITE_CN = f"如果在论文中使用了本软件，请引用本仓库，并同�
 CITE_EN = ("If you use XAFSmith in a publication, please cite this repository "
            f"(and Larch and FEFF, on which it is built): {CITATION_TEXT}")
 UPSTREAM = [
-    "M. Newville, \"Larch: An Analysis Package for XAFS and Related Spectroscopies\", "
-    "J. Phys.: Conf. Ser. 430, 012007 (2013).",
-    "S. I. Zabinsky, J. J. Rehr, A. Ankudinov, R. C. Albers, M. J. Eller, \"Multiple-scattering calculations "
-    "of x-ray-absorption spectra\", Phys. Rev. B 52, 2995 (1995).  (FEFF6)",
-    "A. L. Ankudinov, B. Ravel, J. J. Rehr, S. D. Conradson, \"Real-space multiple-scattering calculation and "
-    "interpretation of x-ray-absorption near-edge structure\", Phys. Rev. B 58, 7565 (1998).  (FEFF8; cite when FEFF8L is used)",
+    ("M. Newville, \"Larch: An Analysis Package for XAFS and Related Spectroscopies\", "
+     "J. Phys.: Conf. Ser. 430, 012007 (2013)."),
+    ("S. I. Zabinsky, J. J. Rehr, A. Ankudinov, R. C. Albers, M. J. Eller, \"Multiple-scattering calculations "
+     "of x-ray-absorption spectra\", Phys. Rev. B 52, 2995 (1995).  (FEFF6)"),
+    ("A. L. Ankudinov, B. Ravel, J. J. Rehr, S. D. Conradson, \"Real-space multiple-scattering calculation and "
+     "interpretation of x-ray-absorption near-edge structure\", Phys. Rev. B 58, 7565 (1998).  (FEFF8; cite when FEFF8L is used)"),
 ]
 
 

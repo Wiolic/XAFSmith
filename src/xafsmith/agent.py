@@ -135,10 +135,10 @@ EXAMPLES_ZH = [
 EXAMPLES_EN = [
     "Read AGENTS.md, then check the data quality and tell me which scans or glitches are a problem.",
     "Determine S0² for the Cu K edge from the Cu foil standard and judge the fit quality.",
-    "Apply the same model to time-series samples A, B and C, compare the second shell, run F-tests and robustness checks, "
-    "and label conclusions as measured / fitted / inferred.",
-    "Export |χ(R)| and the final fits of the series as double-column journal figures, then build the summary "
-    "report and the methods paragraph.",
+    ("Apply the same model to time-series samples A, B and C, compare the second shell, run F-tests and robustness checks, "
+     "and label conclusions as measured / fitted / inferred."),
+    ("Export |χ(R)| and the final fits of the series as double-column journal figures, then build the summary "
+     "report and the methods paragraph."),
 ]
 
 

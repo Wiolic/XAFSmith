@@ -111,8 +111,8 @@ def scan_raw(raw_dir=None, meta_path=None):
             continue
         if fmt is None:                              # 不是已知的数据格式（说明文件、图片等），不登记
             if _score >= 10:                         # 像数值表格（通用列文本）但不自动登记：列含义需人工确认
-                skipped.append((rel, "像列文本但未自动识别：请用“载入谱 → 列映射向导”保存模板，再在 meta.csv 手工登记"
-                                     "（format 列填模板名） / looks like column text: save a template with the column wizard"))
+                skipped.append((rel, ("像列文本但未自动识别：请用“载入谱 → 列映射向导”保存模板，再在 meta.csv 手工登记"
+                                      "（format 列填模板名） / looks like column text: save a template with the column wizard")))
             continue
         try:
             gs = xio.read_file(p, fmt=fmt)

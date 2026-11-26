@@ -102,8 +102,8 @@ def upgrade(cfg: dict) -> tuple[dict, list[tuple[str, str]]]:
         if new <= ver:
             raise ConfigError(f"配置迁移 {_key(ver)} 没有提升版本号 / migration {_key(ver)} did not raise the version")
         notes.append((f"配置从 {_key(ver)} 升到 {_key(new)}（只在内存中；文件未改动，下次保存配置时才写成新版本）",
-                      f"config upgraded from {_key(ver)} to {_key(new)} in memory only "
-                      "(the file is unchanged until the config is next saved)"))
+                      (f"config upgraded from {_key(ver)} to {_key(new)} in memory only "
+                       "(the file is unchanged until the config is next saved)")))
         ver = new
     return out, notes
 
