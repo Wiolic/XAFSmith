@@ -54,7 +54,7 @@ jobs:
         run: python -m pytest -q --cov=xafsmith --cov-report=term
 
       - name: GUI test (offscreen, public demo project)
-        run: python tests/test_qt.py
+        run: python -m pytest tests/gui -q
 
   # 只在每周定时与手动运行时执行：故意越过 pyproject 的上界，装上游最新版，抓上游变化。
   # 失败不影响 push / PR 的检查（它们不运行此任务）。
