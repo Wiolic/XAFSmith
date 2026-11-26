@@ -111,13 +111,11 @@ def build(spec, op=None, show=False):
             lay.lt_exec(f"layer.unit=3; layer.left={left}; layer.top={top}; layer.width={W}; layer.height={H};")
         except Exception:      # noqa: BLE001
             logs.log.warning("origin_builder.build 出错（已忽略或已提示）：%s", g.get("png"), exc_info=True)
-            pass
         if g.get("png"):
             try:
                 gp.save_fig(g["png"], width=1600)
             except Exception:  # noqa: BLE001
                 logs.log.warning("origin_builder.build 出错（已忽略或已提示）：%s", g.get("png"), exc_info=True)
-                pass
     op.save(spec["out"])
     return spec["out"]
 

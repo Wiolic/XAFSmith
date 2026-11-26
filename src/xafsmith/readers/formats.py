@@ -158,7 +158,6 @@ class AthenaXmuReader(Reader):
                         hit.append(s)
                 except Exception:              # noqa: BLE001
                     logs.log.debug("readers.formats._element 出错（已忽略或已提示）：%s", s, exc_info=True)
-                    pass
             if len(hit) == 1:
                 return hit[0]
         return None

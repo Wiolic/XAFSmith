@@ -14,7 +14,7 @@ Cancelled 继承 BaseException：这样各处 `except Exception` 不会把“取
 from __future__ import annotations
 
 import threading
-from typing import Callable, Optional
+from collections.abc import Callable
 
 
 class Cancelled(BaseException):
@@ -24,7 +24,7 @@ class Cancelled(BaseException):
 class TaskHandle:
     """任务与调用方之间的句柄：进度、取消标志"""
 
-    def __init__(self, on_progress: Optional[Callable[[float, str], None]] = None):
+    def __init__(self, on_progress: Callable[[float, str], None] | None = None):
         self._event = threading.Event()
         self._on_progress = on_progress
         self.fraction = 0.0

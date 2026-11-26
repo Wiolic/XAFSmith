@@ -537,7 +537,6 @@ class PlannerPage(Page):
                                f"Elements: {', '.join(fel) or '—'}; {el.value()} {ed.value()} edge = {e0:.0f} eV"), "muted"))
         except Exception:
             logs.log.warning("qt.pages.output.build 出错（已忽略或已提示）：%s %s", el.value(), ed.value(), exc_info=True)
-            pass
 
         def re_formula():
             st["formula"] = formula.text().strip()

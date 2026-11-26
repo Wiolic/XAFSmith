@@ -54,7 +54,7 @@ def render_math(md, size=14):
     dpr = max(1.0, scr.devicePixelRatio() if scr else 1.0)      # 高分屏按物理像素渲染，prose.retarget_images 再折算回逻辑尺寸
 
     def img(tex, display):
-        key = hashlib.md5(f"v3|{tex}|{display}|{col}|{size}|{dpr:.2f}".encode("utf-8")).hexdigest()[:16]
+        key = hashlib.md5(f"v3|{tex}|{display}|{col}|{size}|{dpr:.2f}".encode()).hexdigest()[:16]
         f = d / f"xs_math_{key}_x{dpr:.2f}.png"
         if not f.exists():
             try:                  # 透明背景；行内公式与正文同高，独立公式稍大

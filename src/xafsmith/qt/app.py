@@ -560,7 +560,6 @@ class MainWindow(QMainWindow):
             xup.save_settings(lang=lang)
         except Exception:
             logs.log.debug("qt.app.set_lang 出错（已忽略或已提示）：%s", lang, exc_info=True)
-            pass
         self.rebuild()
 
     def open_project(self, root):
@@ -797,14 +796,12 @@ class MainWindow(QMainWindow):
                         self.update_found.emit(u)
             except Exception:
                 logs.log.debug("qt.app.work 出错（已忽略或已提示）", exc_info=True)
-                pass
             try:
                 import larch.xafs  # noqa: F401
                 import larch.fitting  # noqa: F401
                 import lmfit  # noqa: F401
             except Exception:
                 logs.log.debug("qt.app.work 出错（已忽略或已提示）", exc_info=True)
-                pass
         threading.Thread(target=work, daemon=True).start()
 
 
@@ -978,7 +975,6 @@ def make_window(project=None, lang=None):
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("XAFSmith.App")
         except Exception:
             logs.log.debug("qt.app.make_window 出错（已忽略或已提示）", exc_info=True)
-            pass
     if project:
         paths.set_root(project)
     elif os.environ.get("XAFSMITH_PROJECT"):

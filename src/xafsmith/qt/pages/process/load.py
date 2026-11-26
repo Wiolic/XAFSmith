@@ -252,7 +252,7 @@ class LoadPage(Page):
                 pv.setText("")
                 return
             try:
-                res = {k: "%s %s" % guess_for(gs[k], e) for k in v}
+                res = {k: "%s %s" % guess_for(gs[k], e) for k in v}  # noqa: UP031
             except Exception:      # noqa: BLE001
                 pv.setText(T(f"无法识别元素 {e}（或没有对应吸收边）", f"Cannot recognise element {e} (or no matching edge)"))
                 return

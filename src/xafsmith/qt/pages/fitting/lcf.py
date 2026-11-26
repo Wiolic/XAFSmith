@@ -30,7 +30,6 @@ class LCFPage(Page):
                 ensure_norm(S, g)
             except Exception:
                 logs.log.warning("qt.pages.fitting.build 出错（已忽略或已提示）：%s", getattr(g, "label", None), exc_info=True)
-                pass
         card = Card()
         keys = list(S.groups)
         smp = W.combo(keys, self.state.get("smp"))

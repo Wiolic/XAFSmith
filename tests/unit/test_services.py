@@ -132,7 +132,7 @@ def _compare_paths(proj, model_name, multi):
             assert a_new[k] == b_new[k], f"{k} 两条路径不逐字节相同"
     got = {f.relative_to(proj / "output").as_posix() for f in res.files}
     assert got == set(b_new)                                          # SaveResult 列出的文件 = 实际写出的文件
-    assert "fits/%s.params.json" % model_name in b_new
+    assert f"fits/{model_name}.params.json" in b_new
     assert not (proj / "models" / f"{model_name}_zz.json").exists()
     return res, a_new
 

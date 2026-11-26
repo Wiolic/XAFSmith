@@ -29,7 +29,7 @@ def proj(tmp_path, monkeypatch):
     monkeypatch.delenv("XAFSMITH_NO_RECENT", raising=False)
     monkeypatch.setattr(paths, "ROOT", tmp_path, raising=False)
     monkeypatch.setattr(paths, "GUI", tmp_path / "output" / "gui", raising=False)
-    monkeypatch.setattr("xafsmith.update.load_settings", lambda: {})
+    monkeypatch.setattr("xafsmith.update.load_settings", dict)
     return tmp_path
 
 

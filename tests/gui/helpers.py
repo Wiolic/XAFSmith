@@ -126,4 +126,4 @@ def fail_if_new(n0):
     """本测试内 say() 记下的 [FAIL] 行（FAILS[n0:]）全部列出后判失败（不在第一处就停）"""
     new = FAILS[n0:]
     if new:
-        pytest.fail("本测试内有 %d 条检查失败：\n" % len(new) + "\n".join("[FAIL] " + x for x in new), pytrace=False)
+        pytest.fail("本测试内有 %d 条检查失败：\n" % len(new) + "\n".join("[FAIL] " + x for x in new), pytrace=False)  # noqa: UP031

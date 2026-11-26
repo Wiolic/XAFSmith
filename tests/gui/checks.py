@@ -457,7 +457,7 @@ def quickfit_checks(app, w):
         q.state["feff"] = str(fdir)
         q.refresh()
         say(q._feff.value() == feff, "G2 清理后回到原 FEFF 文件夹")
-        real_dirs, qk.feff_dirs = qk.feff_dirs, lambda: []
+        real_dirs, qk.feff_dirs = qk.feff_dirs, list
         try:
             q.refresh()
             say("还没有 FEFF" in texts(q) and q._builtin_btn.isEnabled() and "已载入并算出" not in texts(q),

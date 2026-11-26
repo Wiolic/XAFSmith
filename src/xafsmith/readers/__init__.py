@@ -57,7 +57,7 @@ def list_formats():
 
 
 def _head(path, n=4096):
-    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+    with open(path, encoding="utf-8", errors="ignore") as f:
         return f.read(n)
 
 

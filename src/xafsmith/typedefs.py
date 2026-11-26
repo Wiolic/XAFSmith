@@ -6,7 +6,7 @@ Type declarations for the dict shapes (config, model, fit summary). Only TypedDi
 """
 from __future__ import annotations
 
-from typing import Any, Required, TypedDict, Union
+from typing import Any, Required, TypedDict
 
 # ------------------------------------------------------------------ xafsmith.json
 class NormConfig(TypedDict, total=False):
@@ -112,7 +112,7 @@ class ParamSpec(TypedDict, total=False):
     expr: str
 
 
-ParamValue = Union[float, int, str, ParamSpec]
+ParamValue = float | int | str | ParamSpec
 Params = dict[str, ParamValue]
 
 
@@ -179,7 +179,7 @@ class MultiModel(_ModelCommon, total=False):
     datasets: Required[list[DatasetSpec]]
 
 
-ModelDict = Union[SingleModel, MultiModel]
+ModelDict = SingleModel | MultiModel
 
 
 # ------------------------------------------------------------------ 拟合摘要（fit_exafs.summarize / summarize_multi）

@@ -109,7 +109,7 @@ def cases():
     c["M_temp_bad_and_datasets_empty"] = multi(temperature="hot", datasets=[])
     # ---- 多数据集：数据集
     b = multi()
-    c["M_ds_not_dict"] = _ds(b, 1, **{})
+    c["M_ds_not_dict"] = _ds(b, 1)
     c["M_ds_not_dict"]["datasets"][1] = 5
     c["M_ds_not_dict_first"] = copy.deepcopy(b)
     c["M_ds_not_dict_first"]["datasets"][0] = "x"

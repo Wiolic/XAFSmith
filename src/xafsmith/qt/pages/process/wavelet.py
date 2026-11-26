@@ -206,7 +206,6 @@ class WaveletPage(Page):
                     cb.remove()
                 except Exception:
                     logs.log.warning("qt.pages.process.update 出错（已忽略或已提示）", exc_info=True)
-                    pass
             cur["cbs"] = []
             for ax, d in zip(plot.axes, data):
                 ax.clear()

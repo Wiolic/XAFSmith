@@ -78,7 +78,7 @@ def make_group(energy, i0=None, i1=None, ifl=None, mu=None, mode="trans", elemen
 
 # ------------------------------------------------------------------ 文本表格
 def read_text(path, nbytes=None):
-    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+    with open(path, encoding="utf-8", errors="ignore") as f:
         return f.read() if nbytes is None else f.read(nbytes)
 
 

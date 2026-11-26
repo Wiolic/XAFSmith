@@ -189,7 +189,7 @@ def build(samples=None, fits_csv=None):
         zh.append(
             cal_zh
             + (f"每个样品合并 {e['scans']} 次扫描。" if e["scans"] != "1" else "每个样品 1 次扫描。")
-            + 
+            +
             f"E0 取平滑后一阶导数最大值；边前直线拟合范围 E0{n.get('pre1', -150):+g} 至 E0{n.get('pre2', -30):+g} eV，"
             f"边后 {n.get('nnorm', defaults.NORM['nnorm'])} 次多项式拟合范围 E0+{n.get('norm1', 100):g} eV 至{n2z}。"
             f"背景用 AUTOBK 算法扣除（Rbkg = {b.get('rbkg', defaults.BKG['rbkg'])} Å，k 权重 {b.get('kweight', defaults.BKG['kweight'])}）。"

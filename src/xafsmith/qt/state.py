@@ -111,7 +111,6 @@ def remember(root):
         RECENT.write_text(json.dumps(lst[:10], ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception:
         logs.log.warning("qt.state.remember 出错（已忽略或已提示）：%s", RECENT, exc_info=True)
-        pass
 
 
 def load_cfg():

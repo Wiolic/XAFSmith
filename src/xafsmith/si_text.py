@@ -48,7 +48,6 @@ def _model_json(name, sample=None):
                 return json.loads(f.read_text(encoding="utf-8-sig"))
             except Exception:
                 logs.log.debug("si_text._model_json 出错（已忽略或已提示）：%s", f, exc_info=True)
-                pass
     if sample and paths.MODELS.exists():          # 模型名中的样品名被换掉了：找 name 中把 sample 换回模板样品的模型
         for f in paths.MODELS.glob("*.json"):
             try:
@@ -136,7 +135,6 @@ def _feff_desc(model):
         code = feff_info(d)["code"]
     except Exception:
         logs.log.debug("si_text._feff_desc 出错（已忽略或已提示）：%s", d, exc_info=True)
-        pass
     m = re.match(r"(.+?)_([A-Z][a-z]?)(K|L1|L2|L3|M\d)(_feff8)?$", d.parent.name)
     struct = m.group(1) if m else d.parent.name
     return code, struct
