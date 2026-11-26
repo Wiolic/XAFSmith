@@ -16,6 +16,7 @@
 项目根目录的确定顺序：环境变量 XAFSMITH_PROJECT → 当前目录向上查找 xafsmith.json → 当前目录。
 """
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from . import defaults
@@ -70,25 +71,101 @@ def find_root(start=None):
 STRUCT_EXT = (".cif", ".vasp", ".poscar", ".json")     # 另支持文件名 POSCAR / CONTCAR
 
 
+@dataclass(frozen=True)
+class Project:
+    """一个项目的全部标准路径（只由根目录决定）。属性即各标准路径；module_vars() 给出本模块的大写模块变量。"""
+    root: Path
+
+    @classmethod
+    def from_root(cls, root):
+        return cls(Path(root).expanduser().resolve())
+
+    @property
+    def config(self): return self.root / MARKER
+    @property
+    def project_md(self): return self.root / "project.md"
+    @property
+    def data(self): return self.root / "data"
+    @property
+    def raw(self): return self.root / "data" / "raw"
+    @property
+    def meta(self): return self.root / "data" / "meta.csv"
+    @property
+    def struct(self): return self.root / "structures"
+    @property
+    def models(self): return self.root / "models"
+    @property
+    def notes(self): return self.root / "notes"
+    @property
+    def scripts(self): return self.root / "scripts"
+    @property
+    def out(self): return self.root / "output"
+    @property
+    def qc(self): return self.out / "qc"
+    @property
+    def calib(self): return self.out / "calib"
+    @property
+    def proc(self): return self.out / "processed"
+    @property
+    def feff(self): return self.out / "feff"
+    @property
+    def fits(self): return self.out / "fits"
+    @property
+    def lcf(self): return self.out / "lcf"
+    @property
+    def xanes(self): return self.out / "xanes"
+    @property
+    def figs(self): return self.out / "figs"
+    @property
+    def pubfigs(self): return self.out / "figs" / "journal"
+    @property
+    def reports(self): return self.out / "reports"
+    @property
+    def gui(self): return self.out / "gui"
+    @property
+    def calib_json(self): return self.calib / "calib.json"
+    @property
+    def qc_csv(self): return self.qc / "qc_report.csv"
+    @property
+    def fits_csv(self): return self.fits / "exafs_fits.csv"
+    @property
+    def lcf_csv(self): return self.lcf / "lcf_results.csv"
+    @property
+    def xanes_csv(self): return self.xanes / "xanes_features.csv"
+    @property
+    def input_dirs(self): return (self.raw, self.struct, self.models, self.notes)
+    @property
+    def output_dirs(self):
+        return (self.qc, self.calib, self.proc, self.feff, self.fits, self.lcf, self.xanes,
+                self.figs, self.reports, self.gui)
+
+    def module_vars(self):
+        """本模块的大写模块变量（ROOT … OUTPUT_DIRS，共 29 个）→ 值。"""
+        return {"ROOT": self.root, "CONFIG": self.config, "PROJECT_MD": self.project_md, "DATA": self.data,
+                "RAW": self.raw, "META": self.meta, "STRUCT": self.struct, "MODELS": self.models,
+                "NOTES": self.notes, "SCRIPTS": self.scripts, "OUT": self.out, "QC": self.qc,
+                "CALIB": self.calib, "PROC": self.proc, "FEFF": self.feff, "FITS": self.fits, "LCF": self.lcf,
+                "XANES": self.xanes, "FIGS": self.figs, "PUBFIGS": self.pubfigs, "REPORTS": self.reports,
+                "GUI": self.gui, "CALIB_JSON": self.calib_json, "QC_CSV": self.qc_csv,
+                "FITS_CSV": self.fits_csv, "LCF_CSV": self.lcf_csv, "XANES_CSV": self.xanes_csv,
+                "INPUT_DIRS": self.input_dirs, "OUTPUT_DIRS": self.output_dirs}
+
+
+_CURRENT: Project
+
+
+def current():
+    """当前项目（set_root 设定的那个）。"""
+    return _CURRENT
+
+
 def set_root(root):
     """设定项目根目录并重算全部标准路径（图形界面切换项目时调用）。"""
-    g = globals()
-    root = Path(root).expanduser().resolve()
-    out = root / "output"
-    g.update(ROOT=root, CONFIG=root / MARKER, PROJECT_MD=root / "project.md", DATA=root / "data",
-             RAW=root / "data" / "raw", META=root / "data" / "meta.csv", STRUCT=root / "structures",
-             MODELS=root / "models", NOTES=root / "notes", SCRIPTS=root / "scripts", OUT=out,
-             QC=out / "qc", CALIB=out / "calib", PROC=out / "processed", FEFF=out / "feff", FITS=out / "fits",
-             LCF=out / "lcf", XANES=out / "xanes", FIGS=out / "figs", PUBFIGS=out / "figs" / "journal",
-             REPORTS=out / "reports", GUI=out / "gui")
-    g.update(CALIB_JSON=g["CALIB"] / "calib.json", QC_CSV=g["QC"] / "qc_report.csv",
-             FITS_CSV=g["FITS"] / "exafs_fits.csv", LCF_CSV=g["LCF"] / "lcf_results.csv",
-             XANES_CSV=g["XANES"] / "xanes_features.csv",
-             INPUT_DIRS=(g["RAW"], g["STRUCT"], g["MODELS"], g["NOTES"]),
-             OUTPUT_DIRS=(g["QC"], g["CALIB"], g["PROC"], g["FEFF"], g["FITS"], g["LCF"], g["XANES"],
-                          g["FIGS"], g["REPORTS"], g["GUI"]))
-    os.environ["XAFSMITH_PROJECT"] = str(root)
-    return root
+    global _CURRENT
+    _CURRENT = Project.from_root(root)
+    globals().update(_CURRENT.module_vars())
+    os.environ["XAFSMITH_PROJECT"] = str(_CURRENT.root)
+    return _CURRENT.root
 
 
 def is_project(root):
