@@ -197,28 +197,17 @@ class LoadPage(Page):
                     return
             for p in fpaths:
                 try:
-                    kws = {} if mode.value() == "auto" else {"mode": mode.value()}
                     fm = fmt.value()
-                    cols = None
-                    if fm == "columns_by_index":
-                        nz = lambda v: None if v < 0 else int(v)      # noqa: E731
-                        cols = {k: v for k, v in (("energy", ecol.value()), ("i0", nz(i0c.value())), ("it", nz(i1c.value())),
-                                                  ("if", nz(ifc.value())), ("mu", nz(muc.value()))) if v is not None}
-                        fm = "columns"
-                    fm = None if fm == "auto" else fm
-                    if p.suffix.lower() == ".prj" and fm in (None, "prj"):
-                        for lab, g in xio.read_prj(p).items():
-                            S.groups[f"{p.stem}:{lab}"] = g
+                    cols = {"energy": ecol.value(), "i0": i0c.value(), "it": i1c.value(), "if": ifc.value(),
+                            "mu": muc.value()} if fm == "columns_by_index" else None
+                    got = xio.read_direct(p, fmt=fm, columns=cols, mode=mode.value(), templates=fcfg, element=elem.text())
+                    if p.suffix.lower() == ".prj" and fm in ("auto", "prj"):
+                        for lab, g in got:
+                            S.groups[lab] = g
                         continue
-                    g = xio.read_scan(p, fmt=fm, columns=cols, templates=fcfg, **kws)
-                    if elem.text().strip():
-                        from xafsmith.common import guess_edge
-                        g.element = elem.text().strip()
-                        g.edge = guess_edge(g.element, float(np.median(g.energy)))
+                    (lab, g), = got
                     for w_ in g.read_warnings:
                         W.toast(self, f"{p.name}: {w_.split(' / ')[0] if T('中', 'en') == '中' else w_.split(' / ')[-1]}", "warn")
-                    lab = p.relative_to(paths.ROOT).as_posix()
-                    g.label = lab
                     S.groups[lab] = g
                     done, skipped = apply_ref(S, [lab], r)
                     if skipped:

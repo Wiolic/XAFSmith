@@ -36,6 +36,41 @@ def read_any(path, **kws):
     return read_scan(path, **kws)
 
 
+_INDEX_TEMPLATE = "__columns_by_index__"     # read_direct 临时模板名（不会与用户模板重名）
+
+
+def read_direct(path, *, fmt=None, columns=None, mode=None, templates=None, element=None):
+    """图形界面“直接读入文件”的逐文件读入 → [(标签, Group), …]。
+    fmt：None / "auto" 自动识别；reader 名；xafsmith.json "formats" 里的模板名；或 "columns_by_index"（通用列文本，
+    用户明确给出的列号映射：columns = {"energy": 列号, "i0": …, "it": …, "if": …, "mu": …}，负数 = 没有这一列）——
+    它被构造成一个临时模板 {"base": "columns", …}，与已保存模板走同一个读入入口。
+    mode："auto" / None 按文件头，或 "trans" / "fluo"。element：非空则覆盖元素并按能量中位数重新猜吸收边（.prj 里的谱保持原样）。
+    .prj（fmt 为 None / "prj"）返回多个 (“文件名主干:组名”, Group)；其他文件返回一个 (相对项目根的 posix 路径, Group)，
+    并把 group.label 设为该路径。read_warnings 原样留在 group 上（提示由调用方负责）。"""
+    from . import paths
+    from .common import guess_edge
+    path = Path(path)
+    tpls = dict(templates or {})
+    fmt = None if fmt in (None, "auto") else fmt
+    if fmt == "columns_by_index":
+        cols = {"base": "columns"}
+        for key, v in (columns or {}).items():
+            if v is not None and (key == "energy" or v >= 0):
+                cols[key] = int(v) if key != "energy" else v
+        tpls[_INDEX_TEMPLATE] = cols
+        fmt, columns = _INDEX_TEMPLATE, None
+    mode = None if mode in (None, "auto") else mode
+    if path.suffix.lower() == ".prj" and fmt in (None, "prj"):
+        return [(f"{path.stem}:{lab}", g) for lab, g in read_prj(path).items()]
+    g = read_scan(path, fmt=fmt, columns=columns, templates=tpls, **({} if mode is None else {"mode": mode}))
+    if element and element.strip():
+        g.element = element.strip()
+        g.edge = guess_edge(g.element, float(np.median(g.energy)))
+    lab = path.relative_to(paths.ROOT).as_posix()
+    g.label = lab
+    return [(lab, g)]
+
+
 def write_prj(groups, path, norm=None, bkg=None, ft=None):
     """把已校准的谱导出为 Athena 工程（.prj），用于在 Athena / Artemis 中对照。
 
