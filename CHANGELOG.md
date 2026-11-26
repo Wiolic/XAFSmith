@@ -38,6 +38,14 @@ Engineering work, plus a fix for Origin exports overwriting each other and white
   **The wavelet transform is computed in the background**: the window no longer freezes while you change settings; rapid changes compute only the latest one.
 - `CONTRIBUTING.md` 新增“新增一种格式 / 一个分析 / 一个页面”三张清单；改代码后的检查加上 mypy。
   `CONTRIBUTING.md` gains three checklists (a data format, an analysis, a page); the checks after changing code include mypy.
+- **版本号只有一处**：`pyproject.toml` 不再写版本号，改为读 `xafsmith.__version__`；发版只改 `__init__.py` 与 `CITATION.cff`（测试检查两者相同）。
+  **One version number**: `pyproject.toml` no longer states the version and reads `xafsmith.__version__`; a release changes only `__init__.py` and `CITATION.cff` (a test checks they match).
+- **`paths.Project`**：当前项目的根目录与全部标准路径集中在一个不可变对象里（`paths.current()`）；`paths.ROOT`、`paths.FITS` 等模块变量照旧可用，由它生成，取值不变。
+  **`paths.Project`**: the root and all standard paths of the current project are held in one immutable object (`paths.current()`); module-level names such as `paths.ROOT` and `paths.FITS` still work, are filled from it and keep their values.
+- **ruff 规则扩大**：在 E9 / F / B006 / B008 之外开 W、UP、PIE、B（`zip` 不强制 `strict`，加上会改变行为）、ISC。修改只涉及写法：有意的隐式字符串拼接加了括号（语法树前后相同），未用的循环变量改用 `.values()`，`raise` 在 `except` 中写明 `from`；10 处“闭包用循环变量”的提示逐条核对，均在本轮循环内调用，不是缺陷。
+  **More ruff rules**: besides E9 / F / B006 / B008, W, UP, PIE, B (without forcing `zip(strict=…)`, which would change behaviour) and ISC are on. The changes are stylistic only: intentional implicit string concatenations are parenthesised (same syntax tree), unused loop variables use `.values()`, and `raise` inside `except` states `from`; the 10 “closure uses loop variable” reports were checked one by one and all run within their iteration, so none is a bug.
+- **GitHub Actions 升到 Node 24 版本**：checkout v7、setup-python v7、upload-artifact v7、download-artifact v8、action-gh-release v3（GitHub 停用 Node 20）。
+  **GitHub Actions on Node 24**: checkout v7, setup-python v7, upload-artifact v7, download-artifact v8, action-gh-release v3 (GitHub is retiring Node 20).
 
 ## [1.4.2] — 2026-11-25
 

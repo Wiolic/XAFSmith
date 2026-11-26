@@ -80,6 +80,14 @@ python -m mypy                                     # 0 errors; checks the module
    and becomes the GitHub Release notes verbatim (`tools/release_notes.py`, used by `release.yml`), so write
    **everything that changed** there; a release without its CHANGELOG section fails.
    发布时这一节就是 GitHub Release 说明的全文：改了什么都写在这里。
+10. **Version number**: change it only in `src/xafsmith/__init__.py` (`__version__`; `pyproject.toml` reads it) and in
+    `CITATION.cff` (`version`, `date-released`); `tests/unit/test_version.py` fails if the two differ. After changing it,
+    reinstall the development install (`pip install -e . --no-deps`) so `importlib.metadata` sees the new number.
+    版本号只改 `__init__.py` 与 `CITATION.cff` 两处。
+11. **Lint rules**: the ruff rules switched on are listed, with the reasons for those left off, in `pyproject.toml`
+    `[tool.ruff.lint]`. A `# noqa` needs a short reason on the same line. Switch on a new rule family in a commit of its own,
+    and only with fixes that leave every string and number unchanged.
+    新开一组 ruff 规则单独一个提交；`# noqa` 写明理由。
 
 ## Adding things / 新增一种格式、一个分析、一个页面
 
