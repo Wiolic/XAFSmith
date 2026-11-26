@@ -71,15 +71,13 @@ def _old_maxima(kk, rr, Wt, wins):
     return rows
 
 
-@pytest.fixture(scope="module")
-def cu_chi():
+@pytest.fixture
+def cu_chi(cu):
     from xafsmith.autobk import autobk
     from xafsmith.normalize import normalize
-    from xafsmith.readers import read_scan
-    from conftest import demo_raw
-    g = normalize(read_scan(demo_raw() / "cu_metal_rt.xdi"))
-    autobk(g)
-    return np.array(g.k, copy=True), np.array(g.chi, copy=True)
+    normalize(cu)
+    autobk(cu)
+    return np.array(cu.k, copy=True), np.array(cu.chi, copy=True)
 
 
 @pytest.mark.parametrize("kind", ["Morlet", "Cauchy"])
