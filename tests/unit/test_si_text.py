@@ -1,6 +1,5 @@
 """E18：si_text.py（Supporting Information 的 EXAFS 拟合方法文本与参数表）的单元测试。
 项目 = conftest 的 fitted_proj（演示项目 + 一个已保存的 Cu 拟合 cu_one）。数值期望为快照（E18 时代码的输出）或来自项目记录。"""
-import json
 
 import pandas as pd
 import pytest
