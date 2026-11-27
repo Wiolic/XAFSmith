@@ -4,7 +4,7 @@
 [语义化版本](https://semver.org/lang/zh-CN/)。
 All notable changes are recorded here (format: Keep a Changelog; versioning: SemVer).
 
-## [未发布] / Unreleased
+## [1.4.3] — 2026-11-27
 
 工程改进，另修复 Origin 导出覆盖的问题，XANES 价态标定可用白线峰高与峰面积。拟合、LCF、QC、校准的数值不变。
 Engineering work, plus a fix for Origin exports overwriting each other and white-line height and area as valence-calibration quantities. Numbers of fits, LCF, QC and calibration are unchanged.
