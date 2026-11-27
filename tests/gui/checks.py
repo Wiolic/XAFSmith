@@ -331,7 +331,7 @@ def quickfit_checks(app, w):
     import pandas as pd
     from xafsmith import s02_source as s2
     from xafsmith.qt.pages.fitting.quick_fit import S02Dialog
-    td = Path(tempfile.mkdtemp()) / "qfproj"
+    td = Path(tempfile.mkdtemp()).resolve() / "qfproj"   # resolve：GitHub Windows 机器的 TEMP 是 8.3 短名（RUNNER~1），项目根目录总是解析成长名
     shutil.copytree(PROJ, td)
     fd = td / "output" / "feff" / "Cu_CuK"          # 演示项目没有 FEFF 目录：用基准测试的 Cu 路径文件建一个（只在临时副本里）
     fd.mkdir(parents=True, exist_ok=True)
